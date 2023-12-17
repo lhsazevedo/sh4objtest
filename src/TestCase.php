@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-require_once "ObjectParser.php";
-require_once "Simulator.php";
+namespace Lhsazevedo\Objsim;
 
 abstract class AbscractExpectation {}
 

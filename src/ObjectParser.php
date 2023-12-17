@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once "BinaryReader.php";
+namespace Lhsazevedo\Objsim;
 
 enum ChunkType {
     case ModuleHeader;

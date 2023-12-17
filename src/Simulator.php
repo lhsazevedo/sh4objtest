@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once "vendor/autoload.php";
+namespace Lhsazevedo\Objsim;
 
 // TODO: Remove from global
 function getN(int $op): int
@@ -78,7 +78,7 @@ class Simulator
 
         if (!map($this->pendingExpectations)->empty()) {
             var_dump($this->pendingExpectations);
-            throw new Exception("Pending expectations", 1);
+            throw new \Exception("Pending expectations", 1);
         }
     }
 
@@ -136,7 +136,7 @@ class Simulator
         }
 
 
-        throw new Exception("Unknown instruction " . dechex($instruction), 1);
+        throw new \Exception("Unknown instruction " . dechex($instruction), 1);
     }
 
     private function readU32($address) {

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-require "TestCase.php";
+use Lhsazevedo\Objsim\TestCase;
 
-class MyTest extends TestCase {
+return new class extends TestCase {
     protected string $objectFile = '../../build/_004384_8c011120.obj';
 
     public function testSimpleTest() {
@@ -20,4 +20,4 @@ class MyTest extends TestCase {
 
     //     $this->call('title')->with(0);
     // }
-}
+};

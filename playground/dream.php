@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-require "TestCase.php";
+use Lhsazevedo\Objsim\TestCase;
 
-class MyTest extends TestCase {
-    protected string $objectFile = '0001_nop.obj';
+return new class extends TestCase {
+    protected string $objectFile = __DIR__ . '/0001_nop.obj';
 
     public function testSimpleTest() {
         // $this->expectCall('syGetInfo');
@@ -20,4 +20,4 @@ class MyTest extends TestCase {
 
     //     $this->call('title')->with(0);
     // }
-}
+};
