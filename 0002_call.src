@@ -1,0 +1,12 @@
+          .IMPORT     _syGetInfo
+          .EXPORT     _myfunc
+          .SECTION    P,CODE,ALIGN=4
+_myfunc:                         ; function: myfunc
+                                 ; frame size=0
+          MOV.L       L235+2,R3  ; _syGetInfo
+          JMP         @R3
+          NOP
+L235:                             
+          .RES.W      1
+          .DATA.L     _syGetInfo
+          .END
