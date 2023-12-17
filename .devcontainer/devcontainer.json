@@ -1,0 +1,17 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug"
+      ]
+    }
+  },
+  "remoteUser": "1000:1000",
+  "mounts": [
+    "type=bind,source=${localEnv:DC_SDK_PATH},target=/sdk"
+  ]
+}
