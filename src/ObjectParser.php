@@ -15,7 +15,7 @@ enum ChunkType {
     case ObjectData;
     case Relocation;
     case Termination;
-    case Uknown;
+    case Unknown;
 }
 
 class Chunk {
@@ -42,9 +42,17 @@ class Chunk {
             0x1c => ChunkType::ObjectData,
             0x20 => ChunkType::Relocation,
             0x7f => ChunkType::Termination,
-            default => ChunkType::Uknown,
+            default => ChunkType::Unknown,
         };
     }
+}
+
+readonly class ImportSymbol
+{
+    public function __construct(
+        public string $name,
+        public int $type,
+    ) {}
 }
 
 readonly class ExportSymbol
@@ -60,7 +68,7 @@ readonly class ExportSymbol
 readonly class Relocation{
     public function __construct(
         public int $flags,
-        public int $int,
+        public int $address,
         public int $bitloc,
         public int $flen,
         public int $bcount,
@@ -73,18 +81,38 @@ readonly class Relocation{
         public int $ukn2,
         public int $importIndex,
         public int $ukn3,
-    ) { }
+        public string $name,
+    ) {
+        if ($operator != 8) {
+            throw new \Exception("Unsupported relocation operator", 1);
+        }
+    }
 }
 
 readonly class ParsedObject {
     public function __construct(
         // public array $imports,
+
         /** @var ExportSymbol[] */
         public array $exports,
-        // public array $relocations,
+
+        /** @var Relocation[] */
+        public array $relocations,
+
         public string $code,
     )
     {}
+
+    public function getRelocationAt(int $address): ?Relocation
+    {
+        foreach ($this->relocations as $relocation) {
+            if ($relocation->address !== $address) continue;
+
+            return $relocation;
+        }
+
+        return null;
+    }
 }
 
 class ObjectParser
@@ -92,6 +120,9 @@ class ObjectParser
     private const MAGIC = "\x80\x21\x00\x80";
 
     private string $code = '';
+
+    /** @var ImportSymbol[] */
+    private array $imports = [];
 
     /** @var ExportSymbol[] */
     private array $exports = [];
@@ -144,6 +175,15 @@ class ObjectParser
                     }
                     break;
 
+                case ChunkType::Imports:
+                    while($reader->tell() < $chunkBase + $len) {
+                        $type = $reader->readUInt8();
+                        $name = $reader->readBytes($reader->readUInt8());
+
+                        $this->imports[] = new ImportSymbol($name, $type);
+                    }
+                    break;
+
                 case ChunkType::ObjectData:
                     $reader->eat(1);
                     $addr = $reader->readUInt32();
@@ -155,14 +195,15 @@ class ObjectParser
                 
                 case ChunkType::Relocation:
                     while($reader->tell() < $chunkBase + $len) {
+
                         $flags = $reader->readUInt8();
-                        $int = $reader->readUInt32();
+                        $address = $reader->readUInt32BE();
                         $bitloc = $reader->readUInt8();
                         $flen = $reader->readUInt8();
                         $bcount = $reader->readUInt8();
                         $operator = $reader->readUInt8();
                         $section = $reader->readUInt16();
-                        $opcode = $reader->readUInt16();
+                        $opcode = $reader->readUint8();
                         $addendLen = $reader->readUInt8();
                         $relLen = $reader->readUInt8();
                         $ukn1 = $reader->readUInt8();
@@ -170,9 +211,11 @@ class ObjectParser
                         $importIndex = $reader->readUInt8();
                         $ukn3 = $reader->readUInt8();
 
+                        $name = $this->imports[$importIndex]->name;
+
                         $this->relocations[] = new Relocation(
                             $flags,
-                            $int,
+                            $address,
                             $bitloc,
                             $flen,
                             $bcount,
@@ -185,10 +228,11 @@ class ObjectParser
                             $ukn2,
                             $importIndex,
                             $ukn3,
-                            );
+                            $name,
+                        );
                     }
                     break;
-                
+
                 case ChunkType::Termination:
                     break 2;
 
@@ -200,10 +244,7 @@ class ObjectParser
             $reader->seek($chunkBase + $len);
         }
 
-        var_dump($this->relocations);
-        exit;
-
-        return new ParsedObject($this->exports, $this->code);
+        return new ParsedObject($this->exports, $this->relocations, $this->code);
     }
 
     public static function parse($objectFile): ParsedObject

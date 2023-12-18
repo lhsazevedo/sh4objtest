@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Lhsazevedo\Objsim\TestCase;
 
 return new class extends TestCase {
-    protected string $objectFile = '../../build/_004384_8c011120.obj';
+    protected string $objectFile = __DIR__ . '/0002_call.obj';
 
     public function testSimpleTest() {
         $this->expectCall('syGetInfo');

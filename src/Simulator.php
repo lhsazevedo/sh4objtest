@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Objsim;
 
+use Lhsazevedo\Objsim\Simulator\BinaryMemory;
+
 // TODO: Remove from global
 function getN(int $op): int
 {
@@ -24,7 +26,7 @@ class Simulator
 
     private int $pc;
 
-    // TODO: Better registers
+    // TODO: Handle float and system registers
     private array $registers = [
         0,
         0,
@@ -44,13 +46,19 @@ class Simulator
         0,
     ];
 
+    private int $pr = 0;
+
+    private BinaryMemory $memory;
+
     /** @var AbstractExpectation[] */
     private array $pendingExpectations;
 
     public function __construct(
         private ParsedObject $object,
+
         /** @var AbscractExpectation[] */
         private array $expectations,
+
         private string $entry,
     )
     {
@@ -67,31 +75,35 @@ class Simulator
     {
         $this->running = true;
         $this->pc = $this->entryAddress;
+        $this->memory = new BinaryMemory(1024);
+        $this->registers[15] = 1024;
+
+        $this->memory->writeBytes(0, $this->object->code);
 
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
-            $this->executeInstruction($instruction);
-
-            // TODO: Fails on branches
             $this->pc += 2;
+            $this->executeInstruction($instruction);
         }
 
-        if (!map($this->pendingExpectations)->empty()) {
+        if ($this->pendingExpectations) {
             var_dump($this->pendingExpectations);
             throw new \Exception("Pending expectations", 1);
         }
+
+        echo "Passed\n";
     }
 
     public function readInstruction(int $address)
     {
-        $data = substr($this->object->code, $address, 2);
-        $unpacked = unpack("v", $data);
-        return $unpacked[1];
+        return $this->memory->readUInt16($address);
     }
 
     public function executeDelaySlot()
     {
-        $instruction = $this->readInstruction($this->pc + 2);
+        // TODO: refactor duplicated code
+        $instruction = $this->readInstruction($this->pc);
+        $this->pc += 2;
         $this->executeInstruction($instruction);
     }
 
@@ -113,13 +125,58 @@ class Simulator
 
         // f0ff
         switch ($instruction & 0xf0ff) {
+            // JSR
+            case 0x400b:
+                $n = getN($instruction);
+
+                $newpr = $this->pc + 2;   //return after delayslot
+                $newpc = $this->registers[$n];
+
+                $this->executeDelaySlot(); //r[n]/pr can change here
+
+                if ($newpc instanceof Relocation) {
+                    $this->assertCall($newpc->name);
+
+                    // TODO: Handle call side effects
+
+                    $this->pc = $newpr;
+                    return;
+                }
+
+                $this->pr = $newpr;
+                $this->pc = $newpc;
+                return;
+
+            // STS.L PR,@-<REG_N>
+            case 0x4022:
+                $n = getN($instruction);
+                $address = $this->registers[$n] - 4;
+                $this->memory->writeUint32($address, $this->pr);
+                $this->registers[$n] = $address;
+                return;
+
+            case 0x4026:
+                $n = getN($instruction);
+                $this->pr = $this->memory->readUInt32($this->registers[$n]);
+
+                $this->registers[$n] += 4;
+                return;
+
             // JMP
             case 0x402b:
                 $n = getN($instruction);
-                $newPc = $this->registers[$n];
+                $newpc = $this->registers[$n];
                 $this->executeDelaySlot();
-                $this->pc = $newPc;
-                // TODO: Handle expectation;
+
+                if ($newpc instanceof Relocation) {
+                    $this->assertCall($newpc->name);
+
+                    // Program jumped to external symbol
+                    $this->running = false;
+                    return;
+                }
+
+                $this->pc = $newpc;
                 return;
         }
 
@@ -131,17 +188,28 @@ class Simulator
                 $disp = getImm8($instruction);
 
                 // TODO: Handle rellocation and expectations
-                $this->registers[$n] = $this->readU32($disp * 4 + (($this->pc + 2) & 0xFFFFFFFC));
+                $addr = $disp * 4 + (($this->pc + 2) & 0xFFFFFFFC);
+
+                $data = $this->memory->readUInt32($addr);
+
+                if ($relocation = $this->object->getRelocationAt($addr)) {
+                    $data = $relocation;
+                }
+
+                $this->registers[$n] = $data;
                 return;
         }
-
 
         throw new \Exception("Unknown instruction " . dechex($instruction), 1);
     }
 
-    private function readU32($address) {
-        $data = substr($this->object->code, $address, 4);
-        $unpacked = unpack("V", $data);
-        return $unpacked[1];
+    private function assertCall(string $name): void
+    {
+        /** @var AbstractExpectation */
+        $expectation = array_shift($this->expectations);
+
+        if (!($expectation && $expectation instanceof CallExpectation)) {
+            throw new \Exception("Unexpected call to $name at " . dechex($this->pc), 1);
+        }
     }
 }
