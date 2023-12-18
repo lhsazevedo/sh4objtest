@@ -206,7 +206,7 @@ class Simulator
     private function assertCall(string $name): void
     {
         /** @var AbstractExpectation */
-        $expectation = array_shift($this->expectations);
+        $expectation = array_shift($this->pendingExpectations);
 
         if (!($expectation && $expectation instanceof CallExpectation)) {
             throw new \Exception("Unexpected call to $name at " . dechex($this->pc), 1);

@@ -9,15 +9,8 @@ return new class extends TestCase {
 
     public function testSimpleTest() {
         $this->expectCall('syGetInfo');
+        $this->expectCall('syGetInfo2');
 
         $this->call('_myfunc')->run();
     }
-
-    // public function testSimpleTest() {
-    //     $this->expectRead('menustate')->offset(0x68)->as , 0);
-
-    //     $this->expectReadAt(0x0100);
-
-    //     $this->call('title')->with(0);
-    // }
 };
