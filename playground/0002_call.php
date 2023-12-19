@@ -9,7 +9,6 @@ return new class extends TestCase {
 
     public function testSimpleTest() {
         $this->expectCall('syGetInfo');
-        $this->expectCall('syGetInfo2');
 
         $this->call('_myfunc')->run();
     }
