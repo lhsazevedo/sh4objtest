@@ -1,0 +1,8 @@
+          .EXPORT     _add
+          .SECTION    P,CODE,ALIGN=4
+_add:                            ; function: add
+                                 ; frame size=0
+          MOV         R4,R0
+          RTS
+          ADD         R5,R0
+          .END

@@ -13,14 +13,28 @@ class CallExpectation extends AbscractExpectation
     ) {}
 }
 
+class Entry {
+    public function __construct(
+        public ?string $symbol = null,
+        public array $parameters = [],
+        // TODO: functions can return pointers
+        public ?int $return = null,
+    ) {}
+}
+
 class TestCase
 {
     protected string $objectFile;
 
-    private string $entry;
+    private Entry $entry;
 
     /** @var Expectation[] */
     private $expectations = [];
+
+    public function __construct()
+    {
+        $this->entry = new Entry();
+    }
 
     protected function expectCall($name)
     {
@@ -30,9 +44,21 @@ class TestCase
         return $expectation;
     }
 
-    protected function call($name)
+    protected function call($name): self
     {
-        $this->entry = $name;
+        $this->entry->symbol = $name;
+        return $this;
+    }
+
+    protected function with(...$parameters): self
+    {
+        $this->entry->parameters = $parameters;
+        return $this;
+    }
+
+    protected function shouldReturn($value): self
+    {
+        $this->entry->return = $value;
         return $this;
     }
 

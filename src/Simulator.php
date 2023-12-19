@@ -59,14 +59,14 @@ class Simulator
         /** @var AbscractExpectation[] */
         private array $expectations,
 
-        private string $entry,
+        private Entry $entry,
     )
     {
         $this->pendingExpectations = $expectations;
 
         // Search entry in exports
         /** @var ExportSymbol */
-        $entrySymbol = map($object->exports)->find(fn (ExportSymbol $e) => $e->name === $entry);
+        $entrySymbol = map($object->exports)->find(fn (ExportSymbol $e) => $e->name === $entry->symbol);
 
         $this->entryAddress = $entrySymbol->offset;
     }
@@ -76,7 +76,19 @@ class Simulator
         $this->running = true;
         $this->pc = $this->entryAddress;
         $this->memory = new BinaryMemory(1024);
+
+        // Stack pointer
         $this->registers[15] = 1024;
+
+        // TODO: Handle other calling convetions
+        foreach ($this->entry->parameters as $i => $parameter) {
+            if ($i < 4) {
+                $this->registers[4 + $i] = $parameter;
+                continue;
+            }
+
+            // TODO: Push parameter to stack
+        }
 
         $this->memory->writeBytes(0, $this->object->code);
 
@@ -89,6 +101,12 @@ class Simulator
         if ($this->pendingExpectations) {
             var_dump($this->pendingExpectations);
             throw new \Exception("Pending expectations", 1);
+        }
+
+        $expectedReturn = $this->entry->return;
+        $actualReturn = $this->registers[0];
+        if ($expectedReturn !== null && $actualReturn !== $expectedReturn) {
+            throw new \Exception("Unexpected return value $actualReturn, expecting $expectedReturn", 1);
         }
 
         echo "Passed\n";
@@ -122,6 +140,22 @@ class Simulator
                 $this->running = false;
                 return;
         }
+
+        switch ($instruction & 0xf00f) {
+            // ADD Rm,Rn
+            case 0x300c:
+                $n = getN($instruction);
+                $m = getM($instruction);
+                $this->registers[$n] += $this->registers[$m];
+                return;
+
+            // MOV Rm,Rn
+            case 0x6003:
+                $n = getN($instruction);
+                $m = getM($instruction);
+                $this->registers[$n] = $this->registers[$m];
+                return;
+        }   
 
         // f0ff
         switch ($instruction & 0xf0ff) {
