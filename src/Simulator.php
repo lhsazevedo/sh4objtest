@@ -77,6 +77,8 @@ class Simulator
         /** @var ExportSymbol */
         $entrySymbol = map($object->exports)->find(fn (ExportSymbol $e) => $e->name === $entry->symbol);
 
+        if (!$entrySymbol) throw new \Exception("Entry symbol $entry->symbol not found.", 1);
+
         $this->entryAddress = $entrySymbol->offset;
     }
 
@@ -150,6 +152,18 @@ class Simulator
                 return;
         }
 
+        switch ($instruction & 0xf000) {
+            // MOV #imm,Rn
+            case 0xe000:
+                $n = getN($instruction);
+                $this->registers[$n] = $instruction & 0xff;
+                return;
+        }
+
+        switch ($instruction & 0xf1ff) {
+            // TODO
+        }
+
         switch ($instruction & 0xf00f) {
             // ADD Rm,Rn
             case 0x300c:
@@ -162,7 +176,7 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->registers[$m];
                 return;
-        }   
+        }
 
         // f0ff
         switch ($instruction & 0xf0ff) {
@@ -249,8 +263,25 @@ class Simulator
         /** @var AbstractExpectation */
         $expectation = array_shift($this->pendingExpectations);
 
+        // TODO: Check symbol name!?
         if (!($expectation && $expectation instanceof CallExpectation)) {
             throw new \Exception("Unexpected call to $name at " . dechex($this->pc), 1);
+        }
+
+        if ($expectation->parameters) {
+            // TODO: Handle other calling convetions
+            foreach ($expectation->parameters as $i => $expected) {
+                if ($i < 4) {
+                    $actual = $this->registers[4 + $i];
+                    if ($actual !== $expected) {
+                        throw new \Exception("Unexpected parameter in r$i. Expected $expected, got $actual", 1);
+                    }
+
+                    continue;
+                }
+
+                // TODO: Check stack parameter
+            }
         }
     }
 }

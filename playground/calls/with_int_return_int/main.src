@@ -1,0 +1,12 @@
+          .IMPORT     _func
+          .EXPORT     _main
+          .SECTION    P,CODE,ALIGN=4
+_main:                           ; function: main
+                                 ; frame size=0
+          MOV.L       L235+2,R3  ; _func
+          JMP         @R3
+          MOV         #42,R4
+L235:                             
+          .RES.W      1
+          .DATA.L     _func
+          .END

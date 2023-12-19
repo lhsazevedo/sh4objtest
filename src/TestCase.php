@@ -8,9 +8,25 @@ abstract class AbscractExpectation {}
 
 class CallExpectation extends AbscractExpectation
 {
+    public array $parameters = [];
+
+    public ?int $return = null;
+
     public function __construct(
         public string $name
     ) {}
+
+    public function with(...$parameters): self
+    {
+        $this->parameters = $parameters;
+        return $this;
+    }
+
+    public function andReturn($value): self
+    {
+        $this->return = $value;
+        return $this;
+    }
 }
 
 class Entry {
@@ -36,7 +52,7 @@ class TestCase
         $this->entry = new Entry();
     }
 
-    protected function expectCall($name)
+    protected function shouldCall($name)
     {
         $expectation = new CallExpectation($name);
         $this->expectations[] = $expectation;
