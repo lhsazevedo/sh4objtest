@@ -6,15 +6,24 @@ namespace Lhsazevedo\Objsim;
 
 use Lhsazevedo\Objsim\Simulator\BinaryMemory;
 
-// TODO: Remove from global
-function getN(int $op): int
+function getN(int $instr): int
 {
-	return ($op >> 8) & 0xf;
+    return ($instr >> 8) & 0xf;
 }
-function getM(int $op): int
+
+function getM(int $instr): int
 {
-	return ($op >> 4) & 0xf;
+    return ($instr >> 4) & 0xf;
 }
+
+/**
+ * @return array<int,int>
+ */
+function getNM(int $op): array
+{
+    return [getN($op), getM($op)];
+}
+
 function getImm4($instruction) { return $instruction & 0xf; }
 function getImm8($instruction) { return $instruction & 0xff; }
 
@@ -144,15 +153,13 @@ class Simulator
         switch ($instruction & 0xf00f) {
             // ADD Rm,Rn
             case 0x300c:
-                $n = getN($instruction);
-                $m = getM($instruction);
+                [$n, $m] = getNM($instruction);
                 $this->registers[$n] += $this->registers[$m];
                 return;
 
             // MOV Rm,Rn
             case 0x6003:
-                $n = getN($instruction);
-                $m = getM($instruction);
+                [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->registers[$m];
                 return;
         }   
