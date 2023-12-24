@@ -1,0 +1,28 @@
+          .IMPORT     _func
+          .EXPORT     _main
+          .SECTION    P,CODE,ALIGN=4
+_main:                           ; function: main
+                                 ; frame size=20
+          STS.L       PR,@-R15
+          MOV         #8,R3
+          MOV         #7,R2
+          MOV.L       R3,@-R15
+          MOV         #6,R1
+          MOV.L       R2,@-R15
+          MOV         #5,R3
+          MOV.L       L235+2,R2  ; _func
+          MOV         #2,R5
+          MOV.L       R1,@-R15
+          MOV         #3,R6
+          MOV.L       R3,@-R15
+          MOV         #4,R7
+          JSR         @R2
+          MOV         #1,R4
+          ADD         #16,R15
+          LDS.L       @R15+,PR
+          RTS
+          NOP
+L235:                             
+          .RES.W      1
+          .DATA.L     _func
+          .END

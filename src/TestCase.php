@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Objsim;
 
+use Throwable;
+
 abstract class AbscractExpectation {}
 
 class CallExpectation extends AbscractExpectation
@@ -83,6 +85,12 @@ class TestCase
         $object = ObjectParser::parse($this->objectFile);
 
         $simulator = new Simulator($object, $this->expectations, $this->entry);
-        $simulator->run();
+
+        try {
+            $simulator->run();
+        } catch (Throwable $t) {
+            echo $t->getMessage()  . "\n";
+            $simulator->hexdump();
+        }
     }
 }

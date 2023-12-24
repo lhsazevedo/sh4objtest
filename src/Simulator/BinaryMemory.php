@@ -10,7 +10,7 @@ class BinaryMemory {
 
     public function __construct(int $size)
     {
-        $this->memory = str_repeat('0', $size);
+        $this->memory = str_repeat("\x0", $size);
     }
 
     public function readUInt16(int $address): int
@@ -29,7 +29,7 @@ class BinaryMemory {
 
     public function writeUint32(int $address, int $value)
     {
-        $data = pack('V', $value)[1];
+        $data = pack('V', $value);
         $this->memory[$address] = $data[0] ?? "\0";
         $this->memory[$address + 1] = $data[1] ?? "\0";
         $this->memory[$address + 2] = $data[2] ?? "\0";
@@ -42,4 +42,11 @@ class BinaryMemory {
             $this->memory[$address + $i] = $data[$i];
         }
     }
-}   
+
+    public function readUint8(int $address): int
+    {
+        $data = substr($this->memory, $address, 1);
+        $unpacked = unpack("C", $data);
+        return $unpacked[1];
+    }
+}

@@ -25,6 +25,8 @@ function getNM(int $op): array
 }
 
 function getImm4($instruction) { return $instruction & 0xf; }
+
+// TODO: Should be signed getSImm8
 function getImm8($instruction) { return $instruction & 0xff; }
 
 class Simulator
@@ -153,6 +155,12 @@ class Simulator
         }
 
         switch ($instruction & 0xf000) {
+            // ADD #imm,Rn
+            case 0x7000:
+                $n = getN($instruction);
+                $imm = getImm8($instruction);
+                $this->registers[$n] += $imm;
+
             // MOV #imm,Rn
             case 0xe000:
                 $n = getN($instruction);
@@ -165,6 +173,17 @@ class Simulator
         }
 
         switch ($instruction & 0xf00f) {
+            // MOV.L Rm,@-Rn
+            case 0x2006:
+                $n = getN($instruction);
+                $m = getM($instruction);
+
+                $addr = $this->registers[$n] - 4;
+
+                $this->memory->writeUint32($addr, $this->registers[$m]);
+                $this->registers[$n] = $addr;
+                return;
+
             // ADD Rm,Rn
             case 0x300c:
                 [$n, $m] = getNM($instruction);
@@ -280,8 +299,31 @@ class Simulator
                     continue;
                 }
 
-                // TODO: Check stack parameter
+                $offset = ($i - 4) * 4;
+                $address = $this->registers[15] + $offset;
+                $actual = $this->memory->readUInt32($address);
+
+                if ($actual !== $expected) {
+                    throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
+                }
             }
+        }
+    }
+
+    public function hexdump()
+    {
+        print_r($this->registers);
+
+        // TODO: Unhardcode memory size
+        for ($i=0; $i < 1024; $i++) {
+            if ($i % 16 === 0) {
+                echo "\n";
+                echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
+            } else if ($i !== 0 && $i % 4 === 0) {
+                echo " ";
+            }
+
+            echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
         }
     }
 }
