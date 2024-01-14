@@ -4,19 +4,10 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Objsim;
 
-enum ChunkType {
-    case ModuleHeader;
-    case UnitHeader;
-    case UnitDebug;
-    case Section;
-    case Imports;
-    case Exports;
-    case SectionSelection;
-    case ObjectData;
-    case Relocation;
-    case Termination;
-    case Unknown;
-}
+use Lhsazevedo\Objsim\Parser\ChunkType;
+use Lhsazevedo\Objsim\Parser\Chunks\Module;
+use Lhsazevedo\Objsim\Parser\Chunks\Unit;
+use Lhsazevedo\Objsim\Parser\ObjectData;
 
 class Chunk {
     public ChunkType $type;
@@ -119,7 +110,8 @@ class ObjectParser
 {
     private const MAGIC = "\x80\x21\x00\x80";
 
-    private string $code = '';
+    /** @var Module[] */
+    private array $modules = [];
 
     /** @var ImportSymbol[] */
     private array $imports = [];
@@ -133,6 +125,12 @@ class ObjectParser
     private function realParse($objectFile): ParsedObject
     {
         // $obj = file_get_contents($objectFile);
+
+        /** @var Module */
+        $currentModule = null;
+
+        /** @var Unit */
+        $currentUnit = null;
 
         $reader = new BinaryReader($objectFile);
 
@@ -159,7 +157,17 @@ class ObjectParser
 
             switch ($chunk->type) {
                 case ChunkType::ModuleHeader:
-                    # code...
+                    if ($currentModule) {
+                        throw new \Exception("Multiple modules are unsupported at the moment", 1);
+                    }
+
+                    $currentModule = new Module($reader);
+                    $this->modules[] = $currentModule;
+                    break;
+
+                case ChunkType::UnitHeader:
+                    $currentUnit = new Unit($reader);
+                    $currentModule->addUnit($currentUnit);
                     break;
 
                 case ChunkType::Exports:
@@ -185,14 +193,9 @@ class ObjectParser
                     break;
 
                 case ChunkType::ObjectData:
-                    $reader->eat(1);
-                    $addr = $reader->readUInt32();
-                    $objLen = $reader->readUInt8();
-
-                    $code = $reader->readBytes($objLen);
-                    $this->code .= $code;
+                    $currentUnit->addObjectData(new ObjectData($reader));
                     break;
-                
+
                 case ChunkType::Relocation:
                     while($reader->tell() < $chunkBase + $len) {
 
@@ -244,7 +247,7 @@ class ObjectParser
             $reader->seek($chunkBase + $len);
         }
 
-        return new ParsedObject($this->exports, $this->relocations, $this->code);
+        return new ParsedObject($this->exports, $this->relocations, $this->modules[0]->units[0]->assembleObjectData());
     }
 
     public static function parse($objectFile): ParsedObject

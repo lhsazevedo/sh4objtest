@@ -31,6 +31,15 @@ class CallExpectation extends AbscractExpectation
     }
 }
 
+class OffsetReadExpectation extends AbscractExpectation
+{
+    public function __construct(
+        public string $name,
+        public int $offset,
+        public int $value
+    ) {}
+}
+
 class Entry {
     public function __construct(
         public ?string $symbol = null,
@@ -57,6 +66,14 @@ class TestCase
     protected function shouldCall($name)
     {
         $expectation = new CallExpectation($name);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldReadOffset($name, $offset, $value)
+    {
+        $expectation = new OffsetReadExpectation($name, $offset, $value);
         $this->expectations[] = $expectation;
 
         return $expectation;

@@ -27,7 +27,19 @@ function getNM(int $op): array
 function getImm4($instruction) { return $instruction & 0xf; }
 
 // TODO: Should be signed getSImm8
-function getImm8($instruction) { return $instruction & 0xff; }
+function getSImm8($instruction) {
+    $value = $instruction & 0xff;
+
+    if ($value && 0x80) {
+        return -((~$value) + 1);
+    }
+
+    return $value;
+}
+
+function branchTargetS8($instruction, $pc) {
+    return getSImm8($instruction) * 2 + 2 + $pc;
+}
 
 class Simulator
 {
@@ -59,6 +71,8 @@ class Simulator
 
     private int $pr = 0;
 
+    private int $srT = 0;
+
     private BinaryMemory $memory;
 
     /** @var AbstractExpectation[] */
@@ -88,10 +102,10 @@ class Simulator
     {
         $this->running = true;
         $this->pc = $this->entryAddress;
-        $this->memory = new BinaryMemory(1024);
+        $this->memory = new BinaryMemory(1024 * 1024 * 16);
 
         // Stack pointer
-        $this->registers[15] = 1024;
+        $this->registers[15] = 1024 * 1024 * 16 - 1;
 
         // TODO: Handle other calling convetions
         foreach ($this->entry->parameters as $i => $parameter) {
@@ -158,7 +172,7 @@ class Simulator
             // ADD #imm,Rn
             case 0x7000:
                 $n = getN($instruction);
-                $imm = getImm8($instruction);
+                $imm = getSImm8($instruction);
                 $this->registers[$n] += $imm;
 
             // MOV #imm,Rn
@@ -184,16 +198,74 @@ class Simulator
                 $this->registers[$n] = $addr;
                 return;
 
+            // TST Rm,Rn
+            case 0x2008:
+                [$n, $m] = getNM($instruction);
+
+                if (($this->registers[$n] & $this->registers[$m]) !== 0) {
+                    $this->srT = 0;
+                } else {
+                    $this->srT = 1;
+                }
+
+                return;
+
             // ADD Rm,Rn
             case 0x300c:
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] += $this->registers[$m];
                 return;
 
+            // MOV @Rm,Rn
+            case 0x6002:
+                [$n, $m] = getNM($instruction);
+
+                // TODO: It may not be feasible to check for rellocations every
+                // memory read. It could be better to assign an address to the
+                // data. But on second thought, we would have to check it for reads as well.
+                // Should the memory have access to expectations and rellocations?
+                // Maybe extract address checks?
+
+                $addr = $this->registers[$m];
+
+                if ($addr instanceof Relocation) {
+                    $relData = $this->memory->readUInt32($addr->address);
+                    
+                    $expectation = array_shift($this->pendingExpectations);
+
+                    // TODO: Handle non offset reads?
+                    if (!($expectation instanceof OffsetReadExpectation)) {
+                        throw new \Exception("Unexpected offset read", 1);
+                    }
+                    
+                    if ($expectation->name !== $addr->name) {
+                        throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
+                    }
+
+                    if ($expectation->offset !== $relData) {
+                        throw new \Exception("Unexpected offset read " . dechex($relData) . ". Expecting " . dechex($expectation->offset), 1);
+                    }
+
+                    $this->registers[$n] = $expectation->value;
+                    return;
+                }
+
+                $this->registers[$n] = $this->memory->readUInt32($this->registers[$m]);
+                return;
+
             // MOV Rm,Rn
             case 0x6003:
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->registers[$m];
+                return;
+        }
+
+        switch ($instruction & 0xff00) {
+            // BT <bdisp8>
+            case 0x8900:
+                if ($this->srT !== 0) {
+                    $this->pc = branchTargetS8($instruction, $this->pc);
+                }
                 return;
         }
 
@@ -259,7 +331,7 @@ class Simulator
             // mov.l @(<disp>,PC),<REG_N>
             case 0xd000:
                 $n = getN($instruction);
-                $disp = getImm8($instruction);
+                $disp = getSImm8($instruction);
 
                 // TODO: Handle rellocation and expectations
                 $addr = $disp * 4 + (($this->pc + 2) & 0xFFFFFFFC);
@@ -267,6 +339,9 @@ class Simulator
                 $data = $this->memory->readUInt32($addr);
 
                 if ($relocation = $this->object->getRelocationAt($addr)) {
+
+                    // TODO: If rellocation has been initialized in test, set
+                    // rellocation address instead.
                     $data = $relocation;
                 }
 

@@ -29,6 +29,13 @@ class BinaryReader
         return $unpacked[1];
     }
 
+    public function readUInt16BE()
+    {
+        $data = fread($this->handle, 2);
+        $unpacked = unpack("n", $data);
+        return $unpacked[1];
+    }
+
     public function readUInt32()
     {
         $data = fread($this->handle, 4);
