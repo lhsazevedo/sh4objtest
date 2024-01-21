@@ -166,9 +166,21 @@ class Simulator
                 // TODO: Handle simulated calls
                 $this->running = false;
                 return;
+
+            case 0x0029:
+                $n = getN($instruction);
+                $this->registers[$n] = $this->srT;
+                return;
         }
 
         switch ($instruction & 0xf000) {
+            // MOV.L @(<disp>,<REG_M>),<REG_N>
+            case 0x5000:
+                [$n, $m] = getNM($instruction);
+                $disp = getImm4($instruction) << 2;
+                $this->registers[$n] = $this->readUInt32($this->registers[$m] + $disp);
+                return;
+
             // ADD #imm,Rn
             case 0x7000:
                 $n = getN($instruction);
@@ -187,6 +199,42 @@ class Simulator
         }
 
         switch ($instruction & 0xf00f) {
+            // MOV.L Rm,@Rn
+            case 0x2002:
+                [$n, $m] = getNM($instruction);
+
+                $addr = $this->registers[$n];
+
+                if ($addr instanceof Relocation) {
+                    $relData = $this->memory->readUInt32($addr->address);
+                    
+                    $expectation = array_shift($this->pendingExpectations);
+
+                    // TODO: Handle non offset reads?
+                    if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
+                        throw new \Exception("Unexpected offset write", 1);
+                    }
+                    
+                    if ($expectation->name !== $addr->name) {
+                        throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
+                    }
+
+                    if ($expectation->offset !== $relData) {
+                        throw new \Exception("Unexpected offset write 0x" . dechex($relData) . " offset. Expecting offset 0x" . dechex($expectation->offset), 1);
+                    }
+
+                    if ($expectation->value !== $this->registers[$m]) {
+                        throw new \Exception("Unexpected offset write value 0x" . dechex($this->registers[$m]) . ". Expecting 0x" . dechex($expectation->value), 1);
+                    }
+
+                    // TODO: How to store expected offset write?
+                    // Or should it be all handle in expectations?
+                    return;
+                }
+
+                $this->memory->writeUint32($this->registers[$n], $this->registers[$m]);
+                return;
+
             // MOV.L Rm,@-Rn
             case 0x2006:
                 $n = getN($instruction);
@@ -220,37 +268,9 @@ class Simulator
             case 0x6002:
                 [$n, $m] = getNM($instruction);
 
-                // TODO: It may not be feasible to check for rellocations every
-                // memory read. It could be better to assign an address to the
-                // data. But on second thought, we would have to check it for reads as well.
-                // Should the memory have access to expectations and rellocations?
-                // Maybe extract address checks?
-
                 $addr = $this->registers[$m];
 
-                if ($addr instanceof Relocation) {
-                    $relData = $this->memory->readUInt32($addr->address);
-                    
-                    $expectation = array_shift($this->pendingExpectations);
-
-                    // TODO: Handle non offset reads?
-                    if (!($expectation instanceof OffsetReadExpectation)) {
-                        throw new \Exception("Unexpected offset read", 1);
-                    }
-                    
-                    if ($expectation->name !== $addr->name) {
-                        throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
-                    }
-
-                    if ($expectation->offset !== $relData) {
-                        throw new \Exception("Unexpected offset read " . dechex($relData) . ". Expecting " . dechex($expectation->offset), 1);
-                    }
-
-                    $this->registers[$n] = $expectation->value;
-                    return;
-                }
-
-                $this->registers[$n] = $this->memory->readUInt32($this->registers[$m]);
+                $this->registers[$n] = $this->readUInt32($this->registers[$m]);
                 return;
 
             // MOV Rm,Rn
@@ -261,6 +281,17 @@ class Simulator
         }
 
         switch ($instruction & 0xff00) {
+            // CMP/EQ #<imm>,R0
+            case 0x8800:
+                $imm = getSImm8($instruction);
+                if ($this->registers[0] === $imm) {
+                    $this->srT = 1;
+                    return;
+                }
+
+                $this->srT = 0;
+                return;
+
             // BT <bdisp8>
             case 0x8900:
                 if ($this->srT !== 0) {
@@ -400,5 +431,41 @@ class Simulator
 
             echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
         }
+    }
+
+    // TODO: Experimental memory access checks
+
+    /** @var int|Lhsazevedo\Objsim\Relocation $addr */
+    protected function readUInt32($addr): int
+    {
+        $expectation = reset($this->pendingExpectations);
+
+        if ($addr instanceof Relocation) {
+            $relData = $this->memory->readUInt32($addr->address);
+
+            // TODO: Handle non offset reads?
+            if (!($expectation instanceof SymbolOffsetReadExpectation)) {
+                throw new \Exception("Unexpected offset read", 1);
+            }
+            
+            if ($expectation->name !== $addr->name) {
+                throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
+            }
+
+            if ($expectation->offset !== $relData) {
+                throw new \Exception("Unexpected offset read " . dechex($relData) . ". Expecting " . dechex($expectation->offset), 1);
+            }
+
+            array_shift($this->pendingExpectations);
+
+            return $expectation->value;
+        }
+
+        if ($expectation instanceof ReadExpectation && $expectation->address === $addr) {
+            array_shift($this->pendingExpectations);
+            return $expectation->value;
+        }
+
+        return $this->memory->readUInt32($addr);
     }
 }

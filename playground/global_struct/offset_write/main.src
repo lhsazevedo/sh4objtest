@@ -1,0 +1,12 @@
+          .IMPORT     _global_struct
+          .EXPORT     _main
+          .SECTION    P,CODE,ALIGN=4
+_main:                           ; function: main
+                                 ; frame size=0
+          MOV.L       L235,R2    ; H'00000018+_global_struct
+          MOV         #42,R3
+          RTS
+          MOV.L       R3,@R2
+L235:                             
+          .DATA.L     H'00000018+_global_struct
+          .END

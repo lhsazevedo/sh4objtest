@@ -31,7 +31,24 @@ class CallExpectation extends AbscractExpectation
     }
 }
 
-class OffsetReadExpectation extends AbscractExpectation
+class ReadExpectation extends AbscractExpectation
+{
+    public function __construct(
+        public int $address,
+        public int $value
+    ) {}
+}
+
+class SymbolOffsetReadExpectation extends AbscractExpectation
+{
+    public function __construct(
+        public string $name,
+        public int $offset,
+        public int $value
+    ) {}
+}
+
+class SymbolOffsetWriteExpectation extends AbscractExpectation
 {
     public function __construct(
         public string $name,
@@ -58,6 +75,8 @@ class TestCase
     /** @var Expectation[] */
     private $expectations = [];
 
+    private $currentAlloc = 1024 * 1024 * 8;
+
     public function __construct()
     {
         $this->entry = new Entry();
@@ -71,12 +90,36 @@ class TestCase
         return $expectation;
     }
 
-    protected function shouldReadOffset($name, $offset, $value)
+    protected function shouldRead($address, $value)
     {
-        $expectation = new OffsetReadExpectation($name, $offset, $value);
+        $expectation = new ReadExpectation($address, $value);
         $this->expectations[] = $expectation;
 
         return $expectation;
+    }
+
+    protected function shouldReadSymbolOffset($name, $offset, $value)
+    {
+        $expectation = new SymbolOffsetReadExpectation($name, $offset, $value);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldWriteSymbolOffset($name, $offset, $value)
+    {
+        $expectation = new SymbolOffsetWriteExpectation($name, $offset, $value);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function alloc(int $size): int
+    {
+        $cur = $this->currentAlloc;
+        $this->currentAlloc += $size;
+
+        return $cur;
     }
 
     protected function call($name): self

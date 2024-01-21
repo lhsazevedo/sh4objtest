@@ -1,0 +1,16 @@
+          .IMPORT     _global_struct_ptr
+          .EXPORT     _main
+          .SECTION    P,CODE,ALIGN=4
+_main:                           ; function: main
+                                 ; frame size=0
+          MOV.L       L238+2,R3  ; _global_struct_ptr
+          MOV.L       @R3,R0
+          MOV.L       @(24,R0),R0
+          CMP/EQ      #42,R0
+          MOVT        R0
+          RTS
+          NOP
+L238:                             
+          .RES.W      1
+          .DATA.L     _global_struct_ptr
+          .END

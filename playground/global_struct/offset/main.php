@@ -19,7 +19,7 @@ return new class extends TestCase {
         //     45, 44, 43, 42, // 0x18
         // ]);
 
-        $this->shouldReadOffset('_global_struct', 0x18, 0);
+        $this->shouldReadSymbolOffset('_global_struct', 0x18, 0);
 
         $this->call('_main')->shouldReturn(0)->run();
     }
