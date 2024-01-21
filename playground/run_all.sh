@@ -11,3 +11,4 @@
 ./sh4objtest.php "playground/global_struct/offset/main.php"
 ./sh4objtest.php "playground/global_struct/offset_write/main.php"
 ./sh4objtest.php "playground/global_struct/pointer_offset/main.php"
+./sh4objtest.php "playground/operators/comparison/main.php"

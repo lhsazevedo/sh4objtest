@@ -30,8 +30,8 @@ function getImm4($instruction) { return $instruction & 0xf; }
 function getSImm8($instruction) {
     $value = $instruction & 0xff;
 
-    if ($value && 0x80) {
-        return -((~$value) + 1);
+    if ($value & 0x80) {
+        return -((~$value & 0xff) + 1);
     }
 
     return $value;
@@ -166,11 +166,6 @@ class Simulator
                 // TODO: Handle simulated calls
                 $this->running = false;
                 return;
-
-            case 0x0029:
-                $n = getN($instruction);
-                $this->registers[$n] = $this->srT;
-                return;
         }
 
         switch ($instruction & 0xf000) {
@@ -186,6 +181,7 @@ class Simulator
                 $n = getN($instruction);
                 $imm = getSImm8($instruction);
                 $this->registers[$n] += $imm;
+                return;
 
             // MOV #imm,Rn
             case 0xe000:
@@ -258,7 +254,29 @@ class Simulator
 
                 return;
 
-            // ADD Rm,Rn
+            // CMP/GT <REG_M>,<REG_N>
+            case 0x3003:
+                [$n, $m] = getNM($instruction);
+                if ($this->registers[$n] >= $this->registers[$m]) {
+                    $this->srT = 1;
+                    return;
+                }
+
+                $this->srT = 0;
+                return;
+
+            // CMP/GT <REG_M>,<REG_N>
+            case 0x3007:
+                [$n, $m] = getNM($instruction);
+                if ($this->registers[$n] > $this->registers[$m]) {
+                    $this->srT = 1;
+                    return;
+                }
+
+                $this->srT = 0;
+                return;
+
+                // ADD Rm,Rn
             case 0x300c:
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] += $this->registers[$m];
@@ -277,6 +295,23 @@ class Simulator
             case 0x6003:
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->registers[$m];
+                return;
+
+            // MOV @<REG_M>+,<REG_N>
+            case 0x6006:
+                [$n, $m] = getNM($instruction);
+                $this->registers[$n] = $this->readUInt32($this->registers[$m]);
+
+                if ($n != $m) {
+                    $this->registers[$m] += 4;
+                }
+
+                return;
+
+            // NEG <REG_M>,<REG_N>
+            case 0x600b:
+                [$n, $m] = getNM($instruction);
+                $this->registers[$n] = -$this->registers[$m];
                 return;
         }
 
@@ -302,6 +337,12 @@ class Simulator
 
         // f0ff
         switch ($instruction & 0xf0ff) {
+            // MOVT <REG_N>
+            case 0x0029:
+                $n = getN($instruction);
+                $this->registers[$n] = $this->srT;
+                return;
+
             // JSR
             case 0x400b:
                 $n = getN($instruction);
@@ -380,7 +421,7 @@ class Simulator
                 return;
         }
 
-        throw new \Exception("Unknown instruction " . dechex($instruction), 1);
+        throw new \Exception("Unknown instruction " . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT));
     }
 
     private function assertCall(string $name): void
@@ -397,9 +438,10 @@ class Simulator
             // TODO: Handle other calling convetions
             foreach ($expectation->parameters as $i => $expected) {
                 if ($i < 4) {
-                    $actual = $this->registers[4 + $i];
+                    $register = 4 + $i;
+                    $actual = $this->registers[$register];
                     if ($actual !== $expected) {
-                        throw new \Exception("Unexpected parameter in r$i. Expected $expected, got $actual", 1);
+                        throw new \Exception("Unexpected parameter in r$register. Expected $expected, got $actual", 1);
                     }
 
                     continue;
@@ -418,6 +460,7 @@ class Simulator
 
     public function hexdump()
     {
+        echo "PC: " . dechex($this->pc) . "\n";
         print_r($this->registers);
 
         // TODO: Unhardcode memory size
