@@ -107,6 +107,8 @@ class Simulator
 
     private int $srT = 0;
 
+    private int $fpul = 0;
+
     private BinaryMemory $memory;
 
     /** @var AbstractExpectation[] */
@@ -447,6 +449,42 @@ class Simulator
                 $this->registers[$n] = -$this->registers[$m];
                 return;
 
+            // FSUB <FREG_M>,<FREG_N>
+            case 0xf001:
+                // if (fpscr.PR == 0)
+                // {
+                    [$n, $m] = GetNM($instruction);
+                    $this->log("FSUB        FR$m,FR$n");
+                    $this->fregisters[$n] -= $this->fregisters[$m];
+                    // TODO: NaN signaling bit
+                    // CHECK_FPU_32(fr[n]);
+                // }
+                // else
+                // {
+                //     double d = getDRn(op) - getDRm(op);
+                //     d = fixNaN64(d);
+                //     setDRn(op, d);
+                // }
+                return;
+
+            // FCMP/GT <FREG_M>,<FREG_N>
+            case 0xf005:
+                // if (fpscr.PR == 0)
+                // {
+                    [$n, $m] = getNM($instruction);
+
+                    if ($this->fregisters[$n] > $this->fregisters[$m]) {
+                        $this->srT = 1;
+                    } else {
+                        $this->srT = 0;
+                    }
+                // }
+                // else
+                // {
+                //     sr.T = getDRn(op) > getDRm(op);
+                // }
+                return;
+
             // FMOV.S @(R0, <REG_M>),<FREG_N>
             case 0xf006:
                 $this->log("FMOV.S @(R0, <REG_M>),<FREG_N>\n");
@@ -456,6 +494,19 @@ class Simulator
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m], $this->registers[0]);
                     $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+                // } else {
+                    // ...
+                // }
+                return;
+
+            // FMOV.S <FREG_M>,@(R0,<REG_N>)
+            case 0xf007:
+                $this->log("FMOV.S <FREG_M>,@(R0,<REG_N>)\n");
+                // if (fpscr.SZ == 0) {
+                    [$n, $m] = getNM($instruction);
+
+                    $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
+                    $this->writeUint32($this->registers[$n], $this->registers[0], $value);
                 // } else {
                     // ...
                 // }
@@ -520,6 +571,13 @@ class Simulator
                 // {
                 //     // TODO
                 // }
+                return;
+
+            // FSTS        FPUL,<FREG_N>
+            case 0xf00d:
+                $n = getN($instruction);
+                $this->log("FSTS        FPUL,FR$n");
+                $this->fregisters[$n] = unpack('f', pack('L', $this->fpul))[1];
                 return;
         }
 
@@ -669,6 +727,14 @@ class Simulator
                 $this->pc = $newpc;
                 return;
 
+            // LDS <REG_M>,FPUL
+            case 0x405a:
+                $n = getN($instruction);
+                $this->log("LDS         R$n,FPUL");
+                $this->fpul = $this->registers[$n];
+
+                return;
+
             // FLDI0
             case 0xf08d:
                 $this->log("FLDI0\n");
@@ -770,7 +836,9 @@ class Simulator
                     if ($floatParams <= 4) {
                         $register = $floatParams + 4 - 1;
                         $actual = $this->fregisters[$register];
-                        if ($actual !== $expected) {
+                        $actualDecRepresentation = unpack('L', pack('f', $actual))[1];
+                        $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
+                        if ($actualDecRepresentation !== $expectedDecRepresentation) {
                             throw new \Exception("Unexpected float parameter for $name in fr$register. Expected $expected, got $actual", 1);
                         }
     

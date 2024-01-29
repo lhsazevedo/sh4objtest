@@ -369,4 +369,337 @@ return new class extends TestCase {
             ->with(0, 0)
             ->run();
     }
+
+    public function testState0x047_VmuWarningFadeIn_WaitsForFadeInBeforeAdvancing() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 7);
+        $this->shouldRead($menuStatePtr + 0x18, 7);
+
+        $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 1);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+        $this->shouldCall('_njSetBackColor')->with(0xffffffff, 0xffffffff, 0xffffffff);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x07_VmuWarningFadeIn_AdvancesWhenFadeInIsOver() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 7);
+        $this->shouldRead($menuStatePtr + 0x18, 7);
+
+        $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 0);
+
+        // Advance title state
+        $this->shouldWrite($menuStatePtr + 0x18, 8);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+        $this->shouldCall('_njSetBackColor')->with(0xffffffff, 0xffffffff, 0xffffffff);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x08_VmuWarning_WaitsWhenNoInputOrSaveNames() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+
+        // peripherals[0].press (sizeof PERIPHERAL = 52)
+        $peripheralPtr = $this->alloc(52);
+        $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
+        $this->shouldRead($peripheralPtr + 16, 0);
+
+        $saveNamesPtr = $this->alloc(0x4);
+        $this->rellocate('_saveNames_8c044d50', $saveNamesPtr);
+        $this->shouldCall('_FUN_8c019550')->with($saveNamesPtr, 3)->andReturn(0);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x08_VmuWarning_AdvancesWhenStartIsPressed() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+
+        // peripherals[0].press (sizeof PERIPHERAL = 52)
+        $peripheralPtr = $this->alloc(52);
+        $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
+        $this->shouldRead($peripheralPtr + 16, 1 << 3);
+
+        $midiHandlesPtr = $this->alloc(4);
+        $this->rellocate('_midiHandles_8c0fcd28', $midiHandlesPtr);
+        $this->shouldRead($midiHandlesPtr, 0xbebacafe);
+        $this->shouldCall('_sdMidiPlay')->with(0xbebacafe, 1, 0, 0, 0);
+
+        // Advance title state
+        $this->shouldWrite($menuStatePtr + 0x18, 9);
+
+        $this->shouldCall('_push_fadeout_8c022b60')->with(10);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x08_VmuWarning_AdvancesWhenAIsPressed() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+
+        // peripherals[0].press (sizeof PERIPHERAL = 52)
+        $peripheralPtr = $this->alloc(52);
+        $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
+        $this->shouldRead($peripheralPtr + 16, 1 << 2);
+
+        $midiHandlesPtr = $this->alloc(4);
+        $this->rellocate('_midiHandles_8c0fcd28', $midiHandlesPtr);
+        $this->shouldRead($midiHandlesPtr, 0xbebacafe);
+        $this->shouldCall('_sdMidiPlay')->with(0xbebacafe, 1, 0, 0, 0);
+
+        // Advance title state
+        $this->shouldWrite($menuStatePtr + 0x18, 9);
+
+        $this->shouldCall('_push_fadeout_8c022b60')->with(10);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x08_VmuWarning_DoesNotAdvancesWhenOtherButtonsArePressed() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+
+        // peripherals[0].press (sizeof PERIPHERAL = 52)
+        $peripheralPtr = $this->alloc(52);
+        $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
+        $this->shouldRead($peripheralPtr + 16, 0xFFFFFFF3);
+
+        $saveNamesPtr = $this->alloc(0x4);
+        $this->rellocate('_saveNames_8c044d50', $saveNamesPtr);
+        $this->shouldCall('_FUN_8c019550')->with($saveNamesPtr, 3)->andReturn(0);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x08_VmuWarning_AdvancesWhenSaveNamePasses() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+        $this->shouldRead($menuStatePtr + 0x18, 8);
+
+        // peripherals[0].press (sizeof PERIPHERAL = 52)
+        $peripheralPtr = $this->alloc(52);
+        $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
+        $this->shouldRead($peripheralPtr + 16, 0);
+
+        $saveNamesPtr = $this->alloc(0x4);
+        $this->rellocate('_saveNames_8c044d50', $saveNamesPtr);
+        $this->shouldCall('_FUN_8c019550')->with($saveNamesPtr, 3)->andReturn(1);
+
+        $midiHandlesPtr = $this->alloc(4);
+        $this->rellocate('_midiHandles_8c0fcd28', $midiHandlesPtr);
+        $this->shouldRead($midiHandlesPtr, 0xbebacafe);
+        $this->shouldCall('_sdMidiPlay')->with(0xbebacafe, 1, 0, 0, 0);
+
+        // Advance title state
+        $this->shouldWrite($menuStatePtr + 0x18, 9);
+
+        $this->shouldCall('_push_fadeout_8c022b60')->with(10);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x09_VmuWarningFadeOut_WaitsForFadeOutBeforeAdvancing() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 9);
+        $this->shouldRead($menuStatePtr + 0x18, 9);
+
+        $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 1);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 17, 0.0, 0.0, -5.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x09_VmuWarningFadeOut_AdvancesToTitleAfterFadeOut() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 0x09);
+        $this->shouldRead($menuStatePtr + 0x18, 0x09);
+
+        $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 0);
+
+        // Advance title state
+        $this->shouldWrite($menuStatePtr + 0x18, 0x0a);
+        $this->shouldCall('_push_fadein_8c022a9c')->with(10);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x0a_TitleFadeIn_WaitsForFadeInBeforeAdvancing() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 0x0a);
+        $this->shouldRead($menuStatePtr + 0x18, 0x0a);
+
+        $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 1);
+
+        // // Advance title state
+        // $this->shouldWrite($menuStatePtr + 0x18, 0x0a);
+        // $this->shouldWrite($menuStatePtr + 0x20, 640);
+
+        // $this->shouldCall('_snd_8c010cd6')->with(0,0);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 2, 0.0, 0.0, -5.0);
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x00, 46, 0.0, 0.0, -7.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x0a_TitleFadeIn_AdvancesAfterFadeIn() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+        $this->shouldRead($menuStatePtr + 0x18, 0x0a);
+        $this->shouldRead($menuStatePtr + 0x18, 0x0a);
+
+        $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 0);
+
+        // Advance title state
+        $this->shouldWrite($menuStatePtr + 0x18, 0x0b);
+        // 640.f is stored as 0x44200000
+        $this->shouldWrite($menuStatePtr + 0x20, 0x44200000);
+
+        $this->shouldCall('_snd_8c010cd6')->with(0,0);
+
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 2, 0.0, 0.0, -5.0);
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x00, 46, 0.0, 0.0, -7.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    public function testState0x0b_TitleBusSlide_AnimatesBusSlide() {
+        $menuStatePtr = $this->alloc(0x6c);
+        $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+        $this->shouldRead($menuStatePtr + 0x18, 0x0b);
+
+        // Anim skip check
+        $peripheralPtr = $this->alloc(52);
+        $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
+        $this->shouldRead($peripheralPtr + 16, 0);
+
+        // Switch case
+        $this->shouldRead($menuStatePtr + 0x18, 0x0b);
+
+        // 640.f is stored as 0x44200000
+        $this->shouldRead($menuStatePtr + 0x20, 0x44200000);
+        // 634.888889
+        $this->shouldWrite($menuStatePtr + 0x20, 0x441eb8e4);
+
+        // Draw bus
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 1, 634.888889, 0.0, -4.0);
+        
+        // Draw title
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x0c, 2, 0.0, 0.0, -5.0);
+        $this->shouldCall('_drawSprite_8c014f54')->with($menuStatePtr + 0x00, 46, 0.0, 0.0, -7.0);
+
+        $this->call('_task_title_8c015ab8')
+            ->with(0, 0)
+            ->run();
+    }
+
+    // public function testState0x06_AdxFadeOut_AdvancesToTitleWhenSecondConditionFails() {
+    //     $menuStatePtr = $this->alloc(0x6c);
+    //     $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+    //     $this->shouldRead($menuStatePtr + 0x18, 6);
+    //     $this->shouldRead($menuStatePtr + 0x18, 6);
+
+    //     $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 0);
+
+    //     $this->shouldCall('_FUN_8c012984')->andReturn(1);
+
+    //     $saveNamesPtr = $this->alloc(0x4);
+    //     $this->rellocate('_saveNames_8c044d50', $saveNamesPtr);
+    //     $this->shouldCall('_FUN_8c019550')->with($saveNamesPtr, 3)->andReturn(1);
+
+    //     // Advance title state
+    //     $this->shouldWrite($menuStatePtr + 0x18, 0x0a);
+    //     $this->shouldCall('_push_fadein_8c022a9c')->with(10);
+
+    //     $this->call('_task_title_8c015ab8')
+    //         ->with(0, 0)
+    //         ->run();
+    // }
+
+    // public function testState0x06_AdxFadeOut_AdvancesToWarningWhenBothConditionsPasses() {
+    //     $menuStatePtr = $this->alloc(0x6c);
+    //     $this->rellocate('_menuState_8c1bc7a8', $menuStatePtr);
+
+    //     $this->shouldRead($menuStatePtr + 0x18, 6);
+    //     $this->shouldRead($menuStatePtr + 0x18, 6);
+
+    //     $this->shouldReadSymbolOffset('_isFading_8c226568', 0, 0);
+
+    //     $this->shouldCall('_FUN_8c012984')->andReturn(1);
+
+    //     $saveNamesPtr = $this->alloc(0x4);
+    //     $this->rellocate('_saveNames_8c044d50', $saveNamesPtr);
+    //     $this->shouldCall('_FUN_8c019550')->with($saveNamesPtr, 3)->andReturn(0);
+
+    //     // Advance title state
+    //     $this->shouldWrite($menuStatePtr + 0x18, 0x07);
+    //     $this->shouldCall('_push_fadein_8c022a9c')->with(10);
+
+    //     $this->call('_task_title_8c015ab8')
+    //         ->with(0, 0)
+    //         ->run();
+    // }
 };
