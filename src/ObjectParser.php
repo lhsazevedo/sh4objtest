@@ -74,13 +74,13 @@ readonly class Relocation{
         public int $ukn3,
         public string $name,
     ) {
-        if ($operator != 8) {
-            throw new \Exception("Unsupported relocation operator", 1);
-        }
+        // if ($operator != 8) {
+        //     throw new \Exception("Unsupported relocation operator $operator", 1);
+        // }
     }
 }
 
-readonly class ParsedObject {
+class ParsedObject {
     public function __construct(
         // public array $imports,
 
@@ -94,16 +94,17 @@ readonly class ParsedObject {
     )
     {}
 
-    public function getRelocationAt(int $address): ?Relocation
-    {
-        foreach ($this->relocations as $relocation) {
-            if ($relocation->address !== $address) continue;
+    // Moved to Simulator
+    // public function getRelocationAt(int $address): ?Relocation
+    // {
+    //     foreach ($this->relocations as $relocation) {
+    //         if ($relocation->address !== $address) continue;
 
-            return $relocation;
-        }
+    //         return $relocation;
+    //     }
 
-        return null;
-    }
+    //     return null;
+    // }
 }
 
 class ObjectParser
@@ -246,6 +247,45 @@ class ObjectParser
 
             $reader->seek($chunkBase + $len);
         }
+
+        // $f = fopen('php://stdout', 'r');
+        // fputcsv($f, [
+        //     "name",
+        //     "flags",
+        //     "address",
+        //     "bitloc",
+        //     "flen",
+        //     "bcount",
+        //     "operator",
+        //     "section",
+        //     "opcode",
+        //     "addendLen",
+        //     "relLen",
+        //     "ukn1",
+        //     "ukn2",
+        //     "importIndex",
+        //     "ukn3",
+        // ]);
+        // foreach ($this->relocations as $r) {
+        //     fputcsv($f, [
+        //         $r->name,
+        //         dechex($r->flags),
+        //         dechex($r->address),
+        //         $r->bitloc,
+        //         $r->flen,
+        //         $r->bcount,
+        //         dechex($r->operator),
+        //         $r->section,
+        //         dechex($r->opcode),
+        //         $r->addendLen,
+        //         $r->relLen,
+        //         $r->ukn1,
+        //         $r->ukn2,
+        //         dechex($r->importIndex),
+        //         $r->ukn3,
+        //     ]);
+        // }
+        // exit;
 
         return new ParsedObject($this->exports, $this->relocations, $this->modules[0]->units[0]->assembleObjectData());
     }

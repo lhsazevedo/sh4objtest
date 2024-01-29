@@ -39,6 +39,14 @@ class ReadExpectation extends AbscractExpectation
     ) {}
 }
 
+class WriteExpectation extends AbscractExpectation
+{
+    public function __construct(
+        public int $address,
+        public int $value
+    ) {}
+}
+
 class SymbolOffsetReadExpectation extends AbscractExpectation
 {
     public function __construct(
@@ -66,20 +74,38 @@ class Entry {
     ) {}
 }
 
+class TestRelocation
+{
+    public function __construct(
+        public string $name,
+        public int $address,
+    )
+    {}
+}
+
+
 class TestCase
 {
     protected string $objectFile;
+
+    protected ParsedObject $parsedObject;
 
     private Entry $entry;
 
     /** @var Expectation[] */
     private $expectations = [];
 
-    private $currentAlloc = 1024 * 1024 * 8;
+    private bool $forceStop = false;
+
+    private int $currentAlloc = 1024 * 1024 * 8;
+
+    /** @var TestRelocation[] */
+    private array $testRelocations = [];
 
     public function __construct()
     {
         $this->entry = new Entry();
+        $this->parsedObject = ObjectParser::parse($this->objectFile);
     }
 
     protected function shouldCall($name)
@@ -93,6 +119,14 @@ class TestCase
     protected function shouldRead($address, $value)
     {
         $expectation = new ReadExpectation($address, $value);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldWrite($address, $value)
+    {
+        $expectation = new WriteExpectation($address, $value);
         $this->expectations[] = $expectation;
 
         return $expectation;
@@ -140,11 +174,25 @@ class TestCase
         return $this;
     }
 
-    protected function run()
+    protected function forceStop(): void
     {
-        $object = ObjectParser::parse($this->objectFile);
+        $this->forceStop = true;
+    }
 
-        $simulator = new Simulator($object, $this->expectations, $this->entry);
+    protected function rellocate(string $name, int $address)
+    {
+        $this->testRelocations[] = new TestRelocation($name, $address);
+    }
+
+    protected function run(): void
+    {
+        $simulator = new Simulator(
+            $this->parsedObject,
+            $this->expectations,
+            $this->entry,
+            $this->forceStop,
+            $this->testRelocations,
+        );
 
         try {
             $simulator->run();
@@ -152,5 +200,12 @@ class TestCase
             echo $t->getMessage()  . "\n";
             $simulator->hexdump();
         }
+
+        // Cleanup
+        $this->forceStop = false;
+        $this->entry = new Entry();
+        $this->expectations = [];
+        $this->testRelocations = [];
+        $this->currentAlloc = 1024 * 1024 * 8;
     }
 }

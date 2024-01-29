@@ -25,8 +25,8 @@ function getNM(int $op): array
 }
 
 function getImm4($instruction) { return $instruction & 0xf; }
+function getImm8($instruction) { return $instruction & 0xff; }
 
-// TODO: Should be signed getSImm8
 function getSImm8($instruction) {
     $value = $instruction & 0xff;
 
@@ -37,8 +37,22 @@ function getSImm8($instruction) {
     return $value;
 }
 
+function getSImm12($instruction) {
+    $value = $instruction & 0xfff;
+
+    if ($value & 0x800) {
+        return -((~$value & 0xfff) + 1);
+    }
+
+    return $value;
+}
+
 function branchTargetS8($instruction, $pc) {
     return getSImm8($instruction) * 2 + 2 + $pc;
+}
+
+function branchTargetS12($instruction, $pc) {
+    return getSImm12($instruction) * 2 + 2 + $pc;
 }
 
 class Simulator
@@ -69,6 +83,26 @@ class Simulator
         0,
     ];
 
+    // TODO: Handle float and system registers
+    private array $fregisters = [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ];
+
     private int $pr = 0;
 
     private int $srT = 0;
@@ -78,6 +112,9 @@ class Simulator
     /** @var AbstractExpectation[] */
     private array $pendingExpectations;
 
+    /** @var Relocation[] */
+    private array $relocations;
+
     public function __construct(
         private ParsedObject $object,
 
@@ -85,8 +122,14 @@ class Simulator
         private array $expectations,
 
         private Entry $entry,
+
+        private bool $forceStop,
+
+        /** @var TestRelocation[] */
+        private array $testRelocations
     )
     {
+        $this->relocations = $this->object->relocations;
         $this->pendingExpectations = $expectations;
 
         // Search entry in exports
@@ -119,10 +162,37 @@ class Simulator
 
         $this->memory->writeBytes(0, $this->object->code);
 
+        $newObjectRelocations = [];
+        foreach ($this->object->relocations as $objectRelocation) {
+            $found = false;
+
+            foreach ($this->testRelocations as $testRelocation) {
+                if ($objectRelocation->name === $testRelocation->name) {
+                    // FIXME: This is confusing:
+                    // - Object relocation address is the address of the literal pool data item
+                    // - Test relocation address is the value of the literal pool item
+                    $this->memory->writeUint32($objectRelocation->address, $testRelocation->address);
+                    $found = true;
+                    break;
+                }
+            }
+
+            if (!$found) {
+                $newObjectRelocations[] = $objectRelocation;
+            }
+        }
+
+        $this->relocations = $newObjectRelocations;
+
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
+            $this->log("; 0x" . dechex($this->pc) . ' ' . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT) . "\n");
             $this->pc += 2;
             $this->executeInstruction($instruction);
+
+            if ($this->forceStop && !$this->pendingExpectations) {
+                break;
+            }
         }
 
         if ($this->pendingExpectations) {
@@ -157,11 +227,13 @@ class Simulator
         switch ($instruction) {
             // NOP
             case 0x0009:
+                $this->log("NOP\n");
                 // Do nothing
                 return;
 
             // RTS
             case 0x000b:
+                $this->log("RTS\n");
                 $this->executeDelaySlot();
                 // TODO: Handle simulated calls
                 $this->running = false;
@@ -169,15 +241,26 @@ class Simulator
         }
 
         switch ($instruction & 0xf000) {
-            // MOV.L @(<disp>,<REG_M>),<REG_N>
-            case 0x5000:
+            // MOV.L <REG_M>,@(<disp>,<REG_N>)
+            case 0x1000:
+                $this->log("MOV.L <REG_M>,@(<disp>,<REG_N>)\n");
                 [$n, $m] = getNM($instruction);
                 $disp = getImm4($instruction) << 2;
-                $this->registers[$n] = $this->readUInt32($this->registers[$m] + $disp);
+                $this->writeUint32($this->registers[$n], $disp, $this->registers[$m]);
+                // $this->registers[$n] = $this->readUInt32($this->registers[$m], $disp);
+                return;
+
+            // MOV.L @(<disp>,<REG_M>),<REG_N>
+            case 0x5000:
+                $this->log("MOV.L @(<disp>,<REG_M>),<REG_N>\n");
+                [$n, $m] = getNM($instruction);
+                $disp = getImm4($instruction) << 2;
+                $this->registers[$n] = $this->readUInt32($this->registers[$m], $disp);
                 return;
 
             // ADD #imm,Rn
             case 0x7000:
+                $this->log("ADD #imm,Rn\n");
                 $n = getN($instruction);
                 $imm = getSImm8($instruction);
                 $this->registers[$n] += $imm;
@@ -185,8 +268,9 @@ class Simulator
 
             // MOV #imm,Rn
             case 0xe000:
+                $this->log("MOV #imm,Rn\n");
                 $n = getN($instruction);
-                $this->registers[$n] = $instruction & 0xff;
+                $this->registers[$n] = getSImm8($instruction) & 0xffffffff;
                 return;
         }
 
@@ -195,44 +279,62 @@ class Simulator
         }
 
         switch ($instruction & 0xf00f) {
+            // MOV.L <REG_M>, @(R0,<REG_N>)
+            case 0x0006:
+                $this->log("MOV.L <REG_M>, @(R0,<REG_N>)\n");
+                [$n, $m] = getNM($instruction);
+                // TODO: Is R0 always the offset?
+                $this->writeUint32($this->registers[$n], $this->registers[0], $this->registers[$m]);
+                return;
+
+            // MOV.W @(R0,<REG_M>),<REG_N>
+            case 0x000d:
+                $this->log("MOV.W @(R0,<REG_M>),<REG_N>\n");
+                [$n, $m] = getNM($instruction);
+                $this->registers[$n] = $this->readUInt16($this->registers[0], $this->registers[$m]);
+                return;
+
             // MOV.L Rm,@Rn
             case 0x2002:
+                $this->log("MOV.L Rm,@Rn\n");
                 [$n, $m] = getNM($instruction);
 
                 $addr = $this->registers[$n];
 
-                if ($addr instanceof Relocation) {
-                    $relData = $this->memory->readUInt32($addr->address);
+                // if ($addr instanceof Relocation) {
+                //     // TODO: Use read proxy?
+                //     $relData = $this->memory->readUInt32($addr->address);
                     
-                    $expectation = array_shift($this->pendingExpectations);
+                //     $expectation = array_shift($this->pendingExpectations);
 
-                    // TODO: Handle non offset reads?
-                    if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
-                        throw new \Exception("Unexpected offset write", 1);
-                    }
+                //     // TODO: Handle non offset reads?
+                //     if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
+                //         throw new \Exception("Unexpected offset write", 1);
+                //     }
                     
-                    if ($expectation->name !== $addr->name) {
-                        throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
-                    }
+                //     if ($expectation->name !== $addr->name) {
+                //         throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
+                //     }
 
-                    if ($expectation->offset !== $relData) {
-                        throw new \Exception("Unexpected offset write 0x" . dechex($relData) . " offset. Expecting offset 0x" . dechex($expectation->offset), 1);
-                    }
+                //     if ($expectation->offset !== $relData) {
+                //         throw new \Exception("Unexpected offset write 0x" . dechex($relData) . " offset. Expecting offset 0x" . dechex($expectation->offset), 1);
+                //     }
 
-                    if ($expectation->value !== $this->registers[$m]) {
-                        throw new \Exception("Unexpected offset write value 0x" . dechex($this->registers[$m]) . ". Expecting 0x" . dechex($expectation->value), 1);
-                    }
+                //     if ($expectation->value !== $this->registers[$m]) {
+                //         throw new \Exception("Unexpected offset write value 0x" . dechex($this->registers[$m]) . ". Expecting 0x" . dechex($expectation->value), 1);
+                //     }
 
-                    // TODO: How to store expected offset write?
-                    // Or should it be all handle in expectations?
-                    return;
-                }
+                //     // TODO: How to store expected offset write?
+                //     // Or should it be all handle in expectations?
+                //     return;
+                // }
 
-                $this->memory->writeUint32($this->registers[$n], $this->registers[$m]);
+                $this->writeUint32($this->registers[$n], 0, $this->registers[$m]);
                 return;
 
             // MOV.L Rm,@-Rn
             case 0x2006:
+                $this->log("MOV.L Rm,@-Rn\n");
                 $n = getN($instruction);
                 $m = getM($instruction);
 
@@ -244,6 +346,7 @@ class Simulator
 
             // TST Rm,Rn
             case 0x2008:
+                $this->log("TST Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
 
                 if (($this->registers[$n] & $this->registers[$m]) !== 0) {
@@ -254,8 +357,22 @@ class Simulator
 
                 return;
 
+            // CMP/HS <REG_M>,<REG_N>
+            case 0x3002:
+                $this->log("CMP/HS <REG_M>,<REG_N>\n");
+                [$n, $m] = getNM($instruction);
+                // TODO: Double check signed to unsigned convertion
+                if (($this->registers[$n] & 0xffffffff) >= ($this->registers[$m] & 0xffffffff)) {
+                    $this->srT = 1;
+                    return;
+                }
+
+                $this->srT = 0;
+                return;
+
             // CMP/GT <REG_M>,<REG_N>
             case 0x3003:
+                $this->log("CMP/GT <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
                 if ($this->registers[$n] >= $this->registers[$m]) {
                     $this->srT = 1;
@@ -267,6 +384,7 @@ class Simulator
 
             // CMP/GT <REG_M>,<REG_N>
             case 0x3007:
+                $this->log("CMP/GT <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
                 if ($this->registers[$n] > $this->registers[$m]) {
                     $this->srT = 1;
@@ -276,30 +394,36 @@ class Simulator
                 $this->srT = 0;
                 return;
 
-                // ADD Rm,Rn
+            // ADD Rm,Rn
             case 0x300c:
+                $this->log("ADD Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] += $this->registers[$m];
                 return;
 
             // MOV @Rm,Rn
             case 0x6002:
+                $this->log("MOV @Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
 
                 $addr = $this->registers[$m];
 
+                // TODO: Use read proxy?
                 $this->registers[$n] = $this->readUInt32($this->registers[$m]);
                 return;
 
             // MOV Rm,Rn
             case 0x6003:
+                $this->log("MOV Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->registers[$m];
                 return;
 
             // MOV @<REG_M>+,<REG_N>
             case 0x6006:
+                $this->log("MOV @<REG_M>+,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                // TODO: Use read proxy?
                 $this->registers[$n] = $this->readUInt32($this->registers[$m]);
 
                 if ($n != $m) {
@@ -310,14 +434,91 @@ class Simulator
 
             // NEG <REG_M>,<REG_N>
             case 0x600b:
+                $this->log("NEG <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = -$this->registers[$m];
+                return;
+
+            // FMOV.S @(R0, <REG_M>),<FREG_N>
+            case 0xf006:
+                $this->log("FMOV.S @(R0, <REG_M>),<FREG_N>\n");
+                // if (fpscr.SZ == 0) {
+                    [$n, $m] = getNM($instruction);
+
+                    // TODO: Use read proxy?
+                    $value = $this->readUInt32($this->registers[$m], $this->registers[0]);
+                    $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+                // } else {
+                    // ...
+                // }
+                return;
+
+            // FMOV.S @<REG_M>,<FREG_N>
+            case 0xf008:
+                $this->log("FMOV.S @<REG_M>,<FREG_N>\n");
+                // if (fpscr.SZ == 0) {
+                    [$n, $m] = getNM($instruction);
+
+                    // TODO: Use read proxy?
+                    $value = $this->readUInt32($this->registers[$m]);
+                    $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+                // } else {
+                    // ...
+                // }
+                return;
+
+            // FMOV.S @<REG_M>+,<FREG_N>
+            case 0xf009:
+                $this->log("FMOV.S @<REG_M>+,<FREG_N>\n");
+                // if (fpscr.SZ == 0) {
+                    [$n, $m] = getNM($instruction);
+
+                    // TODO: Use read proxy?
+                    $value = $this->readUInt32($this->registers[$m]);
+                    $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+
+                    $this->registers[$m] += 4;
+                // } else {
+                    // ...
+                // }
+                return;
+
+            // FMOV.S <FREG_M>,@-<REG_N>
+            case 0xf00b:
+                $this->log("FMOV.S <FREG_M>,@-<REG_N>\n");
+                // if (fpscr.SZ == 0) {
+                    [$n, $m] = getNM($instruction);
+
+                    $addr = $this->registers[$n] - 4;
+
+                    $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
+                    $this->memory->writeUint32($addr, $value);
+
+                    $this->registers[$n] = $addr;
+                // } else {
+                    // ...
+                // }
+                return;
+
+            // FMOV <FREG_M>,<FREG_N>
+            case 0xf00c:
+                $this->log("FMOV <FREG_M>,<FREG_N>\n");
+                // if (fpscr.SZ == 0)
+                // {
+                    [$n, $m] = getNM($instruction);
+                    $this->fregisters[$n] = $this->fregisters[$m];
+                // }
+                // else
+                // {
+                //     // TODO
+                // }
                 return;
         }
 
         switch ($instruction & 0xff00) {
             // CMP/EQ #<imm>,R0
             case 0x8800:
+                $this->log("CMP/EQ #<imm>,R0\n");
                 $imm = getSImm8($instruction);
                 if ($this->registers[0] === $imm) {
                     $this->srT = 1;
@@ -329,23 +530,81 @@ class Simulator
 
             // BT <bdisp8>
             case 0x8900:
+                $this->log("BT <bdisp8>\n");
                 if ($this->srT !== 0) {
                     $this->pc = branchTargetS8($instruction, $this->pc);
                 }
+                return;
+
+            // BF <bdisp8>
+            case 0x8b00:
+                $this->log("BF <bdisp8>\n");
+                if ($this->srT === 0) {
+                    $this->pc = branchTargetS8($instruction, $this->pc);
+                }
+                return;
+
+            // BF/S <bdisp8>
+            case 0x8f00:
+                $this->log("BF/S <bdisp8>\n");
+                if ($this->srT === 0) {
+                    $newpc = branchTargetS8($instruction, $this->pc);
+                    $this->executeDelaySlot();
+                    $this->pc = $newpc;
+                }
+                return;
+
+            // MOVA @(<disp>,PC),R0
+            case 0xc700:
+                $this->log("MOVA @(<disp>,PC),R0\n");
+                $this->registers[0] = (($this->pc + 2) & 0xfffffffc) + (getImm8($instruction) << 2);
+                return;
+
+            // TST #imm,R0
+            case 0xc800:
+                $this->log("TST #imm,R0\n");
+                if (($this->registers[0] & getImm8($instruction)) === 0) {
+                    $this->srT = 1;
+                } else {
+                    $this->srT = 0;
+                }
+
                 return;
         }
 
         // f0ff
         switch ($instruction & 0xf0ff) {
+            // BRAF <REG_N>
+            case 0x0023:
+                $n = getN($instruction);
+                $this->log("BRAF        R$n\n");
+                $newpc = $this->registers[$n] + $this->pc + 2;
+
+                //WARN : r[n] can change here
+                $this->executeDelaySlot();
+
+                $this->pc = $newpc;
+                return;
+
             // MOVT <REG_N>
             case 0x0029:
+                $this->log("MOVT <REG_N>\n");
                 $n = getN($instruction);
                 $this->registers[$n] = $this->srT;
+                return;
+
+            // SHLL <REG_N>
+            case 0x4000:
+                $this->log("SHLL <REG_N>\n");
+                $n = getN($instruction);
+                $this->srT = $n >> 31;
+                $this->registers[$n] <<= 1;
                 return;
 
             // JSR
             case 0x400b:
                 $n = getN($instruction);
+                $this->log("JSR @R$n\n");
 
                 $newpr = $this->pc + 2;   //return after delayslot
                 $newpc = $this->registers[$n];
@@ -367,14 +626,18 @@ class Simulator
 
             // STS.L PR,@-<REG_N>
             case 0x4022:
+                $this->log("STS.L PR,@-<REG_N>\n");
                 $n = getN($instruction);
                 $address = $this->registers[$n] - 4;
                 $this->memory->writeUint32($address, $this->pr);
                 $this->registers[$n] = $address;
                 return;
 
+            // LDS.L @<REG_N>+,PR
             case 0x4026:
+                $this->log("LDS.L @<REG_N>+,PR\n");
                 $n = getN($instruction);
+                // TODO: Use read proxy?
                 $this->pr = $this->memory->readUInt32($this->registers[$n]);
 
                 $this->registers[$n] += 4;
@@ -382,6 +645,7 @@ class Simulator
 
             // JMP
             case 0x402b:
+                $this->log("JMP\n");
                 $n = getN($instruction);
                 $newpc = $this->registers[$n];
                 $this->executeDelaySlot();
@@ -396,22 +660,45 @@ class Simulator
 
                 $this->pc = $newpc;
                 return;
+
+            // FLDI0
+            case 0xf08d:
+                $this->log("FLDI0\n");
+                // TODO
+                // if (fpscr.PR!=0) {
+                //     return;
+                // }
+
+                $n = getN($instruction);
+
+                $this->fregisters[$n] = 0.0;
+                return;
         }
 
         // f000
         switch ($instruction & 0xf000) {
-            // mov.l @(<disp>,PC),<REG_N>
+            // BRA <bdisp12>
+            case 0xa000:
+                $this->log("BRA <bdisp12>\n");
+                $newpc = branchTargetS12($instruction, $this->pc);
+                $this->executeDelaySlot();
+                $this->pc = $newpc;
+                return;
+
+            // MOV.L @(<disp>,PC),<REG_N>
             case 0xd000:
                 $n = getN($instruction);
-                $disp = getSImm8($instruction);
+                $imm = getImm8($instruction);
+                $disp = $imm * 4;
 
-                // TODO: Handle rellocation and expectations
-                $addr = $disp * 4 + (($this->pc + 2) & 0xFFFFFFFC);
+                $addr = (($this->pc + 2) & 0xFFFFFFFC);
 
-                $data = $this->memory->readUInt32($addr);
+                $this->log("MOV.L       @($imm,PC),R$n\n");
 
-                if ($relocation = $this->object->getRelocationAt($addr)) {
+                $data = $this->readUInt32($addr, $disp);
 
+                // TODO: Should this be done to every read or just disp + PC (Literal Pool)
+                if ($relocation = $this->getRelocationAt($addr + $disp)) {
                     // TODO: If rellocation has been initialized in test, set
                     // rellocation address instead.
                     $data = $relocation;
@@ -429,57 +716,141 @@ class Simulator
         /** @var AbstractExpectation */
         $expectation = array_shift($this->pendingExpectations);
 
-        // TODO: Check symbol name!?
+        if (!($expectation instanceof CallExpectation)) {
+            throw new \Exception("Unexpected function call to $name at " . dechex($this->pc));
+        }
+
+        if ($name !== $expectation->name) {
+            throw new \Exception("Unexpected call to $name at " . dechex($this->pc) . ", expecting $expectation->name", 1);
+        }
+
         if (!($expectation && $expectation instanceof CallExpectation)) {
             throw new \Exception("Unexpected call to $name at " . dechex($this->pc), 1);
         }
 
         if ($expectation->parameters) {
             // TODO: Handle other calling convetions
+            $params = 0;
+            $floatParams = 0;
+            $stackOffset = 0;
             foreach ($expectation->parameters as $i => $expected) {
-                if ($i < 4) {
-                    $register = 4 + $i;
-                    $actual = $this->registers[$register];
-                    if ($actual !== $expected) {
-                        throw new \Exception("Unexpected parameter in r$register. Expected $expected, got $actual", 1);
+                if (is_int($expected)) {
+                    $params++;
+
+                    if ($params <= 4) {
+                        $register = $params + 4 - 1;
+                        $actual = $this->registers[$register];
+                        if ($actual !== $expected) {
+                            throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected, got $actual", 1);
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    $offset = ($stackOffset - 4) * 4;
+                    $address = $this->registers[15] + $offset;
+                    $actual = $this->memory->readUInt32($address);
+
+                    if ($actual !== $expected) {
+                        throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
+                    }
+
+                    $stackOffset++;
+                } elseif (is_float($expected)) {
+                    $floatParams++;
+
+                    if ($floatParams <= 4) {
+                        $register = $floatParams + 4 - 1;
+                        $actual = $this->fregisters[$register];
+                        if ($actual !== $expected) {
+                            throw new \Exception("Unexpected float parameter for $name in fr$register. Expected $expected, got $actual", 1);
+                        }
+    
+                        continue;
+                    }
+
+                    throw new \Exception("Flaot stack parameters are not supported at the moment", 1);
+                    // $offset = ($stackOffset - 4) * 4;
+                    // $address = $this->registers[15] + $offset;
+                    // $actual = $this->memory->readUInt32($address);
+
+                    // if ($actual !== $expected) {
+                    //     throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
+                    // }
+                    //
+                    // $stackOffset++;
+                } else {
+                    throw new \Exception("Only integer and floats are supported as parameter expectation", 1);
                 }
 
-                $offset = ($i - 4) * 4;
-                $address = $this->registers[15] + $offset;
-                $actual = $this->memory->readUInt32($address);
 
-                if ($actual !== $expected) {
-                    throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
-                }
+
+                // if ($i < 4) {
+                //     $register = 4 + $i;
+                //     $actual = $this->registers[$register];
+                //     if ($actual !== $expected) {
+                //         throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected, got $actual", 1);
+                //     }
+
+                //     continue;
+                // }
+
+                // $offset = ($i - 4) * 4;
+                // $address = $this->registers[15] + $offset;
+                // $actual = $this->memory->readUInt32($address);
+
+                // if ($actual !== $expected) {
+                //     throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
+                // }
             }
+        }
+
+        if ($expectation->return !== null) {
+            $this->registers[0] = $expectation->return;
         }
     }
 
     public function hexdump()
     {
         echo "PC: " . dechex($this->pc) . "\n";
-        print_r($this->registers);
+        // print_r($this->registers);
 
         // TODO: Unhardcode memory size
-        for ($i=0; $i < 1024; $i++) {
-            if ($i % 16 === 0) {
-                echo "\n";
-                echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
-            } else if ($i !== 0 && $i % 4 === 0) {
-                echo " ";
-            }
+        // for ($i=0; $i < 1024; $i++) {
+        //     if ($i % 16 === 0) {
+        //         echo "\n";
+        //         echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
+        //     } else if ($i !== 0 && $i % 4 === 0) {
+        //         echo " ";
+        //     }
 
-            echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
+        //     echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
+        // }
+    }
+
+    public function getRelocationAt(int $address): ?Relocation
+    {
+        foreach ($this->relocations as $relocation) {
+            if ($relocation->address !== $address) continue;
+
+            return $relocation;
         }
+
+        return null;
+    }
+
+    private function log($str)
+    {
+        // echo $str;
     }
 
     // TODO: Experimental memory access checks
 
-    /** @var int|Lhsazevedo\Objsim\Relocation $addr */
-    protected function readUInt32($addr): int
+    /**
+     * @var int|Lhsazevedo\Objsim\Relocation $addr
+     * @var int $offset
+    */
+    protected function readUInt16($addr, $offset = 0): int
     {
         $expectation = reset($this->pendingExpectations);
 
@@ -488,15 +859,15 @@ class Simulator
 
             // TODO: Handle non offset reads?
             if (!($expectation instanceof SymbolOffsetReadExpectation)) {
-                throw new \Exception("Unexpected offset read", 1);
+                throw new \Exception("Unexpected offset read to " . $addr->name, 1);
             }
-            
+
             if ($expectation->name !== $addr->name) {
                 throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
             }
 
-            if ($expectation->offset !== $relData) {
-                throw new \Exception("Unexpected offset read " . dechex($relData) . ". Expecting " . dechex($expectation->offset), 1);
+            if ($expectation->offset !== $relData + $offset) {
+                throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
             }
 
             array_shift($this->pendingExpectations);
@@ -504,11 +875,103 @@ class Simulator
             return $expectation->value;
         }
 
-        if ($expectation instanceof ReadExpectation && $expectation->address === $addr) {
+        $displacedAddr = $addr + $offset;
+
+        if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
             array_shift($this->pendingExpectations);
             return $expectation->value;
         }
 
-        return $this->memory->readUInt32($addr);
+        return $this->memory->readUInt16($displacedAddr);
+    }
+
+    /**
+     * @var int|Lhsazevedo\Objsim\Relocation $addr
+     * @var int $offset
+    */
+    protected function readUInt32($addr, $offset = 0): int
+    {
+        $expectation = reset($this->pendingExpectations);
+
+        // TODO: Duplicated in readUInt16, extract to method
+        if ($addr instanceof Relocation) {
+            $relData = $this->memory->readUInt32($addr->address);
+
+            // TODO: Handle non offset reads?
+            if (!($expectation instanceof SymbolOffsetReadExpectation)) {
+                throw new \Exception("Unexpected offset read to " . $addr->name, 1);
+            }
+
+            if ($expectation->name !== $addr->name) {
+                throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
+            }
+
+            // TODO: Double check this
+            if ($expectation->offset !== $relData + $offset) {
+                throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
+            }
+
+            array_shift($this->pendingExpectations);
+
+            return $expectation->value;
+        }
+
+        $displacedAddr = $addr + $offset;
+
+        if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
+            array_shift($this->pendingExpectations);
+            return $expectation->value;
+        }
+
+        return $this->memory->readUInt32($displacedAddr);
+    }
+
+    /**
+     * @var int|Lhsazevedo\Objsim\Relocation $addr
+     * @var int $offset
+     * @var int $value
+    */
+    protected function writeUInt32($addr, $offset, $value)
+    {
+        $expectation = reset($this->pendingExpectations);
+
+        // TODO: Duplicated in readUInt16, extract to method
+        if ($addr instanceof Relocation) {
+            $relData = $this->memory->readUInt32($addr->address);
+
+            // TODO: Handle non offset writes?
+            if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
+                throw new \Exception("Unexpected offset write", 1);
+            }
+
+            if ($expectation->name !== $addr->name) {
+                throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
+            }
+
+            // TODO: Double check this
+            if ($expectation->offset !== $relData + $offset) {
+                throw new \Exception("Unexpected offset write " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
+            }
+
+            if ($expectation->value !== $value) {
+                throw new \Exception("Unexpected offset write value " . dechex($value) . ". Expecting " . dechex($expectation->value), 1);
+
+            }
+
+            array_shift($this->pendingExpectations);
+            return;
+        }
+
+        $displacedAddr = $addr + $offset;
+
+        if ($expectation instanceof WriteExpectation && $expectation->address === $displacedAddr) {
+            if ($value !== $expectation->value) {
+                throw new \Exception("Unexpected write value $value, expecting $expectation->value", 1);
+            }
+
+            array_shift($this->pendingExpectations);
+        }
+
+        $this->memory->writeUInt32($displacedAddr, $value);
     }
 }

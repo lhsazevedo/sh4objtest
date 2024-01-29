@@ -22,6 +22,11 @@ class BinaryMemory {
 
     public function readUInt32(int $address): int
     {
+        // TODO
+        if ($address >= strlen($this->memory)) {
+            throw new \Exception("Out of bounds memory access at " . dechex($address), 1);
+        }
+
         $data = substr($this->memory, $address, 4);
         $unpacked = unpack("V", $data);
         return $unpacked[1];
