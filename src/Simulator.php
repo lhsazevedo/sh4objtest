@@ -243,9 +243,9 @@ class Simulator
         switch ($instruction & 0xf000) {
             // MOV.L <REG_M>,@(<disp>,<REG_N>)
             case 0x1000:
-                $this->log("MOV.L <REG_M>,@(<disp>,<REG_N>)\n");
                 [$n, $m] = getNM($instruction);
                 $disp = getImm4($instruction) << 2;
+                $this->log("MOV.L       R$m,@($disp,R$n)\n");
                 $this->writeUint32($this->registers[$n], $disp, $this->registers[$m]);
                 // $this->registers[$n] = $this->readUInt32($this->registers[$m], $disp);
                 return;
@@ -268,9 +268,10 @@ class Simulator
 
             // MOV #imm,Rn
             case 0xe000:
-                $this->log("MOV #imm,Rn\n");
+                $imm = getSImm8($instruction) & 0xffffffff;
                 $n = getN($instruction);
-                $this->registers[$n] = getSImm8($instruction) & 0xffffffff;
+                $this->log("MOV         $imm,R$n\n");
+                $this->registers[$n] = $imm;
                 return;
         }
 
@@ -292,6 +293,13 @@ class Simulator
                 $this->log("MOV.W @(R0,<REG_M>),<REG_N>\n");
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->readUInt16($this->registers[0], $this->registers[$m]);
+                return;
+
+            // MOV.L @(R0,<REG_M>),<REG_N>
+            case 0x000e:
+                $this->log("MOV.W @(R0,<REG_M>),<REG_N>\n");
+                [$n, $m] = getNM($instruction);
+                $this->registers[$n] = $this->readUInt32($this->registers[0], $this->registers[$m]);
                 return;
 
             // MOV.L Rm,@Rn
@@ -841,7 +849,7 @@ class Simulator
 
     private function log($str)
     {
-        // echo $str;
+        //echo $str;
     }
 
     // TODO: Experimental memory access checks

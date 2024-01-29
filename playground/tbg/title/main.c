@@ -155,7 +155,7 @@ void task_title_8c015ab8(Task* task, void *state) {
         case TITLE_STATE_0X06_ADX_FADE_OUT: {
             if (isFading_8c226568 == FALSE) {
                 // VMU Check?
-                if (FUN_8c012984() == FALSE || FUN_8c019550(saveNames_8c044d50, 3) == FALSE) {
+                if (FUN_8c012984() != FALSE && FUN_8c019550(saveNames_8c044d50, 3) == FALSE) {
                     /* 8c015c62 */
                     menuState_8c1bc7a8.state_0x18 = TITLE_STATE_0X07_VMU_WARNING_FADE_IN;
                     push_fadein_8c022a9c(10);

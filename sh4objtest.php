@@ -13,7 +13,7 @@ $reflectionClass = new ReflectionClass($test);
 
 foreach ($reflectionClass->getMethods() as $reflectionMethod) {
     if ($reflectionMethod->isPublic() && str_starts_with($reflectionMethod->name, 'test')) {
-        echo $reflectionMethod->name . "\n";
+        echo $reflectionMethod->name . "... ";
         call_user_func([$test, $reflectionMethod->name]);
     }
 }
