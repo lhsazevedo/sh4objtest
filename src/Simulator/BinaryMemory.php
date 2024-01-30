@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim\Simulator;
+namespace Lhsazevedo\Sh4ObjTest\Simulator;
 
 class BinaryMemory {
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim;
+namespace Lhsazevedo\Sh4ObjTest;
 
 use Ramsey\Collection\Collection as BaseCollection;
 

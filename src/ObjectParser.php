@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim;
+namespace Lhsazevedo\Sh4ObjTest;
 
-use Lhsazevedo\Objsim\Parser\ChunkType;
-use Lhsazevedo\Objsim\Parser\Chunks\Module;
-use Lhsazevedo\Objsim\Parser\Chunks\Unit;
-use Lhsazevedo\Objsim\Parser\ObjectData;
+use Lhsazevedo\Sh4ObjTest\Parser\ChunkType;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Module;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Unit;
+use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
 
 class Chunk {
     public ChunkType $type;

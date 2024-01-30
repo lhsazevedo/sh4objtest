@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim\Parser\Chunks;
+namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
-use Lhsazevedo\Objsim\BinaryReader;
-use Lhsazevedo\Objsim\Parser\ObjectData;
+use Lhsazevedo\Sh4ObjTest\BinaryReader;
+use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
 
 class Unit extends Base
 {

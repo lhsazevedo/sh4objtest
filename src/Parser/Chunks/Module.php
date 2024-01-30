@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim\Parser\Chunks;
+namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
-use Lhsazevedo\Objsim\BinaryReader;
+use Lhsazevedo\Sh4ObjTest\BinaryReader;
 
 class Module extends Base
 {

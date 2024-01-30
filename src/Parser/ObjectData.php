@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim\Parser;
+namespace Lhsazevedo\Sh4ObjTest\Parser;
 
-use Lhsazevedo\Objsim\BinaryReader;
+use Lhsazevedo\Sh4ObjTest\BinaryReader;
 
 class ObjectData
 {

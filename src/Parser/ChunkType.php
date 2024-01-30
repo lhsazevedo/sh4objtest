@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim\Parser;
+namespace Lhsazevedo\Sh4ObjTest\Parser;
 
 enum ChunkType {
     case ModuleHeader;

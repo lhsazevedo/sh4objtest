@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d0d0db64ac0954838b77d7df6783e95d",
+    "content-hash": "f52276ed5c713091615f3c1f2bde4e1d",
     "packages": [
         {
             "name": "aimeos/map",
@@ -66,7 +66,10 @@
     "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "php": "^8.3",
+        "composer-runtime-api": "^2.2"
+    },
     "platform-dev": [],
     "plugin-api-version": "2.6.0"
 }

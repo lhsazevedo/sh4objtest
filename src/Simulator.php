@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Objsim;
+namespace Lhsazevedo\Sh4ObjTest;
 
-use Lhsazevedo\Objsim\Simulator\BinaryMemory;
+use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 
 function getN(int $instr): int
 {
@@ -941,7 +941,7 @@ class Simulator
     // TODO: Experimental memory access checks
 
     /**
-     * @var int|Lhsazevedo\Objsim\Relocation $addr
+     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
      * @var int $offset
     */
     protected function readUInt16($addr, $offset = 0): int
@@ -980,7 +980,7 @@ class Simulator
     }
 
     /**
-     * @var int|Lhsazevedo\Objsim\Relocation $addr
+     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
      * @var int $offset
     */
     protected function readUInt32($addr, $offset = 0): int
@@ -1021,7 +1021,7 @@ class Simulator
     }
 
     /**
-     * @var int|Lhsazevedo\Objsim\Relocation $addr
+     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
      * @var int $offset
      * @var int $value
     */
