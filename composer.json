@@ -1,7 +1,7 @@
 {
     "name": "lhsazevedo/sh4objtest",
     "bin": [
-        "shobjtest.php"
+        "sh4objtest"
     ],
     "autoload": {
         "psr-4": {
