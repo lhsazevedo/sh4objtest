@@ -262,10 +262,18 @@ class Simulator
 
             // ADD #imm,Rn
             case 0x7000:
-                $this->log("ADD #imm,Rn\n");
                 $n = getN($instruction);
                 $imm = getSImm8($instruction);
+                $this->log("ADD         #$imm,R$n\n");
                 $this->registers[$n] += $imm;
+                return;
+
+            // MOV.W @(<disp>,PC),<REG_N>
+            case 0x9000:
+                $n = getN($instruction);
+                $disp = getImm8($instruction) << 1;
+                $this->log("MOV.W       @($disp,PC),R$n\n");
+                $this->registers[$n] = $this->readUInt16($this->pc + 2, $disp);
                 return;
 
             // MOV #imm,Rn
@@ -299,7 +307,7 @@ class Simulator
 
             // MOV.L @(R0,<REG_M>),<REG_N>
             case 0x000e:
-                $this->log("MOV.W @(R0,<REG_M>),<REG_N>\n");
+                $this->log("MOV.L @(R0,<REG_M>),<REG_N>\n");
                 [$n, $m] = getNM($instruction);
                 $this->registers[$n] = $this->readUInt32($this->registers[0], $this->registers[$m]);
                 return;
@@ -380,10 +388,10 @@ class Simulator
                 $this->srT = 0;
                 return;
 
-            // CMP/GT <REG_M>,<REG_N>
+            // CMP/GE <REG_M>,<REG_N>
             case 0x3003:
-                $this->log("CMP/GT <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("CMP/GE      R$m,R$n\n");
                 if ($this->registers[$n] >= $this->registers[$m]) {
                     $this->srT = 1;
                     return;
@@ -394,8 +402,8 @@ class Simulator
 
             // CMP/GT <REG_M>,<REG_N>
             case 0x3007:
-                $this->log("CMP/GT <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("CMP/GT      R$m,R$n\n");
                 if ($this->registers[$n] > $this->registers[$m]) {
                     $this->srT = 1;
                     return;
@@ -608,6 +616,16 @@ class Simulator
                 if ($this->srT === 0) {
                     $this->pc = branchTargetS8($instruction, $this->pc);
                 }
+                return;
+
+            // BT/S        <bdisp8>
+            case 0x8d00:
+                $newpc = branchTargetS8($instruction, $this->pc);
+                if ($this->srT !== 0) {
+                    $this->executeDelaySlot();
+                    $this->pc = $newpc;
+                }
+                $this->log("BT/S        H'" . dechex($newpc) . "\n");
                 return;
 
             // BF/S <bdisp8>

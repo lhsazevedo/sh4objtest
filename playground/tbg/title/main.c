@@ -289,7 +289,7 @@ void task_title_8c015ab8(Task* task, void *state) {
             }
 
             /* 8c015f60 (shared) */
-            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.5);
+            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.0);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 6, 0, 0, -4.5);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 4, 302, 97, -4.5);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 1, 180, 0, -4.0);
@@ -323,7 +323,7 @@ void task_title_8c015ab8(Task* task, void *state) {
             }
 
             /* 8c015f60 (shared) */
-            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.5);
+            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.0);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 6, 0, 0, -4.5);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 4, 302, 97, -4.5);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 1, 180, 0, -4.0);
@@ -341,7 +341,7 @@ void task_title_8c015ab8(Task* task, void *state) {
             }
 
             /* 8c015e7e */
-            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.5);
+            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.0);
             if ((menuState_8c1bc7a8.logo_timer_0x68 & 1) != 0) {
                 drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 6, 0, 0, -4.5);
             }
@@ -370,7 +370,7 @@ void task_title_8c015ab8(Task* task, void *state) {
             }
             
             /* 8c015ed6 */
-            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.5);
+            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.0);
 
             if ((++menuState_8c1bc7a8.logo_timer_0x68 & 1) != 0) {
                 drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 6, 0, 0, -4.5);
@@ -396,7 +396,7 @@ void task_title_8c015ab8(Task* task, void *state) {
             }
 
             /* 8c015f60 (shared) */
-            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.5);
+            drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 5, 0, 0, -4.0);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 6, 0, 0, -4.5);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 4, 302, 97, -4.5);
             drawSprite_8c014f54(&menuState_8c1bc7a8.resourceGroupB_0x0c, 1, 180, 0, -4.0);
