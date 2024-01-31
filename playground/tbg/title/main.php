@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Lhsazevedo\Sh4ObjTest\TestCase;
 
 return new class extends TestCase {
-    protected string $objectFile = __DIR__ . '/main.obj';
+    protected ?string $objectFile = __DIR__ . '/main.obj';
 
     public function testState0x00_Init_SkipTitleAnimationWhenStartIsPressed() {
         $this->shouldReadSymbolOffset('_menuState_8c1bc7a8', 0x18, 0x0b);

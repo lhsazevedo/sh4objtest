@@ -86,7 +86,7 @@ class TestRelocation
 
 class TestCase
 {
-    protected string $objectFile;
+    protected ?string $objectFile = null;
 
     protected ParsedObject $parsedObject;
 
@@ -105,7 +105,6 @@ class TestCase
     public function __construct()
     {
         $this->entry = new Entry();
-        $this->parsedObject = ObjectParser::parse($this->objectFile);
     }
 
     protected function shouldCall($name)
@@ -186,6 +185,8 @@ class TestCase
 
     protected function run(): void
     {
+        $this->parsedObject = ObjectParser::parse($this->objectFile);
+
         $simulator = new Simulator(
             $this->parsedObject,
             $this->expectations,
@@ -207,5 +208,10 @@ class TestCase
         $this->expectations = [];
         $this->testRelocations = [];
         $this->currentAlloc = 1024 * 1024 * 8;
+    }
+
+    public function setObjectFile(string $path)
+    {
+        $this->objectFile = $path;
     }
 }

@@ -5,7 +5,12 @@ declare(strict_types=1);
 
 include $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 
+/** @var Lhsazevedo\Sh4ObjTest\TestCase */
 $test = require $argv[1];
+
+if ($argc > 2) {
+    $test->setObjectFile($argv[2]);
+}
 
 $reflectionClass = new ReflectionClass($test);
 
