@@ -200,6 +200,7 @@ class TestCase
         } catch (Throwable $t) {
             echo $t->getMessage()  . "\n";
             $simulator->hexdump();
+            throw $t;
         }
 
         // Cleanup
