@@ -885,6 +885,11 @@ class Simulator
 
     private function assertCall(string $name): void
     {
+        if ($name === '__modls') {
+            $this->registers[0] = $this->registers[1] % $this->registers[0];
+            return;
+        }
+
         /** @var AbstractExpectation */
         $expectation = array_shift($this->pendingExpectations);
 
