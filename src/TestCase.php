@@ -71,6 +71,7 @@ class Entry {
         public array $parameters = [],
         // TODO: functions can return pointers
         public ?int $return = null,
+        public ?float $floatReturn = null,
     ) {}
 }
 
@@ -79,6 +80,16 @@ class TestRelocation
     public function __construct(
         public string $name,
         public int $address,
+    )
+    {}
+}
+
+readonly class MemoryInitialization
+{
+    public function __construct(
+        public int $size,
+        public int $address,
+        public int $value
     )
     {}
 }
@@ -101,6 +112,9 @@ class TestCase
 
     /** @var TestRelocation[] */
     private array $testRelocations = [];
+
+    /** @var MemoryInitialization[] */
+    private array $initializations = [];
 
     public function __construct()
     {
@@ -167,9 +181,14 @@ class TestCase
         return $this;
     }
 
-    protected function shouldReturn($value): self
+    protected function shouldReturn(int|float $value): self
     {
-        $this->entry->return = $value;
+        if (is_float($value)) {
+            $this->entry->floatReturn = $value;
+        } else {
+            $this->entry->return = $value;
+        }
+
         return $this;
     }
 
@@ -193,6 +212,7 @@ class TestCase
             $this->entry,
             $this->forceStop,
             $this->testRelocations,
+            $this->initializations,
         );
 
         try {
@@ -209,6 +229,10 @@ class TestCase
         $this->expectations = [];
         $this->testRelocations = [];
         $this->currentAlloc = 1024 * 1024 * 8;
+    }
+
+    protected function initUint32($address, $value) {
+        $this->initializations[] = new MemoryInitialization(32, $address, $value);
     }
 
     public function setObjectFile(string $path)

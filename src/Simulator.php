@@ -128,7 +128,10 @@ class Simulator
         private bool $forceStop,
 
         /** @var TestRelocation[] */
-        private array $testRelocations
+        private array $testRelocations,
+
+        /** @var MemoryInitializaion[] */
+        private array $initializations,
     )
     {
         $this->relocations = $this->object->relocations;
@@ -163,6 +166,18 @@ class Simulator
         }
 
         $this->memory->writeBytes(0, $this->object->code);
+
+        foreach ($this->initializations as $initialization) {
+            switch ($initialization->size) {
+                case 32:
+                    $this->memory->writeUint32($initialization->address, $initialization->value);
+                    break;
+                
+                default:
+                    throw new \Exception("Unsupported initialization size $initialization->size", 1);
+                    break;
+            }
+        }
 
         $newObjectRelocations = [];
         foreach ($this->object->relocations as $objectRelocation) {
@@ -207,6 +222,19 @@ class Simulator
         if ($expectedReturn !== null && $actualReturn !== $expectedReturn) {
             throw new \Exception("Unexpected return value $actualReturn, expecting $expectedReturn", 1);
         }
+
+        // TODO: returns and float returns are mutually exclusive
+        if ($this->entry->floatReturn !== null) {
+            $expectedFloatReturn = $this->entry->floatReturn;
+            $actualFloatReturn = $this->fregisters[0];
+            $expectedDecRepresentation = unpack('L', pack('f', $expectedFloatReturn))[1];
+            $actualDecRepresentation = unpack('L', pack('f', $actualFloatReturn))[1];
+
+            if ($actualDecRepresentation !== $expectedDecRepresentation) {
+                throw new \Exception("Unexpected return value $actualFloatReturn, expecting $expectedFloatReturn", 1);
+            }
+        }
+        
 
         echo "Passed\n";
     }
@@ -475,6 +503,24 @@ class Simulator
                 // }
                 return;
 
+            // FMUL <FREG_M>,<FREG_N>
+            case 0xf002:
+                // if (fpscr.PR == 0)
+                // {
+                    [$n, $m] = GetNM($instruction);
+                    $this->log("FMUL        FR$m,FR$n");
+                    $this->fregisters[$n] *= $this->fregisters[$m];
+                    // TODO: NaN signaling bit
+                    // CHECK_FPU_32(fr[n]);
+                // }
+                // else
+                // {
+                //     double d = getDRn(op) - getDRm(op);
+                //     d = fixNaN64(d);
+                //     setDRn(op, d);
+                // }
+                return;
+
             // FCMP/GT <FREG_M>,<FREG_N>
             case 0xf005:
                 // if (fpscr.PR == 0)
@@ -586,6 +632,24 @@ class Simulator
                 $n = getN($instruction);
                 $this->log("FSTS        FPUL,FR$n");
                 $this->fregisters[$n] = unpack('f', pack('L', $this->fpul))[1];
+                return;
+
+            // FMAC <FREG_0>,<FREG_M>,<FREG_N>
+            case 0xf00e:
+                // if (fpscr.PR == 0)
+                // {
+                    [$n, $m] = GetNM($instruction);
+                    $this->log("FMAC        FR0,FR$m,FR$n");
+                    $this->fregisters[$n] += $this->fregisters[0] * $this->fregisters[$m];
+                    // TODO: NaN signaling bit
+                    // CHECK_FPU_32(fr[n]);
+                // }
+                // else
+                // {
+                //     double d = getDRn(op) - getDRm(op);
+                //     d = fixNaN64(d);
+                //     setDRn(op, d);
+                // }
                 return;
         }
 
@@ -935,7 +999,7 @@ class Simulator
 
     private function log($str)
     {
-        //echo $str;
+        // echo $str;
     }
 
     // TODO: Experimental memory access checks

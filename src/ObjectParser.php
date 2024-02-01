@@ -175,7 +175,7 @@ class ObjectParser
                     while($reader->tell() < $chunkBase + $len) {
                         $section = $reader->readUInt16();
                         $type = $reader->readUInt8();
-                        $offset = $reader->readUInt32();
+                        $offset = $reader->readUInt32BE();
                         $name = $reader->readBytes($reader->readUInt8());
 
                         $this->exports[] = new ExportSymbol(
