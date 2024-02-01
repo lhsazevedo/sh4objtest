@@ -781,7 +781,7 @@ class Simulator
             case 0x4011:
                 $n = getN($instruction);
                 $this->log("CMP/PZ      R$n\n");
-                if (u2s8($n & 0xff) >= 0) {
+                if (u2s8($this->registers[$n] & 0xff) >= 0) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
