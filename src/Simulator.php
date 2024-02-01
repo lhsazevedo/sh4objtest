@@ -286,9 +286,9 @@ class Simulator
 
             // MOV.L @(<disp>,<REG_M>),<REG_N>
             case 0x5000:
-                $this->log("MOV.L @(<disp>,<REG_M>),<REG_N>\n");
                 [$n, $m] = getNM($instruction);
                 $disp = getImm4($instruction) << 2;
+                $this->log("MOV.L        @($disp,R$m),R$n\n");
                 $this->registers[$n] = $this->readUInt32($this->registers[$m], $disp);
                 return;
 
@@ -324,30 +324,30 @@ class Simulator
         switch ($instruction & 0xf00f) {
             // MOV.L <REG_M>, @(R0,<REG_N>)
             case 0x0006:
-                $this->log("MOV.L <REG_M>, @(R0,<REG_N>)\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV.L       R$m, @(R0,R$n)\n");
                 // TODO: Is R0 always the offset?
                 $this->writeUint32($this->registers[$n], $this->registers[0], $this->registers[$m]);
                 return;
 
             // MOV.W @(R0,<REG_M>),<REG_N>
             case 0x000d:
-                $this->log("MOV.W @(R0,<REG_M>),<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV.W       @(R0,R$m),R$n\n");
                 $this->registers[$n] = $this->readUInt16($this->registers[0], $this->registers[$m]);
                 return;
 
             // MOV.L @(R0,<REG_M>),<REG_N>
             case 0x000e:
-                $this->log("MOV.L @(R0,<REG_M>),<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV.L       @(R0,R$m),R$n\n");
                 $this->registers[$n] = $this->readUInt32($this->registers[0], $this->registers[$m]);
                 return;
 
             // MOV.L Rm,@Rn
             case 0x2002:
-                $this->log("MOV.L Rm,@Rn\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV.L       R$m,@R$n\n");
 
                 $addr = $this->registers[$n];
 
@@ -384,9 +384,9 @@ class Simulator
 
             // MOV.L Rm,@-Rn
             case 0x2006:
-                $this->log("MOV.L Rm,@-Rn\n");
                 $n = getN($instruction);
                 $m = getM($instruction);
+                $this->log("MOV.L        R$m,@-R$n\n");
 
                 $addr = $this->registers[$n] - 4;
 
@@ -396,8 +396,8 @@ class Simulator
 
             // TST Rm,Rn
             case 0x2008:
-                $this->log("TST Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("TST         R$m,R$n\n");
 
                 if (($this->registers[$n] & $this->registers[$m]) !== 0) {
                     $this->srT = 0;
@@ -409,8 +409,8 @@ class Simulator
 
             // CMP/HS <REG_M>,<REG_N>
             case 0x3002:
-                $this->log("CMP/HS <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("CMP/HS      R$m,R$n\n");
                 // TODO: Double check signed to unsigned convertion
                 if (($this->registers[$n] & 0xffffffff) >= ($this->registers[$m] & 0xffffffff)) {
                     $this->srT = 1;
@@ -446,15 +446,15 @@ class Simulator
 
             // ADD Rm,Rn
             case 0x300c:
-                $this->log("ADD Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("ADD         R$m,R$n\n");
                 $this->registers[$n] += $this->registers[$m];
                 return;
 
             // MOV @Rm,Rn
             case 0x6002:
-                $this->log("MOV @Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV         @R$m,R$n\n");
 
                 $addr = $this->registers[$m];
 
@@ -464,15 +464,15 @@ class Simulator
 
             // MOV Rm,Rn
             case 0x6003:
-                $this->log("MOV Rm,Rn\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV         R$m,R$n\n");
                 $this->registers[$n] = $this->registers[$m];
                 return;
 
             // MOV @<REG_M>+,<REG_N>
             case 0x6006:
-                $this->log("MOV @<REG_M>+,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("MOV         @R$m+,R$n\n");
                 // TODO: Use read proxy?
                 $this->registers[$n] = $this->readUInt32($this->registers[$m]);
 
