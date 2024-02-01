@@ -119,6 +119,8 @@ class Simulator
     /** @var Relocation[] */
     private array $relocations;
 
+    private bool $disasm = false;
+
     public function __construct(
         private ParsedObject $object,
 
@@ -205,7 +207,7 @@ class Simulator
 
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
-            $this->log("; 0x" . dechex($this->pc) . ' ' . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT) . "\n");
+            $this->log("; 0x" . dechex($this->pc) . ' ' . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT) . "    ");
             $this->pc += 2;
             $this->executeInstruction($instruction);
 
@@ -492,7 +494,7 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->log("FSUB        FR$m,FR$n");
+                    $this->log("FSUB        FR$m,FR$n\n");
                     $this->fregisters[$n] -= $this->fregisters[$m];
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
@@ -510,7 +512,7 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->log("FMUL        FR$m,FR$n");
+                    $this->log("FMUL        FR$m,FR$n\n");
                     $this->fregisters[$n] *= $this->fregisters[$m];
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
@@ -543,9 +545,9 @@ class Simulator
 
             // FMOV.S @(R0, <REG_M>),<FREG_N>
             case 0xf006:
-                $this->log("FMOV.S @(R0, <REG_M>),<FREG_N>\n");
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
+                    $this->log("FMOV.S      @(R0, R$m),FR$n\n");
 
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m], $this->registers[0]);
@@ -557,9 +559,9 @@ class Simulator
 
             // FMOV.S <FREG_M>,@(R0,<REG_N>)
             case 0xf007:
-                $this->log("FMOV.S <FREG_M>,@(R0,<REG_N>)\n");
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
+                    $this->log("FMOV.S      FR$m,@(R0,R$n)\n");
 
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
                     $this->writeUint32($this->registers[$n], $this->registers[0], $value);
@@ -570,9 +572,9 @@ class Simulator
 
             // FMOV.S @<REG_M>,<FREG_N>
             case 0xf008:
-                $this->log("FMOV.S @<REG_M>,<FREG_N>\n");
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
+                    $this->log("FMOV.S      @R$m,FR$n\n");
 
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m]);
@@ -617,10 +619,10 @@ class Simulator
 
             // FMOV <FREG_M>,<FREG_N>
             case 0xf00c:
-                $this->log("FMOV <FREG_M>,<FREG_N>\n");
                 // if (fpscr.SZ == 0)
                 // {
                     [$n, $m] = getNM($instruction);
+                    $this->log("FMOV        FR$m,FR$n\n");
                     $this->fregisters[$n] = $this->fregisters[$m];
                 // }
                 // else
@@ -1010,9 +1012,16 @@ class Simulator
         return null;
     }
 
+    public function enableDisasm()
+    {
+        $this->disasm = true;
+    }
+
     private function log($str)
     {
-        // echo $str;
+        if ($this->disasm) {
+            echo $str;
+        }
     }
 
     // TODO: Experimental memory access checks

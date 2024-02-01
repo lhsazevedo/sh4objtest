@@ -116,6 +116,8 @@ class TestCase
     /** @var MemoryInitialization[] */
     private array $initializations = [];
 
+    private bool $disasm = false;
+
     public function __construct()
     {
         $this->entry = new Entry();
@@ -215,6 +217,10 @@ class TestCase
             $this->initializations,
         );
 
+        if ($this->disasm) {
+            $simulator->enableDisasm();
+        }
+
         try {
             $simulator->run();
         } catch (Throwable $t) {
@@ -238,5 +244,10 @@ class TestCase
     public function setObjectFile(string $path)
     {
         $this->objectFile = $path;
+    }
+
+    public function enableDisasm()
+    {
+        $this->disasm = true;
     }
 }

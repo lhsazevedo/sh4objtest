@@ -5,12 +5,41 @@ declare(strict_types=1);
 
 include $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 
-/** @var Lhsazevedo\Sh4ObjTest\TestCase */
-$test = require $argv[1];
+$testFile = null;
+$objectFile = null;
+$disasm = false;
 
-if ($argc > 2) {
-    $test->setObjectFile($argv[2]);
+$binName = array_shift($argv);
+foreach ($argv as $v) {
+    if ($v === '--disasm') {
+        $disasm = true;
+        continue;
+    }
+
+    if (!$testFile) {
+        $testFile = $v;
+        continue;
+    }
+
+    if (!$objectFile) {
+        $objectFile = $v;
+        continue;
+    }
+
+    echo "Unexpected command argument $v";
+    exit;
 }
+
+$test = require $testFile;
+
+if ($objectFile) {
+    $test->setObjectFile($objectFile);
+}
+
+if ($disasm) {
+    $test->enableDisasm();
+}
+
 
 $reflectionClass = new ReflectionClass($test);
 
