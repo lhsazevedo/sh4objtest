@@ -312,7 +312,7 @@ class Simulator
             case 0xe000:
                 $imm = getSImm8($instruction) & 0xffffffff;
                 $n = getN($instruction);
-                $this->log("MOV         $imm,R$n\n");
+                $this->log("MOV         #$imm,R$n\n");
                 $this->registers[$n] = $imm;
                 return;
         }
@@ -660,8 +660,8 @@ class Simulator
         switch ($instruction & 0xff00) {
             // CMP/EQ #<imm>,R0
             case 0x8800:
-                $this->log("CMP/EQ #<imm>,R0\n");
                 $imm = getSImm8($instruction);
+                $this->log("CMP/EQ      #$imm,R0\n");
                 if ($this->registers[0] === $imm) {
                     $this->srT = 1;
                     return;
@@ -672,7 +672,7 @@ class Simulator
 
             // BT <bdisp8>
             case 0x8900:
-                $this->log("BT <bdisp8>\n");
+                $this->log("BT          <bdisp8>\n");
                 if ($this->srT !== 0) {
                     $this->pc = branchTargetS8($instruction, $this->pc);
                 }
@@ -680,7 +680,7 @@ class Simulator
 
             // BF <bdisp8>
             case 0x8b00:
-                $this->log("BF <bdisp8>\n");
+                $this->log("BF          <bdisp8>\n");
                 if ($this->srT === 0) {
                     $this->pc = branchTargetS8($instruction, $this->pc);
                 }
@@ -698,7 +698,7 @@ class Simulator
 
             // BF/S <bdisp8>
             case 0x8f00:
-                $this->log("BF/S <bdisp8>\n");
+                $this->log("BF/S        <bdisp8>\n");
                 if ($this->srT === 0) {
                     $newpc = branchTargetS8($instruction, $this->pc);
                     $this->executeDelaySlot();
@@ -708,14 +708,15 @@ class Simulator
 
             // MOVA @(<disp>,PC),R0
             case 0xc700:
-                $this->log("MOVA @(<disp>,PC),R0\n");
+                $this->log("MOVA        @(<disp>,PC),R0\n");
                 $this->registers[0] = (($this->pc + 2) & 0xfffffffc) + (getImm8($instruction) << 2);
                 return;
 
             // TST #imm,R0
             case 0xc800:
-                $this->log("TST #imm,R0\n");
-                if (($this->registers[0] & getImm8($instruction)) === 0) {
+                $imm = getImm8($instruction);
+                $this->log("TST         #$imm,R0\n");
+                if (($this->registers[0] & $imm) === 0) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
@@ -740,14 +741,14 @@ class Simulator
 
             // MOVT <REG_N>
             case 0x0029:
-                $this->log("MOVT <REG_N>\n");
+                $this->log("MOVT        <REG_N>\n");
                 $n = getN($instruction);
                 $this->registers[$n] = $this->srT;
                 return;
 
             // SHLL <REG_N>
             case 0x4000:
-                $this->log("SHLL <REG_N>\n");
+                $this->log("SHLL        <REG_N>\n");
                 $n = getN($instruction);
                 $this->srT = $n >> 31;
                 $this->registers[$n] <<= 1;
@@ -756,7 +757,7 @@ class Simulator
             // JSR
             case 0x400b:
                 $n = getN($instruction);
-                $this->log("JSR @R$n\n");
+                $this->log("JSR         @R$n\n");
 
                 $newpr = $this->pc + 2;   //return after delayslot
                 $newpc = $this->registers[$n];
@@ -850,7 +851,7 @@ class Simulator
         switch ($instruction & 0xf000) {
             // BRA <bdisp12>
             case 0xa000:
-                $this->log("BRA <bdisp12>\n");
+                $this->log("BRA         <bdisp12>\n");
                 $newpc = branchTargetS12($instruction, $this->pc);
                 $this->executeDelaySlot();
                 $this->pc = $newpc;
