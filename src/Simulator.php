@@ -27,14 +27,16 @@ function getNM(int $op): array
 function getImm4($instruction) { return $instruction & 0xf; }
 function getImm8($instruction) { return $instruction & 0xff; }
 
-function getSImm8($instruction) {
-    $value = $instruction & 0xff;
-
-    if ($value & 0x80) {
-        return -((~$value & 0xff) + 1);
+function u2s8(int $u8) {
+    if ($u8 & 0x80) {
+        return -((~$u8 & 0xff) + 1);
     }
 
-    return $value;
+    return $u8;
+}
+
+function getSImm8($instruction) {
+    return u2s8($instruction & 0xff);
 }
 
 function getSImm12($instruction) {
@@ -770,6 +772,17 @@ class Simulator
 
                 $this->pr = $newpr;
                 $this->pc = $newpc;
+                return;
+
+            // CMP/PZ <REG_N>
+            case 0x4011:
+                $n = getN($instruction);
+                $this->log("CMP/PZ      R$n");
+                if (u2s8($n & 0xff) >= 0) {
+                    $this->srT = 1;
+                } else {
+                    $this->srT = 0;
+                }
                 return;
 
             // STS.L PR,@-<REG_N>
