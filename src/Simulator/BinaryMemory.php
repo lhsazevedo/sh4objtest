@@ -32,7 +32,19 @@ class BinaryMemory {
         return $unpacked[1];
     }
 
-    public function writeUint32(int $address, int $value)
+    public function writeUInt8(int $address, int $value)
+    {
+        $this->memory[$address] = $value;
+    }
+
+    public function writeUInt16(int $address, int $value)
+    {
+        $data = pack('v', $value);
+        $this->memory[$address] = $data[0] ?? "\0";
+        $this->memory[$address + 1] = $data[1] ?? "\0";
+    }
+
+    public function writeUInt32(int $address, int $value)
     {
         $data = pack('V', $value);
         $this->memory[$address] = $data[0] ?? "\0";

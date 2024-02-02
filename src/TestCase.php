@@ -237,6 +237,14 @@ class TestCase
         $this->currentAlloc = 1024 * 1024 * 8;
     }
 
+    protected function initUint8($address, $value) {
+        $this->initializations[] = new MemoryInitialization(8, $address, $value);
+    }
+
+    protected function initUint16($address, $value) {
+        $this->initializations[] = new MemoryInitialization(16, $address, $value);
+    }
+
     protected function initUint32($address, $value) {
         $this->initializations[] = new MemoryInitialization(32, $address, $value);
     }

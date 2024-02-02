@@ -173,8 +173,16 @@ class Simulator
 
         foreach ($this->initializations as $initialization) {
             switch ($initialization->size) {
+                case 8:
+                    $this->memory->writeUInt8($initialization->address, $initialization->value);
+                    break;
+
+                case 16:
+                    $this->memory->writeUInt16($initialization->address, $initialization->value);
+                    break;
+
                 case 32:
-                    $this->memory->writeUint32($initialization->address, $initialization->value);
+                    $this->memory->writeUInt32($initialization->address, $initialization->value);
                     break;
                 
                 default:
@@ -192,7 +200,7 @@ class Simulator
                     // FIXME: This is confusing:
                     // - Object relocation address is the address of the literal pool data item
                     // - Test relocation address is the value of the literal pool item
-                    $this->memory->writeUint32($objectRelocation->address, $testRelocation->address + $objectRelocation->offset);
+                    $this->memory->writeUInt32($objectRelocation->address, $testRelocation->address + $objectRelocation->offset);
                     $found = true;
                     break;
                 }
@@ -280,7 +288,7 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $disp = getImm4($instruction) << 2;
                 $this->log("MOV.L       R$m,@($disp,R$n)\n");
-                $this->writeUint32($this->registers[$n], $disp, $this->registers[$m]);
+                $this->writeUInt32($this->registers[$n], $disp, $this->registers[$m]);
                 return;
 
             // MOV.L @(<disp>,<REG_M>),<REG_N>
@@ -326,7 +334,7 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $this->log("MOV.L       R$m, @(R0,R$n)\n");
                 // TODO: Is R0 always the offset?
-                $this->writeUint32($this->registers[$n], $this->registers[0], $this->registers[$m]);
+                $this->writeUInt32($this->registers[$n], $this->registers[0], $this->registers[$m]);
                 return;
 
             // MOV.W @(R0,<REG_M>),<REG_N>
@@ -349,7 +357,7 @@ class Simulator
                 $this->log("MOV.L       R$m,@R$n\n");
 
                 $addr = $this->registers[$n];
-                $this->writeUint32($this->registers[$n], 0, $this->registers[$m]);
+                $this->writeUInt32($this->registers[$n], 0, $this->registers[$m]);
                 return;
 
             // MOV.L Rm,@-Rn
@@ -360,7 +368,7 @@ class Simulator
 
                 $addr = $this->registers[$n] - 4;
 
-                $this->memory->writeUint32($addr, $this->registers[$m]);
+                $this->memory->writeUInt32($addr, $this->registers[$m]);
                 $this->registers[$n] = $addr;
                 return;
 
@@ -548,7 +556,7 @@ class Simulator
                     $this->log("FMOV.S      FR$m,@(R0,R$n)\n");
 
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
-                    $this->writeUint32($this->registers[$n], $this->registers[0], $value);
+                    $this->writeUInt32($this->registers[$n], $this->registers[0], $value);
                 // } else {
                     // ...
                 // }
@@ -593,7 +601,7 @@ class Simulator
                     $addr = $this->registers[$n] - 4;
 
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
-                    $this->memory->writeUint32($addr, $value);
+                    $this->memory->writeUInt32($addr, $value);
 
                     $this->registers[$n] = $addr;
                 // } else {
@@ -799,7 +807,7 @@ class Simulator
                 $this->log("STS.L PR,@-<REG_N>\n");
                 $n = getN($instruction);
                 $address = $this->registers[$n] - 4;
-                $this->memory->writeUint32($address, $this->pr);
+                $this->memory->writeUInt32($address, $this->pr);
                 $this->registers[$n] = $address;
                 return;
 
