@@ -281,7 +281,6 @@ class Simulator
                 $disp = getImm4($instruction) << 2;
                 $this->log("MOV.L       R$m,@($disp,R$n)\n");
                 $this->writeUint32($this->registers[$n], $disp, $this->registers[$m]);
-                // $this->registers[$n] = $this->readUInt32($this->registers[$m], $disp);
                 return;
 
             // MOV.L @(<disp>,<REG_M>),<REG_N>
@@ -629,6 +628,14 @@ class Simulator
         }
 
         switch ($instruction & 0xff00) {
+            // MOV.B @(<disp>, <REG_M>),R0
+            case 0x8400:
+                $n = getN($instruction);
+                $disp = getImm4($instruction);
+                $this->log("MOV.B       @($disp, R$n),R0");
+                $this->registers[0] = $this->readUInt8($n, $disp);
+                return;
+
             // CMP/EQ #<imm>,R0
             case 0x8800:
                 $imm = getSImm8($instruction);
@@ -1001,60 +1008,10 @@ class Simulator
         }
     }
 
-    // TODO: Experimental memory access checks
-
-    /**
-     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
-     * @var int $offset
-    */
-    protected function readUInt16($addr, $offset = 0): int
+    protected function readUInt(int|Relocation $addr, int $offset, int $size): int
     {
         $expectation = reset($this->pendingExpectations);
 
-        if ($addr instanceof Relocation) {
-            $relData = $this->memory->readUInt32($addr->address);
-
-            // TODO: Handle non offset reads?
-            if (!($expectation instanceof SymbolOffsetReadExpectation)) {
-                throw new \Exception("Unexpected offset read to " . $addr->name, 1);
-            }
-
-            if ($expectation->name !== $addr->name) {
-                throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
-            }
-
-            if ($expectation->offset !== $relData + $offset) {
-                throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
-            }
-
-            if ($addr->offset) {
-                throw new \Exception("Unsupported relocation with offset and relData", 1);
-            }
-
-            array_shift($this->pendingExpectations);
-
-            return $expectation->value;
-        }
-
-        $displacedAddr = $addr + $offset;
-
-        if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
-            array_shift($this->pendingExpectations);
-            return $expectation->value;
-        }
-
-        return $this->memory->readUInt16($displacedAddr);
-    }
-
-    /**
-     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
-     * @var int $offset
-    */
-    protected function readUInt32($addr, $offset = 0): int
-    {
-        $expectation = reset($this->pendingExpectations);
-
-        // TODO: Duplicated in readUInt16, extract to method
         if ($addr instanceof Relocation) {
             $relData = $this->memory->readUInt32($addr->address);
 
@@ -1084,7 +1041,42 @@ class Simulator
             return $expectation->value;
         }
 
-        return $this->memory->readUInt32($displacedAddr);
+        switch ($size) {
+            case 8:
+                return $this->memory->readUInt8($displacedAddr);
+                break;
+
+            case 16:
+                return $this->memory->readUInt16($displacedAddr);
+                    break;
+
+            case 32:
+                return $this->memory->readUInt32($displacedAddr);
+                break;
+        }
+
+        throw new \Exception("Unsupported read size $size", 1);
+    }
+
+    protected function readUInt8(int|Relocation $addr, int $offset = 0): int
+    {
+        return $this->readUInt($addr, $offset, 8);
+    }
+
+    /**
+     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
+    */
+    protected function readUInt16(int|Relocation $addr, int $offset = 0): int
+    {
+        return $this->readUInt($addr, $offset, 16);
+    }
+
+    /**
+     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
+    */
+    protected function readUInt32(int|Relocation $addr, int $offset = 0): int
+    {
+        return $this->readUInt($addr, $offset,  32);
     }
 
     /**
