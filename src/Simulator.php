@@ -192,7 +192,7 @@ class Simulator
                     // FIXME: This is confusing:
                     // - Object relocation address is the address of the literal pool data item
                     // - Test relocation address is the value of the literal pool item
-                    $this->memory->writeUint32($objectRelocation->address, $testRelocation->address);
+                    $this->memory->writeUint32($objectRelocation->address, $testRelocation->address + $objectRelocation->offset);
                     $found = true;
                     break;
                 }
@@ -350,35 +350,6 @@ class Simulator
                 $this->log("MOV.L       R$m,@R$n\n");
 
                 $addr = $this->registers[$n];
-
-                // if ($addr instanceof Relocation) {
-                //     // TODO: Use read proxy?
-                //     $relData = $this->memory->readUInt32($addr->address);
-                    
-                //     $expectation = array_shift($this->pendingExpectations);
-
-                //     // TODO: Handle non offset reads?
-                //     if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
-                //         throw new \Exception("Unexpected offset write", 1);
-                //     }
-                    
-                //     if ($expectation->name !== $addr->name) {
-                //         throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
-                //     }
-
-                //     if ($expectation->offset !== $relData) {
-                //         throw new \Exception("Unexpected offset write 0x" . dechex($relData) . " offset. Expecting offset 0x" . dechex($expectation->offset), 1);
-                //     }
-
-                //     if ($expectation->value !== $this->registers[$m]) {
-                //         throw new \Exception("Unexpected offset write value 0x" . dechex($this->registers[$m]) . ". Expecting 0x" . dechex($expectation->value), 1);
-                //     }
-
-                //     // TODO: How to store expected offset write?
-                //     // Or should it be all handle in expectations?
-                //     return;
-                // }
-
                 $this->writeUint32($this->registers[$n], 0, $this->registers[$m]);
                 return;
 
@@ -1010,7 +981,7 @@ class Simulator
     public function getRelocationAt(int $address): ?Relocation
     {
         foreach ($this->relocations as $relocation) {
-            if ($relocation->address !== $address) continue;
+            if (($relocation->address) !== $address) continue;
 
             return $relocation;
         }
@@ -1054,6 +1025,10 @@ class Simulator
 
             if ($expectation->offset !== $relData + $offset) {
                 throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
+            }
+
+            if ($addr->offset) {
+                throw new \Exception("Unsupported relocation with offset and relData", 1);
             }
 
             array_shift($this->pendingExpectations);

@@ -1,0 +1,7 @@
+          .IMPORT     _peripheral_8c1ba35c
+          .IMPORT     _other_import
+          .SECTION    P,CODE,ALIGN=4
+          .DATA.L     _peripheral_8c1ba35c ; H'8C016D1C
+          .DATA.L     H'0000002A+_peripheral_8c1ba35c ; H'8C016D1C
+          .DATA.L     H'0000002B+_other_import ; H'8C016D1C
+          .END

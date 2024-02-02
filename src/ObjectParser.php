@@ -61,18 +61,19 @@ readonly class Relocation{
         public int $flags,
         public int $address,
         public int $bitloc,
-        public int $flen,
+        public int $fieldLength,
         public int $bcount,
         public int $operator,
         public int $section,
         public int $opcode,
         public int $addendLen,
         public int $relLen,
-        public int $ukn1,
-        public int $ukn2,
+        // public int $ukn1,
+        // public int $ukn2,
         public int $importIndex,
-        public int $ukn3,
+        // public int $ukn3,
         public string $name,
+        public int $offset,
     ) {
         // if ($operator != 8) {
         //     throw new \Exception("Unsupported relocation operator $operator", 1);
@@ -199,40 +200,79 @@ class ObjectParser
 
                 case ChunkType::Relocation:
                     while($reader->tell() < $chunkBase + $len) {
+                        // TODO: Move to Relocation
 
                         $flags = $reader->readUInt8();
                         $address = $reader->readUInt32BE();
                         $bitloc = $reader->readUInt8();
-                        $flen = $reader->readUInt8();
+                        $fieldLength = $reader->readUInt8();
                         $bcount = $reader->readUInt8();
                         $operator = $reader->readUInt8();
+
+                        if ($operator != 8) {
+                            throw new \Exception("Unsupported relocation operator $operator", 1);
+                        }
+
                         $section = $reader->readUInt16();
                         $opcode = $reader->readUint8();
                         $addendLen = $reader->readUInt8();
-                        $relLen = $reader->readUInt8();
-                        $ukn1 = $reader->readUInt8();
-                        $ukn2 = $reader->readUInt8();
-                        $importIndex = $reader->readUInt8();
-                        $ukn3 = $reader->readUInt8();
 
-                        $name = $this->imports[$importIndex]->name;
+                        // Probably should not be determined by relocation data length
+                        $relLen = $reader->readUInt8();
+                        if ($relLen === 4) {
+                            $maybeRelType = $reader->readUInt8();
+                            if ($maybeRelType !== 2) {
+                                throw new \Exception("Wrong relocation data type $type?", 1);
+                            }
+
+                            $maybeImportIndexHighNible = $reader->readUInt8();
+                            if ($maybeImportIndexHighNible) {
+                                echo "WARN: Value found in possible import index high nible\n";
+                            }
+
+                            $importIndex = $reader->readUInt8();
+                            $name = $this->imports[$importIndex]->name;
+                            $offset = 0;
+                        } elseif ($relLen === 11) {
+                            $maybeRelType = $reader->readUInt8();
+                            if ($maybeRelType !== 3) {
+                                throw new \Exception("Wrong relocation data type $type?", 1);
+                            }
+
+                            $reader->eat(4);
+                            $offset = $reader->readUInt8();
+                            $reader->eat(2);
+                            $importIndex = $reader->readUInt8();
+                            $name = $this->imports[$importIndex]->name;
+
+                            $reader->eat(1);
+                        } else {
+                            throw new \Exception("Unsupported relocation length $relLen", 1);
+                        }
+
+                        $terminator = $reader->readUInt8();
+                        if ($terminator !== 0xff) {
+                            throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
+                            
+                        } 
 
                         $this->relocations[] = new Relocation(
                             $flags,
                             $address,
                             $bitloc,
-                            $flen,
+                            $fieldLength,
                             $bcount,
                             $operator,
                             $section,
                             $opcode,
                             $addendLen,
                             $relLen,
-                            $ukn1,
-                            $ukn2,
+                            //$ukn1,
+                            //$ukn2,
                             $importIndex,
-                            $ukn3,
+                            //$ukn3,
                             $name,
+                            $offset,
                         );
                     }
                     break;
@@ -254,7 +294,7 @@ class ObjectParser
         //     "flags",
         //     "address",
         //     "bitloc",
-        //     "flen",
+        //     "fieldLength",
         //     "bcount",
         //     "operator",
         //     "section",
@@ -272,7 +312,7 @@ class ObjectParser
         //         dechex($r->flags),
         //         dechex($r->address),
         //         $r->bitloc,
-        //         $r->flen,
+        //         $r->fieldLength,
         //         $r->bcount,
         //         dechex($r->operator),
         //         $r->section,

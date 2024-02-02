@@ -1,0 +1,133 @@
+          .IMPORT     _sdMidiPlay
+          .IMPORT     _midiHandles_8c0fcd28
+          .IMPORT     _peripheral_8c1ba35c
+          .IMPORT     __modls
+          .EXPORT     _cycleOptionAndPlaySound_8c016c58
+          .EXPORT     _FUN_8c016caa
+          .SECTION    P,CODE,ALIGN=4
+_cycleOptionAndPlaySound_8c016c58:
+                                 ; function: cycleOptionAndPlaySound_8c016c58
+                                 ; frame size=16
+                                 ; used runtime library name:
+                                 ; __modls
+          MOV.L       R14,@-R15
+          STS.L       PR,@-R15
+          ADD         #-8,R15
+          MOV.L       R4,@(4,R15)
+          MOV         #64,R3
+          MOV.L       L1358+2,R4 ; _peripheral_8c1ba35c
+          MOV.L       R5,@R15
+          MOV.L       @(16,R4),R4
+          MOV.L       @(4,R15),R14
+          TST         R4,R3
+          BT/S        L1340
+          MOV.L       @R14,R14
+          MOV.L       @R15,R1
+          ADD         R14,R1
+          MOV         R1,R14
+          BRA         L1341
+          ADD         #-1,R14
+L1340:                            
+          MOV.W       L1358,R2   ; H'0080
+          TST         R2,R4
+          BT          L1342
+          BRA         L1341
+          ADD         #1,R14
+L1342:                            
+          MOV         #0,R0
+          ADD         #8,R15
+          LDS.L       @R15+,PR
+          RTS
+          MOV.L       @R15+,R14
+L1341:                            
+          MOV.L       L1358+6,R4 ; _midiHandles_8c0fcd28
+          MOV         #1,R5
+          MOV.L       L1358+10,R3; _sdMidiPlay
+          MOV         #0,R7
+          MOV         #3,R6
+          JSR         @R3
+          MOV.L       @R4,R4
+          MOV.L       L1358+14,R3; __modls
+          MOV         R14,R1
+          MOV.L       @(4,R15),R2
+          JSR         @R3
+          MOV.L       @R15,R0
+          MOV.L       R0,@R2
+          MOV         #1,R0
+L1344:                            
+          ADD         #8,R15
+          LDS.L       @R15+,PR
+          RTS
+          MOV.L       @R15+,R14
+_FUN_8c016caa:                   ; function: FUN_8c016caa
+                                 ; frame size=20
+          MOV.L       R14,@-R15
+          MOV         R4,R14
+          MOV.L       R13,@-R15
+          MOV.L       R12,@-R15
+          MOV.L       R11,@-R15
+          STS.L       PR,@-R15
+          MOV.L       @R14,R3
+          MOV.L       L1358+2,R13; _peripheral_8c1ba35c
+          MOV.L       L1358+6,R11; _midiHandles_8c0fcd28
+          TST         R3,R3
+          MOV.L       L1358+10,R12; _sdMidiPlay
+          BF          L1345
+          MOV.L       @(16,R13),R0
+          TST         #128,R0
+          BT          L1347
+          BRA         L1356
+          MOV         #1,R2
+L1345:                            
+          MOV.L       @(16,R13),R0
+          TST         #64,R0
+          BT          L1347
+          MOV         #0,R2
+L1356:                            
+          MOV         #3,R6
+          MOV.L       R2,@R14
+          MOV         #1,R5
+          MOV         #0,R7
+          JSR         @R12
+          MOV.L       @R11,R4
+L1347:                            
+          MOV.L       @(16,R13),R0
+          TST         #4,R0
+          BT          L1349
+          MOV.L       @R14,R2
+          TST         R2,R2
+          BF          L1337
+          MOV         #0,R7
+          MOV         #1,R5
+          MOV         R7,R6
+          JSR         @R12
+          MOV.L       @R11,R4
+          BRA         L1351
+          MOV         #1,R0
+L1349:                            
+          TST         #2,R0
+          BT          L1357
+L1337:
+          MOV         #1,R6
+          MOV         R6,R5
+          MOV         #0,R7
+          JSR         @R12
+          MOV.L       @R11,R4
+          BRA         L1351
+          MOV         #2,R0
+L1357:                            
+          MOV         #0,R0
+L1351:                            
+          LDS.L       @R15+,PR
+          MOV.L       @R15+,R11
+          MOV.L       @R15+,R12
+          MOV.L       @R15+,R13
+          RTS
+          MOV.L       @R15+,R14
+L1358:                            
+          .DATA.W     H'0080
+          .DATA.L     _peripheral_8c1ba35c
+          .DATA.L     _midiHandles_8c0fcd28
+          .DATA.L     _sdMidiPlay
+          .DATA.L     __modls
+          .END
