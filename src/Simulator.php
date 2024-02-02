@@ -739,6 +739,13 @@ class Simulator
                 $this->registers[$n] <<= 1;
                 return;
 
+            // SHLL2  Rn;
+            case 0x4008:
+                $n = getN($instruction);
+                $this->log("SHLL2       R$n\n");
+                $this->registers[$n] <<= 2;
+                return;
+
             // JSR
             case 0x400b:
                 $n = getN($instruction);
@@ -773,6 +780,13 @@ class Simulator
                 }
                 return;
 
+            // SHLL8  Rn;
+            case 0x4018:
+                $n = getN($instruction);
+                $this->log("SHLL8       R$n\n");
+                $this->registers[$n] <<= 8;
+                return;
+
             // STS.L PR,@-<REG_N>
             case 0x4022:
                 $this->log("STS.L PR,@-<REG_N>\n");
@@ -790,6 +804,13 @@ class Simulator
                 $this->pr = $this->memory->readUInt32($this->registers[$n]);
 
                 $this->registers[$n] += 4;
+                return;
+
+            // SHLL16 Rn;
+            case 0x4028:
+                $n = getN($instruction);
+                $this->log("SHLL16      R$n\n");
+                $this->registers[$n] <<= 16;
                 return;
 
             // JMP
