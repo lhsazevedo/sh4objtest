@@ -655,7 +655,7 @@ class Simulator
                 $m = getM($instruction);
                 $disp = getImm4($instruction);
                 $this->log("MOV.B       @($disp, R$m),R0");
-                $this->registers[0] = $this->readUInt8($m, $disp);
+                $this->registers[0] = $this->readUInt8($this->registers[$m], $disp);
                 return;
 
             // CMP/EQ #<imm>,R0
