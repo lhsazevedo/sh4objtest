@@ -454,9 +454,16 @@ class Simulator
 
             // NEG <REG_M>,<REG_N>
             case 0x600b:
-                $this->log("NEG <REG_M>,<REG_N>\n");
                 [$n, $m] = getNM($instruction);
+                $this->log("NEG         R$m,R$n\n");
                 $this->registers[$n] = -$this->registers[$m];
+                return;
+
+            // EXTU.B <REG_M>,<REG_N>
+            case 0x600c:
+                [$n, $m] = getNM($instruction);
+                $this->log("EXTU.B      R$m,R$n\n");
+                $this->registers[$n] = $this->registers[$m] & 0xff;
                 return;
 
             // FSUB <FREG_M>,<FREG_N>
