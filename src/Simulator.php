@@ -652,10 +652,10 @@ class Simulator
         switch ($instruction & 0xff00) {
             // MOV.B @(<disp>, <REG_M>),R0
             case 0x8400:
-                $n = getN($instruction);
+                $m = getM($instruction);
                 $disp = getImm4($instruction);
-                $this->log("MOV.B       @($disp, R$n),R0");
-                $this->registers[0] = $this->readUInt8($n, $disp);
+                $this->log("MOV.B       @($disp, R$m),R0");
+                $this->registers[0] = $this->readUInt8($m, $disp);
                 return;
 
             // CMP/EQ #<imm>,R0
