@@ -377,6 +377,13 @@ class Simulator
 
                 return;
 
+            // OR Rm,Rn
+            case 0x200b:
+                [$n, $m] = getNM($instruction);
+                $this->log("OR          R$m,R$n\n");
+                $this->registers[$n] |= $this->registers[$m];
+                return;
+
             // CMP/HS <REG_M>,<REG_N>
             case 0x3002:
                 [$n, $m] = getNM($instruction);
