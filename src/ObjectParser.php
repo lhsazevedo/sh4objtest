@@ -222,7 +222,7 @@ class ObjectParser
                         if ($relLen === 4) {
                             $maybeRelType = $reader->readUInt8();
                             if ($maybeRelType !== 2) {
-                                throw new \Exception("Wrong relocation data type $type?", 1);
+                                echo "WARN: Wrong relocation data type $type?";
                             }
 
                             $maybeImportIndexHighNible = $reader->readUInt8();
@@ -236,7 +236,7 @@ class ObjectParser
                         } elseif ($relLen === 11) {
                             $maybeRelType = $reader->readUInt8();
                             if ($maybeRelType !== 3) {
-                                throw new \Exception("Wrong relocation data type $type?", 1);
+                                echo "Wrong relocation data type $type?";
                             }
 
                             $reader->eat(4);
