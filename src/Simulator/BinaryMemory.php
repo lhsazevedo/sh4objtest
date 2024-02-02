@@ -34,7 +34,7 @@ class BinaryMemory {
 
     public function writeUInt8(int $address, int $value)
     {
-        $this->memory[$address] = $value;
+        $this->memory[$address] = pack('C', $value);
     }
 
     public function writeUInt16(int $address, int $value)
