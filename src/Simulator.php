@@ -191,6 +191,12 @@ class Simulator
             }
         }
 
+        // Note: Object offset is assumed to be 0.
+        // TODO: Does not need to happen every run.
+        foreach ($this->object->internalAddressRelocations as $iar) {
+            $this->memory->writeUInt32($iar->address, $iar->target);
+        }
+
         $newObjectRelocations = [];
         foreach ($this->object->relocations as $objectRelocation) {
             $found = false;
@@ -260,6 +266,7 @@ class Simulator
     {
         // TODO: refactor duplicated code
         $instruction = $this->readInstruction($this->pc);
+        $this->log("; 0x" . dechex($this->pc) . ' ' . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT) . "   _");
         $this->pc += 2;
         $this->executeInstruction($instruction);
     }
@@ -886,7 +893,7 @@ class Simulator
 
                 $addr = (($this->pc + 2) & 0xFFFFFFFC);
 
-                $this->log("MOV.L       @($imm,PC),R$n\n");
+                $this->log("MOV.L       @($disp,PC),R$n\n");
 
                 $data = $this->readUInt32($addr, $disp);
 
@@ -927,16 +934,21 @@ class Simulator
         }
 
         if ($expectation->parameters) {
-            // TODO: Handle other calling convetions
-            $params = 0;
-            $floatParams = 0;
+            // TODO: Handle other calling convetions?
+            $args = 0;
+            $floatArgs = 0;
             $stackOffset = 0;
-            foreach ($expectation->parameters as $i => $expected) {
-                if (is_int($expected)) {
-                    $params++;
+            foreach ($expectation->parameters as $expected) {
+                if ($expected instanceof WildcardArgument) {
+                    $args++;
+                    continue;
+                }
 
-                    if ($params <= 4) {
-                        $register = $params + 4 - 1;
+                if (is_int($expected)) {
+                    $args++;
+
+                    if ($args <= 4) {
+                        $register = $args + 4 - 1;
                         $actual = $this->registers[$register];
                         if ($actual !== $expected) {
                             throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected, got $actual", 1);
@@ -955,10 +967,10 @@ class Simulator
 
                     $stackOffset++;
                 } elseif (is_float($expected)) {
-                    $floatParams++;
+                    $floatArgs++;
 
-                    if ($floatParams <= 4) {
-                        $register = $floatParams + 4 - 1;
+                    if ($floatArgs <= 4) {
+                        $register = $floatArgs + 4 - 1;
                         $actual = $this->fregisters[$register];
                         $actualDecRepresentation = unpack('L', pack('f', $actual))[1];
                         $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
@@ -982,32 +994,14 @@ class Simulator
                 } else {
                     throw new \Exception("Only integer and floats are supported as parameter expectation", 1);
                 }
-
-
-
-                // if ($i < 4) {
-                //     $register = 4 + $i;
-                //     $actual = $this->registers[$register];
-                //     if ($actual !== $expected) {
-                //         throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected, got $actual", 1);
-                //     }
-
-                //     continue;
-                // }
-
-                // $offset = ($i - 4) * 4;
-                // $address = $this->registers[15] + $offset;
-                // $actual = $this->memory->readUInt32($address);
-
-                // if ($actual !== $expected) {
-                //     throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
-                // }
             }
         }
 
         if ($expectation->return !== null) {
             $this->registers[0] = $expectation->return;
         }
+
+        $this->log("✅ Expectation fulfilled: Call expectation to " . $name . "\n");
     }
 
     public function hexdump()
@@ -1015,17 +1009,25 @@ class Simulator
         echo "PC: " . dechex($this->pc) . "\n";
         // print_r($this->registers);
 
-        // TODO: Unhardcode memory size
-        // for ($i=0; $i < 1024; $i++) {
-        //     if ($i % 16 === 0) {
-        //         echo "\n";
-        //         echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
-        //     } else if ($i !== 0 && $i % 4 === 0) {
-        //         echo " ";
-        //     }
+        return;
 
-        //     echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
-        // }
+        // TODO: Unhardcode memory size
+        for ($i=0; $i < 4096; $i++) {
+            if ($i % 16 === 0) {
+                echo "\n";
+                echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
+            } else if ($i !== 0 && $i % 4 === 0) {
+                echo " ";
+            }
+
+            if ($this->getRelocationAt($i)) {
+                echo "RR RR RR RR ";
+                $i += 3;
+                continue;
+            }
+
+            echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
+        }
     }
 
     public function getRelocationAt(int $address): ?Relocation
@@ -1160,12 +1162,16 @@ class Simulator
 
         $displacedAddr = $addr + $offset;
 
+        // TODO: Improve code flow
         if ($expectation instanceof WriteExpectation && $expectation->address === $displacedAddr) {
             if ($value !== $expectation->value) {
                 throw new \Exception("Unexpected write value $value, expecting $expectation->value", 1);
             }
 
             array_shift($this->pendingExpectations);
+            $this->log("✅ WriteExpectation fulfilled: Wrote " . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n");
+        } else {
+            throw new \Exception("Unexpected write of 0x" . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n", 1);
         }
 
         $this->memory->writeUInt32($displacedAddr, $value);

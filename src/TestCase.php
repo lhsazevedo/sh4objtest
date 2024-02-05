@@ -10,6 +10,7 @@ abstract class AbscractExpectation {}
 
 class CallExpectation extends AbscractExpectation
 {
+    /** @var int|float|WildcardArgument */
     public array $parameters = [];
 
     public ?int $return = null;
@@ -94,6 +95,10 @@ readonly class MemoryInitialization
     {}
 }
 
+class WildcardArgument
+{
+
+}
 
 class TestCase
 {

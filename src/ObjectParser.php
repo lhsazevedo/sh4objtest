@@ -79,6 +79,19 @@ readonly class Relocation{
         //     throw new \Exception("Unsupported relocation operator $operator", 1);
         // }
     }
+
+    public function __toString(): string
+    {
+        return "Relocation($this->name)";
+    }
+}
+
+class InternalAddressRelocation
+{
+    public function __construct(
+        public readonly int $address,
+        public readonly int $target,
+    ) {}
 }
 
 class ParsedObject {
@@ -92,20 +105,11 @@ class ParsedObject {
         public array $relocations,
 
         public string $code,
+
+        /** @var InternalAddressRelocations[] */
+        public array $internalAddressRelocations,
     )
     {}
-
-    // Moved to Simulator
-    // public function getRelocationAt(int $address): ?Relocation
-    // {
-    //     foreach ($this->relocations as $relocation) {
-    //         if ($relocation->address !== $address) continue;
-
-    //         return $relocation;
-    //     }
-
-    //     return null;
-    // }
 }
 
 class ObjectParser
@@ -123,6 +127,9 @@ class ObjectParser
 
     /** @var Relocation[] */
     private array $relocations = [];
+
+    /** @var InternalAddressRelocation[] */
+    private array $internalAddressRelocations = [];
 
     private function realParse($objectFile): ParsedObject
     {
@@ -222,8 +229,10 @@ class ObjectParser
                         if ($relLen === 4) {
                             $maybeRelType = $reader->readUInt8();
                             if ($maybeRelType !== 2) {
-                                echo "WARN: Wrong relocation data type $type?\n";
+                                echo "WARN: Wrong relocation data type for relLen $relLen: $maybeRelType?\n";
                             }
+
+                            // External Symbol Relocation
 
                             $maybeImportIndexHighNible = $reader->readUInt8();
                             if ($maybeImportIndexHighNible) {
@@ -235,17 +244,32 @@ class ObjectParser
                             $offset = 0;
                         } elseif ($relLen === 11) {
                             $maybeRelType = $reader->readUInt8();
-                            if ($maybeRelType !== 3) {
-                                echo "Wrong relocation data type $type?\n";
+                            if ($maybeRelType === 3) {
+                                // External Symbol Offset Relocation
+                                $reader->eat(4);
+                                $offset = $reader->readUInt8();
+                                $reader->eat(2);
+                                $importIndex = $reader->readUInt8();
+                                $name = $this->imports[$importIndex]->name;
+
+                                $reader->eat(1);
+                            } else if ($maybeRelType === 0) {
+                                // Internal Address Relocation
+                                $reader->eat(6);
+                                $target = $reader->readUInt16BE();
+                                $reader->eat(1);
+                                $reader->eat(1);
+
+                                // TODO: Fix this code flow, probably by adding
+                                // classes for different kinds of relocation
+                                $this->internalAddressRelocations[] = new InternalAddressRelocation(
+                                    $address,
+                                    $target
+                                );
+                                continue;
+                            } else {
+                                echo "WARN: Wrong relocation data type for relLen $relLen: $maybeRelType?\n";
                             }
-
-                            $reader->eat(4);
-                            $offset = $reader->readUInt8();
-                            $reader->eat(2);
-                            $importIndex = $reader->readUInt8();
-                            $name = $this->imports[$importIndex]->name;
-
-                            $reader->eat(1);
                         } else {
                             throw new \Exception("Unsupported relocation length $relLen", 1);
                         }
@@ -253,8 +277,7 @@ class ObjectParser
                         $terminator = $reader->readUInt8();
                         if ($terminator !== 0xff) {
                             throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                            
-                        } 
+                        }
 
                         $this->relocations[] = new Relocation(
                             $flags,
@@ -327,7 +350,12 @@ class ObjectParser
         // }
         // exit;
 
-        return new ParsedObject($this->exports, $this->relocations, $this->modules[0]->units[0]->assembleObjectData());
+        return new ParsedObject(
+            $this->exports,
+            $this->relocations,
+            $this->modules[0]->units[0]->assembleObjectData(),
+            $this->internalAddressRelocations,
+        );
     }
 
     public static function parse($objectFile): ParsedObject
