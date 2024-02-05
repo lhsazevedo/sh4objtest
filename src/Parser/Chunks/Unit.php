@@ -56,7 +56,7 @@ class Unit extends Base
             if ($objectDataEntry->address > $currentLength) {
                 $data = str_pad($data, $objectDataEntry->address, "\0", STR_PAD_RIGHT);
             } elseif ($objectDataEntry->address < $currentLength) {
-                throw new \Exception("Unexpected object address", 1);
+                throw new \Exception("Unexpected object address 0x" . dechex($objectDataEntry->address) . ", current length is 0x" . dechex($currentLength), 1);
             }
 
             $data .= $objectDataEntry->data;
