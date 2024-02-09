@@ -668,6 +668,19 @@ class Simulator
                 // }
                 return;
 
+            // FMOV.S <FREG_M>,@<REG_N>
+            case 0xf00a:
+                // if (fpscr.SZ == 0) {
+                    [$n, $m] = getNM($instruction);
+                    $this->log("FMOV.S      FR$m,@R$n\n");
+
+                    $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
+                    $this->memory->writeUInt32($this->registers[$n], $value);
+                // } else {
+                    // ...
+                // }
+                return;
+
             // FMOV.S <FREG_M>,@-<REG_N>
             case 0xf00b:
                 $this->log("FMOV.S <FREG_M>,@-<REG_N>\n");
