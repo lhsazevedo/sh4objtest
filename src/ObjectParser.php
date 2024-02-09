@@ -333,8 +333,8 @@ final class ObjectParser
                         break;
                     }
 
-                    echo "Unknown chunk type " . dechex($type) . "\n";
-                    xdump($reader->readBytes($len - 3));
+                    // echo "WARN: Unknown chunk type " . dechex($type) . "\n";
+                    // xdump($reader->readBytes($len - 3));
                     // throw new \Exception("Unknown chunk type " . dechex($type), 1);
                     break;
             }
