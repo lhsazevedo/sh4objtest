@@ -1215,7 +1215,7 @@ class Simulator
 
             array_shift($this->pendingExpectations);
             $this->log("✅ WriteExpectation fulfilled: Wrote " . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n");
-        } else {
+        } else if ($displacedAddr < $this->pr) { // Stack writes are allowed (TODO: Allow user to define allowed writes)
             throw new \Exception("Unexpected write of 0x" . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n", 1);
         }
 

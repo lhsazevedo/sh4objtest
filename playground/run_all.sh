@@ -13,7 +13,13 @@
 ./sh4objtest "playground/global_struct/pointer_offset/main.php"
 ./sh4objtest "playground/operators/comparison/main.php"
 
+./sh4objtest playground/tbg/FUN_8c0207d4/main.php playground/tbg/FUN_8c0207d4/main_c.obj
+./sh4objtest playground/tbg/FUN_8c0207d4/main.php playground/tbg/FUN_8c0207d4/main_src.obj
+
 ./sh4objtest playground/tbg/title/main.php playground/tbg/title/main.obj
+
+./sh4objtest playground/tbg/_027736_8c016c58/main.php playground/tbg/_027736_8c016c58/main_c.obj
+./sh4objtest playground/tbg/_027736_8c016c58/main.php playground/tbg/_027736_8c016c58/main_src.obj
 
 ./sh4objtest playground/tbg/_012100_8c012f44/main.php playground/tbg/_012100_8c012f44/main_c.obj
 ./sh4objtest playground/tbg/_012100_8c012f44/main.php playground/tbg/_012100_8c012f44/main_src.obj
