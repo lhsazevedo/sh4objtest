@@ -1,0 +1,9 @@
+          .SECTION    P,CODE,ALIGN=4
+          .DATA.L     _dataInP
+          .DATA.L     _dataInC
+_dataInP:
+          .DATA.L     H'BEBACAFE
+          .SECTION    C,DATA,ALIGN=4
+_dataInC:
+          .DATA.L     H'42424242
+          .END

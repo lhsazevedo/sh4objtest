@@ -32,19 +32,19 @@ class BinaryMemory {
         return $unpacked[1];
     }
 
-    public function writeUInt8(int $address, int $value)
+    public function writeUInt8(int $address, int $value): void
     {
         $this->memory[$address] = pack('C', $value);
     }
 
-    public function writeUInt16(int $address, int $value)
+    public function writeUInt16(int $address, int $value): void
     {
         $data = pack('v', $value);
         $this->memory[$address] = $data[0] ?? "\0";
         $this->memory[$address + 1] = $data[1] ?? "\0";
     }
 
-    public function writeUInt32(int $address, int $value)
+    public function writeUInt32(int $address, int $value): void
     {
         $data = pack('V', $value);
         $this->memory[$address] = $data[0] ?? "\0";
@@ -53,7 +53,7 @@ class BinaryMemory {
         $this->memory[$address + 3] = $data[3] ?? "\0";
     }
 
-    public function writeBytes(int $address, string $data)
+    public function writeBytes(int $address, string $data): void
     {
         for ($i = 0; $i < strlen($data); $i++) { 
             $this->memory[$address + $i] = $data[$i];

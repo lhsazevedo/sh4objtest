@@ -1,4 +1,5 @@
 /vendor
+/vendor-bin
 /dwfinf
 
 set_kt.sh

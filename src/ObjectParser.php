@@ -5,9 +5,29 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Parser\ChunkType;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Module;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Unit;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ModuleHeader;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\UnitHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
+use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
+use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
+
+function hexpad($hex, $len)
+{
+    return str_pad($hex, $len, '0', STR_PAD_LEFT);
+}
+
+function xdump(string $data): void
+{
+    $data = bin2hex($data);
+    $data = str_split($data, 2);
+    $data = array_chunk($data, 16);
+
+    foreach ($data as $i => $v) {
+        echo '0x' . hexpad(dechex($i * 16), 4) . ': ' . join(' ', $v) . "\n";
+    }
+}
 
 class Chunk {
     public ChunkType $type;
@@ -26,7 +46,7 @@ class Chunk {
             0x04 => ChunkType::ModuleHeader,
             0x06 => ChunkType::UnitHeader,
             0x07 => ChunkType::UnitDebug,
-            0x08 => ChunkType::Section,
+            0x08 => ChunkType::SectionHeader,
             0x0c => ChunkType::Imports,
             0x14 => ChunkType::Exports,
             0x1a => ChunkType::SectionSelection,
@@ -56,44 +76,6 @@ readonly class ExportSymbol
     ) {}
 }
 
-readonly class Relocation{
-    public function __construct(
-        public int $flags,
-        public int $address,
-        public int $bitloc,
-        public int $fieldLength,
-        public int $bcount,
-        public int $operator,
-        public int $section,
-        public int $opcode,
-        public int $addendLen,
-        public int $relLen,
-        // public int $ukn1,
-        // public int $ukn2,
-        public int $importIndex,
-        // public int $ukn3,
-        public string $name,
-        public int $offset,
-    ) {
-        // if ($operator != 8) {
-        //     throw new \Exception("Unsupported relocation operator $operator", 1);
-        // }
-    }
-
-    public function __toString(): string
-    {
-        return "Relocation($this->name)";
-    }
-}
-
-class InternalAddressRelocation
-{
-    public function __construct(
-        public readonly int $address,
-        public readonly int $target,
-    ) {}
-}
-
 class ParsedObject {
     public function __construct(
         // public array $imports,
@@ -101,22 +83,16 @@ class ParsedObject {
         /** @var ExportSymbol[] */
         public array $exports,
 
-        /** @var Relocation[] */
-        public array $relocations,
-
-        public string $code,
-
-        /** @var InternalAddressRelocations[] */
-        public array $internalAddressRelocations,
+        public UnitHeader $unit,
     )
     {}
 }
 
-class ObjectParser
+final class ObjectParser
 {
     private const MAGIC = "\x80\x21\x00\x80";
 
-    /** @var Module[] */
+    /** @var ModuleHeader[] */
     private array $modules = [];
 
     /** @var ImportSymbol[] */
@@ -125,21 +101,18 @@ class ObjectParser
     /** @var ExportSymbol[] */
     private array $exports = [];
 
-    /** @var Relocation[] */
-    private array $relocations = [];
-
-    /** @var InternalAddressRelocation[] */
-    private array $internalAddressRelocations = [];
-
-    private function realParse($objectFile): ParsedObject
+    private function realParse(string $objectFile): ParsedObject
     {
         // $obj = file_get_contents($objectFile);
 
-        /** @var Module */
+        /** @var ?ModuleHeader */
         $currentModule = null;
 
-        /** @var Unit */
+        /** @var ?UnitHeader */
         $currentUnit = null;
+
+        /** @var ?SectionHeader */
+        $currentSection = null;
 
         $reader = new BinaryReader($objectFile);
 
@@ -170,14 +143,27 @@ class ObjectParser
                         throw new \Exception("Multiple modules are unsupported at the moment", 1);
                     }
 
-                    $currentModule = new Module($reader);
+                    $currentModule = new ModuleHeader($reader);
                     $this->modules[] = $currentModule;
                     break;
 
                 case ChunkType::UnitHeader:
-                    $currentUnit = new Unit($reader);
+                    if ($currentUnit) {
+                        throw new \Exception("Multiple units are unsupported at the moment", 1);
+                    }
+                    if (!$currentModule) {
+                        throw new \Exception("Invalid SysRof: Unit without module", 1);
+                    }
+                    $currentUnit = new UnitHeader($reader);
                     $currentModule->addUnit($currentUnit);
                     break;
+
+                case ChunkType::SectionHeader:
+                    if (!$currentModule) {
+                        throw new \Exception("Invalid SysRof: Section without unit", 1);
+                    }
+                    $currentSection = new SectionHeader($reader);
+                    $currentUnit->addSection($currentSection);
 
                 case ChunkType::Exports:
                     while($reader->tell() < $chunkBase + $len) {
@@ -202,14 +188,16 @@ class ObjectParser
                     break;
 
                 case ChunkType::ObjectData:
-                    $currentUnit->addObjectData(new ObjectData($reader));
+                    $currentSection->addObjectData(new ObjectData($reader));
                     break;
 
                 case ChunkType::Relocation:
                     while($reader->tell() < $chunkBase + $len) {
                         // TODO: Move to Relocation
+                        $raw = $reader->peekBytes(14);
 
                         $flags = $reader->readUInt8();
+
                         $address = $reader->readUInt32BE();
                         $bitloc = $reader->readUInt8();
                         $fieldLength = $reader->readUInt8();
@@ -221,27 +209,41 @@ class ObjectParser
                         }
 
                         $section = $reader->readUInt16();
-                        $opcode = $reader->readUint8();
+                        $opcode = $reader->readUInt8();
                         $addendLen = $reader->readUInt8();
 
                         // Probably should not be determined by relocation data length
                         $relLen = $reader->readUInt8();
+                        $raw .= $reader->peekBytes($relLen);
                         if ($relLen === 4) {
                             $maybeRelType = $reader->readUInt8();
-                            if ($maybeRelType !== 2) {
-                                echo "WARN: Wrong relocation data type for relLen $relLen: $maybeRelType?\n";
+                            if ($maybeRelType === 2) {
+                                // External Symbol Relocation
+                                $maybeImportIndexHighNible = $reader->readUInt8();
+                                if ($maybeImportIndexHighNible) {
+                                    echo "WARN: Value found in possible import index high nible\n";
+                                }
+
+                                $importIndex = $reader->readUInt8();
+                                $name = $this->imports[$importIndex]->name;
+                                $offset = 0;
+                            } else if ($maybeRelType === 0) {
+                                // Internal Address Relocation (short form, data in object code)
+                                $sectionIndex = $reader->readUInt16BE();
+                                $currentSection->addLocalRelocationShort(new LocalRelocationShort(
+                                    $sectionIndex,
+                                    $address,
+                                ));
+
+                                $terminator = $reader->readUInt8();
+                                if ($terminator !== 0xff) {
+                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
+                                }
+
+                                continue;
+                            } else {
+                                echo "WARN: Wrong relocation data type for relLen 4: $maybeRelType?\n";
                             }
-
-                            // External Symbol Relocation
-
-                            $maybeImportIndexHighNible = $reader->readUInt8();
-                            if ($maybeImportIndexHighNible) {
-                                echo "WARN: Value found in possible import index high nible\n";
-                            }
-
-                            $importIndex = $reader->readUInt8();
-                            $name = $this->imports[$importIndex]->name;
-                            $offset = 0;
                         } elseif ($relLen === 11) {
                             $maybeRelType = $reader->readUInt8();
                             if ($maybeRelType === 3) {
@@ -254,21 +256,35 @@ class ObjectParser
 
                                 $reader->eat(1);
                             } else if ($maybeRelType === 0) {
-                                // Internal Address Relocation
-                                $reader->eat(6);
-                                $target = $reader->readUInt16BE();
+                                // Internal Address Relocation (long form, data in relocation)
+
+                                // Unknown
                                 $reader->eat(1);
+
+                                $sectionIndex = $reader->readUInt8();
+
+                                // Unknown, usually 03 04
+                                $reader->eat(2);
+
+                                $target = $reader->readUInt32BE();
                                 $reader->eat(1);
+
+                                $terminator = $reader->readUInt8();
+                                if ($terminator !== 0xff) {
+                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
+                                }
 
                                 // TODO: Fix this code flow, probably by adding
                                 // classes for different kinds of relocation
-                                $this->internalAddressRelocations[] = new InternalAddressRelocation(
+                                // TODO: 
+                                $currentSection->addLocalRelocationLong(new LocalRelocationLong(
+                                    $sectionIndex,
                                     $address,
                                     $target
-                                );
+                                ));
                                 continue;
                             } else {
-                                echo "WARN: Wrong relocation data type for relLen $relLen: $maybeRelType?\n";
+                                echo "WARN: Wrong relocation data type for relLen 11: $maybeRelType?\n";
                             }
                         } else {
                             throw new \Exception("Unsupported relocation length $relLen", 1);
@@ -279,7 +295,7 @@ class ObjectParser
                             throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
                         }
 
-                        $this->relocations[] = new Relocation(
+                        $relocation = new Relocation(
                             $flags,
                             $address,
                             $bitloc,
@@ -297,68 +313,42 @@ class ObjectParser
                             $name,
                             $offset,
                         );
+                        $currentSection->addRelocation($relocation);
                     }
+                    break;
+
+                case ChunkType::SectionSelection:
+                    $unitIndex = $reader->readUInt16BE();
+                    $sectionIndex = $reader->readUInt16BE();
+
+                    $currentSection = $this->modules[0]->units[$unitIndex]->sections[$sectionIndex];
                     break;
 
                 case ChunkType::Termination:
                     break 2;
 
                 default:
-                    # code...
+                    if (($type & 0x7f) === 0x07) {
+                        // TODO: Negotiation number
+                        break;
+                    }
+
+                    echo "Unknown chunk type " . dechex($type) . "\n";
+                    xdump($reader->readBytes($len - 3));
+                    // throw new \Exception("Unknown chunk type " . dechex($type), 1);
                     break;
             }
 
             $reader->seek($chunkBase + $len);
         }
 
-        // $f = fopen('php://stdout', 'r');
-        // fputcsv($f, [
-        //     "name",
-        //     "flags",
-        //     "address",
-        //     "bitloc",
-        //     "fieldLength",
-        //     "bcount",
-        //     "operator",
-        //     "section",
-        //     "opcode",
-        //     "addendLen",
-        //     "relLen",
-        //     "ukn1",
-        //     "ukn2",
-        //     "importIndex",
-        //     "ukn3",
-        // ]);
-        // foreach ($this->relocations as $r) {
-        //     fputcsv($f, [
-        //         $r->name,
-        //         dechex($r->flags),
-        //         dechex($r->address),
-        //         $r->bitloc,
-        //         $r->fieldLength,
-        //         $r->bcount,
-        //         dechex($r->operator),
-        //         $r->section,
-        //         dechex($r->opcode),
-        //         $r->addendLen,
-        //         $r->relLen,
-        //         $r->ukn1,
-        //         $r->ukn2,
-        //         dechex($r->importIndex),
-        //         $r->ukn3,
-        //     ]);
-        // }
-        // exit;
-
         return new ParsedObject(
             $this->exports,
-            $this->relocations,
-            $this->modules[0]->units[0]->assembleObjectData(),
-            $this->internalAddressRelocations,
+            $this->modules[0]->units[0],
         );
     }
 
-    public static function parse($objectFile): ParsedObject
+    public static function parse(string $objectFile): ParsedObject
     {
         return (new static())->realParse($objectFile);
     }

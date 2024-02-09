@@ -1,0 +1,1619 @@
+          .IMPORT     _njSetTextureMemorySize
+          .IMPORT     _njInitVertexBuffer
+          .IMPORT     _njSetBackColor
+          .IMPORT     _njSetBorderColor
+          .IMPORT     _njInit3D
+          .IMPORT     _njControl3D
+          .IMPORT     _njInitShape
+          .IMPORT     _njInitMatrix
+          .IMPORT     _njSetAspect
+          .IMPORT     _njInitTextureBuffer
+          .IMPORT     _njInitTexture
+          .IMPORT     _njExitTexture
+          .IMPORT     _njInitCacheTextureBuffer
+          .IMPORT     _njLoadTexture
+          .IMPORT     _njSetTextureInfo
+          .IMPORT     _njSetTextureName
+          .IMPORT     _njSetRenderWidth
+          .IMPORT     _njFogEnable
+          .IMPORT     _njSetFogColor
+          .IMPORT     _njGenerateFogTable3
+          .IMPORT     _srand
+          .IMPORT     _gdFsGetStat
+          .IMPORT     _gdFsGetSysHn
+          .IMPORT     _gdFsGetDrvStat
+          .IMPORT     _gdFsReqDrvStat
+          .IMPORT     _gdFsEntryErrFuncAll
+          .IMPORT     _syRtcInit
+          .IMPORT     _syCblCheckCable
+          .IMPORT     _syBtExit
+          .IMPORT     _pdVibMxStop
+          .IMPORT     _sbInitSystem
+          .IMPORT     _sbExitSystem
+          .IMPORT     _pushTask_8c014ae8
+          .IMPORT     _freeTask_8c014b66
+          .IMPORT     _var_8c18ad28
+          .IMPORT     _var_matrix_8c2f8ca0
+          .IMPORT     _var_vbuf_8c255ca0
+          .IMPORT     _var_texbuf_8c277ca0
+          .IMPORT     _var_tex_8c157af8
+          .IMPORT     _var_cachebuf_8c235ca0
+          .IMPORT     _var_shapebuf_8c2f84a0
+          .IMPORT     _var_8c226070
+          .IMPORT     _var_texname_8c18acf8
+          .IMPORT     _init_texlist_8c03bf44
+          .IMPORT     _var_tasks_8c1ba3c8
+          .IMPORT     _var_tasks_8c1ba5e8
+          .IMPORT     _var_tasks_8c1ba808
+          .IMPORT     _var_tasks_8c1bac28
+          .IMPORT     _var_tasks_8c1bb448
+          .IMPORT     _var_8c1bb86c
+          .IMPORT     _var_8c1bc3ec
+          .IMPORT     _var_8c1bc3f0
+          .IMPORT     _var_8c1bc3f4
+          .IMPORT     _var_8c1bc404
+          .IMPORT     _var_8c226434
+          .IMPORT     _var_8c226438
+          .IMPORT     _var_8c228234
+          .IMPORT     _var_8c227e20
+          .IMPORT     _var_8c227e24
+          .IMPORT     _var_8c2288f8
+          .IMPORT     _var_8c1bc438
+          .IMPORT     _var_8c1bc7a8
+          .IMPORT     _var_8c1bc7b4
+          .IMPORT     _var_8c2263a8
+          .IMPORT     _var_8c1ba2e0
+          .IMPORT     _var_8c1ba348
+          .IMPORT     _var_8c1ba344
+          .IMPORT     _var_8c225fb0
+          .IMPORT     _var_8c1ba3c4
+          .IMPORT     _var_8c1bc454
+          .IMPORT     _var_8c1ba34c
+          .IMPORT     _var_busState_8c1bb9d0
+          .IMPORT     _var_8c1bbddc
+          .IMPORT     _var_8c1bbfdc
+          .IMPORT     _var_8c1bb8c4
+          .IMPORT     _var_8c1bb8d8
+          .IMPORT     _var_8c157a6c
+          .IMPORT     _var_mark_parts_dat_8c1bc41c
+          .IMPORT     _var_mark_dat_8c1bc420
+          .IMPORT     _var_busstop_parts_dat_8c1bc428
+          .IMPORT     _var_busstop_dat_8c1bc42c
+          .IMPORT     _var_8c1bc3f8
+          .IMPORT     _var_8c1bc3fc
+          .IMPORT     _var_8c1bc400
+          .IMPORT     _var_8c1ba1c8
+          .IMPORT     _var_8c2260ac
+          .IMPORT     _var_8c2260b8
+          .IMPORT     _var_8c2260c4
+          .IMPORT     _var_8c1bc440
+          .IMPORT     _var_8c1bc444
+          .IMPORT     _var_loadedFooNjm_8c1bc448
+          .IMPORT     _var_8c1bc410
+          .IMPORT     _var_8c1bc414
+          .IMPORT     _var_8c157a78
+          .IMPORT     _var_8c157a7c
+          .IMPORT     _var_vibport_8c1ba354
+          .IMPORT     _init_8c03bd80
+          .IMPORT     _init_8c03bd84
+          .IMPORT     __task_8c013388
+          .IMPORT     _nop_8c011120
+          .IMPORT     _setUknPvmBool_8c014330
+          .IMPORT     _var_8c18ad14
+          .IMPORT     _var_fogTable_8c18aaf8
+          .IMPORT     _var_8c1bc824
+          .IMPORT     _init_8c0460b0
+          .IMPORT     _var_8c1bc450
+          .IMPORT     _var_8c2260a8
+          .IMPORT     _var_demo_8c1bb8d0
+          .IMPORT     _task_8c012cbc
+          .IMPORT     _task_8c01677e
+          .IMPORT     _var_8c1bb8d4
+          .IMPORT     _task_8c012d06
+          .IMPORT     _task_8c012d5a
+          .IMPORT     _task_8c016bf4
+          .IMPORT     _var_8c1bb8cc
+          .IMPORT     _var_8c22847c
+          .IMPORT     _var_8c1bb868
+          .IMPORT     _var_8c228704
+          .IMPORT     _var_8c1bb8c8
+          .IMPORT     _var_seed_8c157a64
+          .IMPORT     _var_8c227dd4
+          .IMPORT     _var_8c227da0
+          .IMPORT     _var_8c1ba292
+          .IMPORT     _var_8c1ba291
+          .IMPORT     _var_8c227da8
+          .IMPORT     _memblkSource_8c0fcd48
+          .IMPORT     _memblkSource_8c0fcd4c
+          .IMPORT     _var_8c157a60
+          .IMPORT     _init_8c03bfa8
+          .IMPORT     _var_8c18ad1c
+          .IMPORT     _var_8c228708
+          .IMPORT     _var_8c22655c
+          .IMPORT     _FUN_8c0144fc
+          .IMPORT     _FUN_8c010924
+          .IMPORT     _setSoundMode_8c0108c0
+          .IMPORT     _FUN_8c010ca6
+          .IMPORT     _sdMidiStopAll
+          .IMPORT     _FUN_8c016182
+          .IMPORT     _FUN_8c015fd6
+          .IMPORT     _kmSetCheapShadowMode
+          .IMPORT     _kmSetFogTable
+          .IMPORT     _clearTasks_8c014a9c
+          .IMPORT     _FUN_8c012160
+          .IMPORT     _FUN_8c0121a2
+          .IMPORT     _FUN_8c0128cc
+          .IMPORT     _FUN_8c025af4
+          .IMPORT     _FUN_8c023610
+          .IMPORT     _FUN_8c02845a
+          .IMPORT     _FUN_8c029920
+          .IMPORT     _FUN_8c0296d6
+          .IMPORT     _FUN_8c02769e
+          .IMPORT     _FUN_8c0222dc
+          .IMPORT     _FUN_8c02a6ac
+          .IMPORT     _FUN_8c02c46a
+          .IMPORT     _FUN_8c02018c
+          .IMPORT     _FUN_8c02d968
+          .IMPORT     _FUN_8c020528
+          .IMPORT     _FUN_8c0228a2
+          .IMPORT     _FUN_8c012166
+          .IMPORT     _FUN_8c01895e
+          .IMPORT     _FUN_8c0121e8
+          .IMPORT     _getUknPvmBool_8c01432a
+          .IMPORT     _FUN_8c011f6c
+          .IMPORT     _request_dat_8c011182
+          .IMPORT     _resetUknPvmBool_8c014322
+          .IMPORT     _FUN_8c011fe0
+          .IMPORT     _FUN_8c011f7e
+          .IMPORT     _FUN_8c010e18
+          .IMPORT     _FUN_8c010fbe
+          .IMPORT     _BupInit_8c014b8c
+          .IMPORT     _FUN_8c013bbc
+          .IMPORT     _FUN_8c02171c
+          .IMPORT     _FUN_8c029acc
+          .IMPORT     _FUN_8c02aa28
+          .IMPORT     _FUN_8c01c8dc
+          .IMPORT     _FUN_8c0189d2
+          .IMPORT     _FUN_8c01c8fc
+          .IMPORT     _FUN_8c01c910
+          .IMPORT     _FUN_8c011f36
+          .IMPORT     _request_pvm
+          .IMPORT     _request_nj_8c011492
+          .IMPORT     _execTasks_8c014b42
+          .EXPORT     _task_8c012f44
+          .EXPORT     _task_8c012f9c
+          .EXPORT     _FUN_8c01306e
+          .EXPORT     _FUN_8c01328c
+          .EXPORT     _FUN_8c013310
+          .EXPORT     _task_8c013388
+          .EXPORT     _usrGdErrFunc_8c0134d6
+          .EXPORT     _njUserInit_8c0134ec
+          .EXPORT     _njUserMain_8c01392e
+          .EXPORT     _njUserExit_8c0139d4
+          .SECTION    P,CODE,ALIGN=4
+_task_8c012f44:                  ; function: task_8c012f44
+                                 ; frame size=4
+          MOV.L       L1569+8,R2 ; _var_8c157a78
+          STS.L       PR,@-R15
+          MOV.L       @R2,R3
+          TST         R3,R3
+          BT          L1514
+          MOV.L       L1569+12,R1; _var_8c157a7c
+          MOV.L       @R1,R3
+          TST         R3,R3
+          BF          L1514
+          MOV.L       L1569+16,R3; _FUN_8c010ca6
+          JSR         @R3
+          MOV         #0,R4
+          MOV.L       L1569+20,R2; _sdMidiStopAll
+          JSR         @R2
+          NOP
+          MOV.L       L1569+24,R3; _var_vibport_8c1ba354
+          MOV.L       @R3,R0
+          CMP/EQ      #-1,R0
+          BT/S        L1515
+          MOV         R0,R4
+          MOV.L       L1569+28,R1; _pdVibMxStop
+          JSR         @R1
+          NOP
+L1515:                            
+          MOV.L       L1569+32,R3; _FUN_8c016182
+          JSR         @R3
+          NOP
+          MOV.L       L1569+36,R3; _var_8c1bb8c4
+          MOV.L       @R3,R2
+          TST         R2,R2
+          BT          L1516
+          MOV.L       L1569+40,R1; _init_8c03bd80
+          MOV         #1,R2
+          MOV         #0,R0
+          MOV.L       R2,@R1
+          MOV.L       L1569+44,R2; _init_8c03bd84
+          BRA         L1514
+          MOV.L       R0,@R2
+L1516:                            
+          MOV.L       L1569+48,R2; _FUN_8c015fd6
+          MOV         #1,R4
+          JMP         @R2
+          LDS.L       @R15+,PR
+L1514:                            
+          LDS.L       @R15+,PR
+          RTS
+          NOP
+_task_8c012f9c:                  ; function: task_8c012f9c
+                                 ; frame size=8
+          MOV.L       L1569+52,R3; _var_demo_8c1bb8d0
+          MOV.L       R14,@-R15
+          STS.L       PR,@-R15
+          MOV.L       @R3,R0
+          CMP/EQ      #1,R0
+          BT/S        L1518
+          MOV         #0,R6
+          MOV.L       L1569+56,R1; _var_8c18ad1c
+          MOV.L       @R1,R0
+          CMP/EQ      #2,R0
+          BF          L1518
+          MOV.L       L1569+60,R2; _var_8c228708
+          MOV.L       @R2,R0
+          TST         R0,R0
+          BF          L1518
+          BRA         L1519
+          MOV         #1,R7
+L1518:                            
+          MOV         R6,R7
+L1519:                            
+          MOV.W       L1569,R0   ; H'027C
+          MOV.L       L1569+68,R5; _var_busState_8c1bb9d0
+          FLDI0       FR3
+          FMOV.S      @(R0,R5),FR2
+          MOV.L       L1569+64,R14; _var_8c22655c
+          FCMP/EQ     FR3,FR2
+          BF          L1520
+          MOV.L       @(8,R4),R0
+          CMP/EQ      #0,R0
+          BT          L1480
+          CMP/EQ      #1,R0
+          BT          L1527
+          BRA         L1527
+          NOP
+L1480:                           ; case label 
+          MOV.W       L1569+2,R0 ; H'03C0
+          MOV.L       @(R0,R5),R2
+          TST         R2,R2
+          BF          L1522
+          TST         R7,R7
+          BF/S        L1523
+          MOV.L       R6,@R14
+          MOV.W       L1569+4,R0 ; H'0268
+          MOV         #2,R2
+          BRA         L1524
+          MOV.L       R2,@(R0,R5)
+L1523:                            
+          MOV.W       L1569+4,R0 ; H'0268
+          MOV.L       R6,@(R0,R5)
+L1524:                            
+          MOV         #1,R3
+          BRA         L1527
+          MOV.L       R3,@(8,R4)
+L1522:                            
+          MOV.W       L1569+4,R0 ; H'0268
+          MOV.L       @(R0,R5),R0
+          CMP/EQ      #3,R0
+          BT          L1527
+          BRA         L1473
+          MOV.L       R6,@R14
+L1569:                            
+          .DATA.W     H'027C
+          .DATA.W     H'03C0
+          .DATA.W     H'0268
+          .RES.W      1
+          .DATA.L     _var_8c157a78
+          .DATA.L     _var_8c157a7c
+          .DATA.L     _FUN_8c010ca6
+          .DATA.L     _sdMidiStopAll
+          .DATA.L     _var_vibport_8c1ba354
+          .DATA.L     _pdVibMxStop
+          .DATA.L     _FUN_8c016182
+          .DATA.L     _var_8c1bb8c4
+          .DATA.L     _init_8c03bd80
+          .DATA.L     _init_8c03bd84
+          .DATA.L     _FUN_8c015fd6
+          .DATA.L     _var_demo_8c1bb8d0
+          .DATA.L     _var_8c18ad1c
+          .DATA.L     _var_8c228708
+          .DATA.L     _var_8c22655c
+          .DATA.L     _var_busState_8c1bb9d0
+L1520:                            
+          TST         R7,R7
+          BF/S        L1528
+          MOV.L       R6,@R14
+          MOV.W       L1570,R0   ; H'025C
+          MOV.L       R6,@(R0,R5)
+L1528:                            
+          MOV.W       L1570+2,R0 ; H'0268
+          MOV.L       R6,@(R0,R5)
+L1473:
+          MOV.L       L1570+8,R3 ; _freeTask_8c014b66
+          JSR         @R3
+          NOP
+L1527:                            
+          LDS.L       @R15+,PR
+          MOV.L       L1570+12,R2; _njControl3D
+          MOV         #0,R4
+          JMP         @R2
+          MOV.L       @R15+,R14
+_FUN_8c01306e:                   ; function: FUN_8c01306e
+                                 ; frame size=32
+          MOV.L       R14,@-R15
+          MOV.L       R13,@-R15
+          MOV.L       R12,@-R15
+          STS.L       PR,@-R15
+          ADD         #-8,R15
+          MOV.L       L1570+20,R3; _njInitMatrix
+          MOV         #0,R6
+          MOV.L       L1570+16,R4; _var_matrix_8c2f8ca0
+          JSR         @R3
+          MOV         #16,R5
+          MOV.L       L1570+24,R2; _njSetBackColor
+          MOV         #0,R6
+          MOV         R6,R5
+          JSR         @R2
+          MOV         R6,R4
+          MOV.L       L1570+28,R14; _var_8c18ad28
+          MOV.L       @R14,R4
+          MOV.B       @(11,R4),R0
+          EXTU.B      R0,R0
+          SHLL16      R0
+          SHLL8       R0
+          MOV         R0,R3
+          MOV.B       @(10,R4),R0
+          MOV         R3,R4
+          MOV.L       @R14,R3
+          EXTU.B      R0,R0
+          SHLL16      R0
+          OR          R0,R4
+          MOV.B       @(9,R3),R0
+          EXTU.B      R0,R0
+          SHLL8       R0
+          OR          R0,R4
+          MOV.B       @(8,R3),R0
+          MOV.L       L1570+32,R3; _njSetFogColor
+          EXTU.B      R0,R0
+          JSR         @R3
+          OR          R0,R4
+          MOV.L       @R14,R2
+          MOV         #16,R0
+          MOV.L       L1570+36,R4; _var_fogTable_8c18aaf8
+          FMOV.S      @(R0,R2),FR5
+          MOV         #12,R0
+          MOV         R2,R3
+          FMOV.S      @(R0,R3),FR4
+          MOV.L       L1570+40,R3; _njGenerateFogTable3
+          JSR         @R3
+          NOP
+          MOV.L       L1570+44,R2; _njFogEnable
+          JSR         @R2
+          NOP
+          MOV.L       L1570+48,R3; _kmSetCheapShadowMode
+          MOV.W       L1570+4,R4 ; H'0080
+          JSR         @R3
+          NOP
+          MOV.L       L1570+52,R2; _kmSetFogTable
+          MOV.L       L1570+36,R4; _var_fogTable_8c18aaf8
+          JSR         @R2
+          NOP
+          MOV.L       L1570+60,R12; _var_tasks_8c1ba5e8
+          MOV         #16,R5
+          MOV.L       L1570+56,R14; _clearTasks_8c014a9c
+          JSR         @R14
+          MOV         R12,R4
+          MOV.L       L1570+64,R4; _var_tasks_8c1ba808
+          JSR         @R14
+          MOV         #32,R5
+          MOV.L       L1570+68,R4; _var_tasks_8c1bac28
+          JSR         @R14
+          MOV         #64,R5
+          MOV.L       L1570+72,R4; _var_tasks_8c1bb448
+          JSR         @R14
+          MOV         #32,R5
+          MOV.L       L1570+80,R3; _srand
+          MOV.L       L1570+76,R14; _var_seed_8c157a64
+          JSR         @R3
+          MOV.L       @R14,R4
+          MOV.L       L1570+84,R2; _FUN_8c012160
+          JSR         @R2
+          MOV.L       @R14,R4
+          MOV.L       L1570+88,R3; _FUN_8c0121a2
+          JSR         @R3
+          MOV.L       @R14,R4
+          MOV.L       L1570+92,R2; _FUN_8c0128cc
+          JSR         @R2
+          MOV         #1,R4
+          MOV.L       L1570+104,R3; _var_demo_8c1bb8d0
+          MOV.L       L1570+96,R13; _pushTask_8c014ae8
+          MOV.L       @R3,R0
+          MOV.L       L1570+100,R4; _var_tasks_8c1ba3c8
+          CMP/EQ      #2,R0
+          BT/S        L1529
+          MOV         #0,R14
+          MOV.L       R14,@-R15
+          MOV.L       L1570+108,R5; _task_8c012cbc
+          MOV         R15,R7
+          MOV         R15,R6
+          ADD         #8,R7
+          JSR         @R13
+          ADD         #4,R6
+          MOV         #0,R3
+          MOV.L       L1570+112,R5; _task_8c01677e
+          MOV.L       R3,@-R15
+          MOV         R15,R6
+          MOV         R15,R7
+          ADD         #8,R6
+          ADD         #12,R7
+          JSR         @R13
+          MOV         R12,R4
+          BRA         L1530
+          ADD         #8,R15
+L1529:                            
+          MOV.L       L1570+116,R2; _var_8c1bb8d4
+          MOV.L       @R2,R1
+          TST         R1,R1
+          BF          L1531
+          MOV.L       R14,@-R15
+          MOV.L       L1570+120,R5; _task_8c012d06
+          MOV         R15,R7
+          MOV         R15,R6
+          ADD         #8,R7
+          JSR         @R13
+          ADD         #4,R6
+          BRA         L1532
+          ADD         #4,R15
+L1570:                            
+          .DATA.W     H'025C
+          .DATA.W     H'0268
+          .DATA.W     H'0080
+          .RES.W      1
+          .DATA.L     _freeTask_8c014b66
+          .DATA.L     _njControl3D
+          .DATA.L     _var_matrix_8c2f8ca0
+          .DATA.L     _njInitMatrix
+          .DATA.L     _njSetBackColor
+          .DATA.L     _var_8c18ad28
+          .DATA.L     _njSetFogColor
+          .DATA.L     _var_fogTable_8c18aaf8
+          .DATA.L     _njGenerateFogTable3
+          .DATA.L     _njFogEnable
+          .DATA.L     _kmSetCheapShadowMode
+          .DATA.L     _kmSetFogTable
+          .DATA.L     _clearTasks_8c014a9c
+          .DATA.L     _var_tasks_8c1ba5e8
+          .DATA.L     _var_tasks_8c1ba808
+          .DATA.L     _var_tasks_8c1bac28
+          .DATA.L     _var_tasks_8c1bb448
+          .DATA.L     _var_seed_8c157a64
+          .DATA.L     _srand
+          .DATA.L     _FUN_8c012160
+          .DATA.L     _FUN_8c0121a2
+          .DATA.L     _FUN_8c0128cc
+          .DATA.L     _pushTask_8c014ae8
+          .DATA.L     _var_tasks_8c1ba3c8
+          .DATA.L     _var_demo_8c1bb8d0
+          .DATA.L     _task_8c012cbc
+          .DATA.L     _task_8c01677e
+          .DATA.L     _var_8c1bb8d4
+          .DATA.L     _task_8c012d06
+L1531:                            
+          MOV.L       R14,@-R15
+          MOV.L       L1571+2,R5 ; _task_8c012d5a
+          MOV         R15,R7
+          MOV         R15,R6
+          ADD         #8,R7
+          JSR         @R13
+          ADD         #4,R6
+          ADD         #4,R15
+          MOV.L       @R15,R2
+          MOV.L       R14,@(8,R2)
+          MOV.L       @R15,R3
+          MOV.L       R14,@(12,R3)
+L1532:                            
+          MOV         #0,R3
+          MOV.L       L1571+6,R5 ; _task_8c016bf4
+          MOV.L       R3,@-R15
+          MOV         R15,R6
+          MOV         R15,R7
+          ADD         #4,R6
+          ADD         #8,R7
+          JSR         @R13
+          MOV         R12,R4
+          MOV.L       L1571+10,R2; _FUN_8c025af4
+          JSR         @R2
+          ADD         #4,R15
+L1530:                            
+          MOV.L       L1571+14,R3; _var_8c1bb8cc
+          MOV.L       L1571+18,R2; _var_8c22847c
+          MOV.L       L1571+22,R1; _FUN_8c023610
+          MOV.L       R14,@R3
+          JSR         @R1
+          MOV.L       R14,@R2
+          MOV.L       L1571+26,R3; _FUN_8c02845a
+          JSR         @R3
+          NOP
+          MOV.L       L1571+30,R1; _var_demo_8c1bb8d0
+          MOV.L       @R1,R0
+          CMP/EQ      #2,R0
+          BT          L1533
+          MOV.L       L1571+34,R2; _FUN_8c029920
+          JSR         @R2
+          NOP
+L1533:                            
+          MOV.L       L1571+38,R3; _FUN_8c0296d6
+          JSR         @R3
+          NOP
+          MOV.L       L1571+42,R2; _FUN_8c02769e
+          JSR         @R2
+          NOP
+          MOV.L       L1571+46,R3; _FUN_8c0222dc
+          JSR         @R3
+          NOP
+          MOV.L       L1571+50,R2; _FUN_8c02a6ac
+          JSR         @R2
+          NOP
+          MOV.L       L1571+54,R3; _FUN_8c02c46a
+          JSR         @R3
+          NOP
+          MOV.L       L1571+58,R2; _FUN_8c02018c
+          JSR         @R2
+          NOP
+          MOV.L       L1571+62,R3; _FUN_8c02d968
+          JSR         @R3
+          NOP
+          MOV.L       L1571+66,R2; _FUN_8c020528
+          JSR         @R2
+          NOP
+          MOV         #0,R3
+          MOV.L       L1571+70,R5; _task_8c012f9c
+          MOV.L       R3,@-R15
+          MOV         R15,R6
+          MOV         R15,R7
+          ADD         #4,R6
+          ADD         #8,R7
+          JSR         @R13
+          MOV         R12,R4
+          MOV.L       L1571+74,R3; _FUN_8c0228a2
+          MOV.L       @(4,R15),R2
+          JSR         @R3
+          MOV.L       R14,@(8,R2)
+          ADD         #12,R15
+          LDS.L       @R15+,PR
+          MOV.L       @R15+,R12
+          MOV.L       @R15+,R13
+          RTS
+          MOV.L       @R15+,R14
+_FUN_8c01328c:                   ; function: FUN_8c01328c
+                                 ; frame size=8
+          MOV.L       L1571+30,R3; _var_demo_8c1bb8d0
+          MOV.L       R14,@-R15
+          STS.L       PR,@-R15
+          MOV.L       @R3,R4
+          MOV.L       L1571+78,R5; _var_8c1bb868
+          MOV.L       L1571+82,R14; _var_seed_8c157a64
+          TST         R4,R4
+          BF          L1534
+          MOV.L       L1571+86,R4; _var_8c1bc824
+          MOV.L       L1571+90,R0; _var_8c228704
+          MOV.L       @R4,R1
+          MOV.L       L1571+98,R3; _FUN_8c012166
+          MOV.L       @R1,R2
+          MOV.L       R2,@R5
+          MOV.L       @R4,R1
+          MOV.L       @(4,R1),R2
+          MOV.L       R2,@R0
+          MOV.L       @R4,R1
+          MOV.L       @(8,R1),R2
+          MOV.L       L1571+94,R1; _var_8c1bb8c8
+          JSR         @R3
+          MOV.L       R2,@R1
+          BRA         L1535
+          MOV.L       R0,@R14
+L1534:                            
+          MOV         R4,R0
+          MOV.L       L1571+102,R6; _var_8c227dd4
+          CMP/EQ      #2,R0
+          BF          L1536
+          MOV.L       L1571+106,R1; _var_8c1bb8d4
+          MOV.L       @R1,R2
+          TST         R2,R2
+          BT          L1536
+          MOV.L       @R5,R3
+          MOV.L       L1571+110,R0; _init_8c0460b0
+          ADD         #-38,R3
+          MOV.B       @(R0,R3),R2
+          MOV.L       L1571+114,R3; _FUN_8c01895e
+          JSR         @R3
+          MOV.L       R2,@R6
+          BRA         L1535
+          NOP
+L1536:                            
+          MOV         #0,R3
+          MOV.L       R3,@R6
+L1535:                            
+          MOV.L       L1571+118,R2; _srand
+          JSR         @R2
+          MOV.L       @R14,R4
+          MOV.L       L1571+122,R3; _FUN_8c012160
+          JSR         @R3
+          MOV.L       @R14,R4
+          MOV.L       L1571+126,R2; _FUN_8c0121a2
+          JSR         @R2
+          MOV.L       @R14,R4
+          MOV.L       L1571+130,R3; _FUN_8c0121e8
+          JSR         @R3
+          NOP
+          MOV.L       L1571+134,R3; _var_8c1ba292
+          MOV.L       L1571+138,R1; _var_8c227da0
+          MOV.B       @R3,R2
+          MOV         #0,R3
+          MOV.L       L1571+142,R0; _var_8c227da8
+          MOV.L       R2,@R1
+          MOV.L       L1571+146,R2; _FUN_8c0144fc
+          MOV.L       R3,@R0
+          LDS.L       @R15+,PR
+          JMP         @R2
+          MOV.L       @R15+,R14
+_FUN_8c013310:                   ; function: FUN_8c013310
+                                 ; frame size=12
+          MOV.L       L1571+30,R3; _var_demo_8c1bb8d0
+          MOV.L       R14,@-R15
+          MOV.L       R13,@-R15
+          MOV         #0,R13
+          STS.L       PR,@-R15
+          MOV.L       @R3,R0
+          MOV.L       L1571+82,R14; _var_seed_8c157a64
+          MOV.L       L1571+78,R6; _var_8c1bb868
+          CMP/EQ      #2,R0
+          BT/S        L1538
+          MOV         R0,R5
+          MOV.L       L1571+90,R1; _var_8c228704
+          MOV.L       L1571+150,R0; _var_8c1ba291
+          MOV.L       L1571+94,R3; _var_8c1bb8c8
+          MOV.L       R4,@R6
+          MOV.L       R13,@R1
+          MOV.L       L1571+98,R1; _FUN_8c012166
+          MOV.B       @R0,R2
+          JSR         @R1
+          MOV.L       R2,@R3
+          BRA         L1539
+          MOV.L       R0,@R14
+L1538:                            
+          MOV         R5,R0
+          MOV.L       L1571+102,R4; _var_8c227dd4
+          CMP/EQ      #2,R0
+          BF          L1540
+          MOV.L       L1571+106,R2; _var_8c1bb8d4
+          MOV.L       @R2,R1
+          TST         R1,R1
+          BT          L1540
+          MOV.L       @R6,R3
+          MOV.L       L1571+110,R0; _init_8c0460b0
+          ADD         #-38,R3
+          MOV.B       @(R0,R3),R2
+          BRA         L1539
+          MOV.L       R2,@R4
+L1540:                            
+          MOV.L       R13,@R4
+L1539:                            
+          MOV.L       L1571+118,R2; _srand
+          JSR         @R2
+          MOV.L       @R14,R4
+          MOV.L       L1571+122,R3; _FUN_8c012160
+          JSR         @R3
+          MOV.L       @R14,R4
+          MOV.L       L1571+126,R2; _FUN_8c0121a2
+          JSR         @R2
+          MOV.L       @R14,R4
+          MOV.L       L1571+130,R3; _FUN_8c0121e8
+          JSR         @R3
+          NOP
+          MOV.L       L1571+134,R3; _var_8c1ba292
+          MOV.L       L1571+138,R1; _var_8c227da0
+          MOV.B       @R3,R2
+          MOV.L       L1571+142,R3; _var_8c227da8
+          MOV.L       R2,@R1
+          MOV.L       R13,@R3
+          LDS.L       @R15+,PR
+          MOV.L       L1571+146,R2; _FUN_8c0144fc
+          MOV.L       @R15+,R13
+          JMP         @R2
+          MOV.L       @R15+,R14
+_task_8c013388:                  ; function: task_8c013388
+                                 ; frame size=12
+          MOV.L       R14,@-R15
+          MOV         R4,R14
+          STS.L       PR,@-R15
+          MOV.L       @(8,R14),R0
+          CMP/EQ      #0,R0
+          BT          L1483
+          CMP/EQ      #1,R0
+          BF          L1572
+          BRA         L1487
+          NOP
+L1572:                            
+          BRA         L1542
+          NOP
+L1571:                            
+          .RES.W      1
+          .DATA.L     _task_8c012d5a
+          .DATA.L     _task_8c016bf4
+          .DATA.L     _FUN_8c025af4
+          .DATA.L     _var_8c1bb8cc
+          .DATA.L     _var_8c22847c
+          .DATA.L     _FUN_8c023610
+          .DATA.L     _FUN_8c02845a
+          .DATA.L     _var_demo_8c1bb8d0
+          .DATA.L     _FUN_8c029920
+          .DATA.L     _FUN_8c0296d6
+          .DATA.L     _FUN_8c02769e
+          .DATA.L     _FUN_8c0222dc
+          .DATA.L     _FUN_8c02a6ac
+          .DATA.L     _FUN_8c02c46a
+          .DATA.L     _FUN_8c02018c
+          .DATA.L     _FUN_8c02d968
+          .DATA.L     _FUN_8c020528
+          .DATA.L     _task_8c012f9c
+          .DATA.L     _FUN_8c0228a2
+          .DATA.L     _var_8c1bb868
+          .DATA.L     _var_seed_8c157a64
+          .DATA.L     _var_8c1bc824
+          .DATA.L     _var_8c228704
+          .DATA.L     _var_8c1bb8c8
+          .DATA.L     _FUN_8c012166
+          .DATA.L     _var_8c227dd4
+          .DATA.L     _var_8c1bb8d4
+          .DATA.L     _init_8c0460b0
+          .DATA.L     _FUN_8c01895e
+          .DATA.L     _srand
+          .DATA.L     _FUN_8c012160
+          .DATA.L     _FUN_8c0121a2
+          .DATA.L     _FUN_8c0121e8
+          .DATA.L     _var_8c1ba292
+          .DATA.L     _var_8c227da0
+          .DATA.L     _var_8c227da8
+          .DATA.L     _FUN_8c0144fc
+          .DATA.L     _var_8c1ba291
+L1483:                           ; case label 
+          MOV.L       L1573,R3   ; _getUknPvmBool_8c01432a
+          JSR         @R3
+          NOP
+          MOV         R0,R4
+          TST         R4,R4
+          BT          L1542
+          MOV.L       L1573+4,R1 ; _var_loadedFooNjm_8c1bc448
+          MOV.L       @(8,R14),R3
+          ADD         #1,R3
+          MOV.L       R3,@(8,R14)
+          MOV.L       @R1,R2
+          MOV.L       @(4,R2),R3
+          LDS         R3,FPUL
+          CMP/PZ      R3
+          BT/S        L1544
+          FLOAT       FPUL,FR3
+          MOVA        L1573+8,R0
+          FMOV.S      @R0,FR2
+          FADD        FR2,FR3
+L1544:                            
+          FLDI1       FR2
+          FNEG        FR2
+          FADD        FR2,FR3
+          MOV.L       L1573+16,R2; _FUN_8c011f6c
+          MOV.L       L1573+12,R3; _var_8c1bc450
+          JSR         @R2
+          FMOV.S      FR3,@R3
+          MOV.L       L1573+28,R4; L1398
+          MOV.L       L1573+32,R3; _request_dat_8c011182
+          MOV.L       L1573+20,R6; _memblkSource_8c0fcd48
+          MOV.L       L1573+24,R5; L1399
+          JSR         @R3
+          NOP
+          MOV.L       L1573+28,R4; L1398
+          MOV.L       L1573+32,R2; _request_dat_8c011182
+          MOV.L       L1573+36,R6; _memblkSource_8c0fcd4c
+          MOV.L       L1573+40,R5; L1400
+          JSR         @R2
+          NOP
+          MOV.L       L1573+44,R3; _resetUknPvmBool_8c014322
+          JSR         @R3
+          NOP
+          MOV.L       L1573+48,R2; _setUknPvmBool_8c014330
+          MOV         #0,R7
+          MOV.L       L1573+52,R4; _nop_8c011120
+          MOV         R7,R6
+          MOV.L       L1573+56,R3; _FUN_8c011fe0
+          MOV.L       R2,@-R15
+          JSR         @R3
+          MOV         R7,R5
+          BRA         L1542
+          ADD         #4,R15
+L1487:                           ; case label 
+          MOV.L       L1573,R3   ; _getUknPvmBool_8c01432a
+          JSR         @R3
+          NOP
+          TST         R0,R0
+          BT          L1542
+          MOV.L       L1573+60,R3; _FUN_8c011f7e
+          JSR         @R3
+          NOP
+          MOV.L       L1573+64,R2; _freeTask_8c014b66
+          JSR         @R2
+          MOV         R14,R4
+          MOV.L       L1573+68,R3; _FUN_8c010e18
+          JSR         @R3
+          NOP
+          MOV.L       L1573+72,R3; _var_8c2260a8
+          MOV         #1,R2
+          MOV         #0,R4
+          MOV.L       R2,@R3
+          LDS.L       @R15+,PR
+          MOV.L       L1573+76,R2; _FUN_8c015fd6
+          JMP         @R2
+          MOV.L       @R15+,R14
+L1542:                            
+          LDS.L       @R15+,PR
+          RTS
+          MOV.L       @R15+,R14
+_usrGdErrFunc_8c0134d6:          ; function: usrGdErrFunc_8c0134d6
+                                 ; frame size=0
+          MOV         R5,R0
+          CMP/EQ      #-23,R0
+          BT          L1547
+          MOV         R5,R0
+          CMP/EQ      #-33,R0
+          BF          L1546
+L1547:                            
+          MOV.L       L1573+80,R2; _var_8c18ad14
+          MOV         #1,R3
+          MOV.L       R3,@R2
+L1546:                            
+          RTS
+          NOP
+_njUserInit_8c0134ec:            ; function: njUserInit_8c0134ec
+                                 ; frame size=88
+          MOV.L       R14,@-R15
+          MOV.L       R13,@-R15
+          MOV.L       R12,@-R15
+          STS.L       PR,@-R15
+          ADD         #-52,R15
+          MOV.L       L1573+88,R3; _njSetTextureMemorySize
+          MOV.L       L1573+84,R4; H'00100000
+          JSR         @R3
+          NOP
+          MOV.L       L1573+92,R2; _syCblCheckCable
+          JSR         @R2
+          NOP
+          TST         R0,R0
+          BF          L1548
+          MOV.L       L1573+96,R2; _sbInitSystem
+          MOV         #0,R5
+          MOV         #2,R6
+          JSR         @R2
+          MOV         #49,R4
+          BRA         L1549
+          NOP
+L1573:                            
+          .DATA.L     _getUknPvmBool_8c01432a
+          .DATA.L     _var_loadedFooNjm_8c1bc448
+          .DATA.L     H'4F800000
+          .DATA.L     _var_8c1bc450
+          .DATA.L     _FUN_8c011f6c
+          .DATA.L     _memblkSource_8c0fcd48
+          .DATA.L     L1399
+          .DATA.L     L1398
+          .DATA.L     _request_dat_8c011182
+          .DATA.L     _memblkSource_8c0fcd4c
+          .DATA.L     L1400
+          .DATA.L     _resetUknPvmBool_8c014322
+          .DATA.L     _setUknPvmBool_8c014330
+          .DATA.L     _nop_8c011120
+          .DATA.L     _FUN_8c011fe0
+          .DATA.L     _FUN_8c011f7e
+          .DATA.L     _freeTask_8c014b66
+          .DATA.L     _FUN_8c010e18
+          .DATA.L     _var_8c2260a8
+          .DATA.L     _FUN_8c015fd6
+          .DATA.L     _var_8c18ad14
+          .DATA.L     H'00100000
+          .DATA.L     _njSetTextureMemorySize
+          .DATA.L     _syCblCheckCable
+          .DATA.L     _sbInitSystem
+L1548:                            
+          MOV.L       L1574+14,R2; _sbInitSystem
+          MOV         #0,R5
+          MOV         #2,R6
+          JSR         @R2
+          MOV         #56,R4
+          MOVA        L1574+18,R0
+          MOV.L       L1574+22,R3; _njSetAspect
+          FMOV.S      @R0,FR5
+          JSR         @R3
+          FLDI1       FR4
+L1549:                            
+          MOV.L       L1574+30,R2; _njInitMatrix
+          MOV         #0,R6
+          MOV.L       L1574+26,R4; _var_matrix_8c2f8ca0
+          JSR         @R2
+          MOV         #16,R5
+          MOV.L       L1574+38,R3; _njInit3D
+          MOV.L       L1574+34,R4; _var_vbuf_8c255ca0
+          MOV.W       L1574,R5   ; H'1000
+          JSR         @R3
+          NOP
+          MOV.W       L1574+2,R2 ; H'4E20
+          MOV.L       L1574+42,R14; H'0004E200
+          MOV.L       L1574+46,R4; H'000C3500
+          MOV.L       L1574+50,R3; _njInitVertexBuffer
+          MOV         R14,R6
+          MOV.L       R2,@-R15
+          MOV         R14,R7
+          JSR         @R3
+          MOV         R14,R5
+          MOV.L       L1574+62,R2; _njInitTextureBuffer
+          MOV.L       L1574+58,R4; _var_texbuf_8c277ca0
+          MOV.L       L1574+54,R5; H'00020800
+          JSR         @R2
+          ADD         #4,R15
+          MOV.L       L1574+70,R3; _njInitTexture
+          MOV.L       L1574+66,R4; _var_tex_8c157af8
+          MOV.W       L1574+4,R5 ; H'0C00
+          JSR         @R3
+          NOP
+          MOV.L       L1574+82,R2; _njInitCacheTextureBuffer
+          MOV.L       L1574+78,R4; _var_cachebuf_8c235ca0
+          MOV.L       L1574+74,R5; H'00020000
+          JSR         @R2
+          NOP
+          MOV.L       L1574+90,R3; _njInitShape
+          MOV.L       L1574+86,R4; _var_shapebuf_8c2f84a0
+          JSR         @R3
+          NOP
+          MOV.L       L1574+94,R2; _syRtcInit
+          JSR         @R2
+          NOP
+          MOV.L       L1574+98,R3; _FUN_8c010924
+          JSR         @R3
+          NOP
+          EXTS.B      R0,R4
+          MOV.L       L1574+102,R2; _var_8c226070
+          CMP/PZ      R4
+          BT/S        L1567
+          MOV.B       R0,@R2
+          MOV         #0,R4
+L1567:                            
+          MOV.L       L1574+106,R1; _setSoundMode_8c0108c0
+          JSR         @R1
+          NOP
+          MOV.L       L1574+110,R3; _FUN_8c010fbe
+          JSR         @R3
+          NOP
+          MOV.L       L1574+114,R2; _BupInit_8c014b8c
+          JSR         @R2
+          NOP
+          MOV.W       L1574+6,R3 ; H'0200
+          MOV.L       L1574+34,R5; _var_vbuf_8c255ca0
+          MOV.L       L1574+118,R2; _njSetTextureInfo
+          MOV.W       L1574+10,R6; H'0B01
+          MOV.L       R3,@-R15
+          MOV.W       L1574+8,R7 ; H'0100
+          MOV         R15,R4
+          JSR         @R2
+          ADD         #12,R4
+          MOV.L       L1574+130,R3; _njSetTextureName
+          MOV         R15,R5
+          MOV.L       L1574+126,R4; _var_texname_8c18acf8
+          MOV.L       L1574+122,R7; H'40800000
+          MOV.W       L1574+12,R6; H'03E7
+          JSR         @R3
+          ADD         #12,R5
+          MOV.L       L1574+134,R2; _njSetRenderWidth
+          MOV.W       L1574+8,R4 ; H'0100
+          JSR         @R2
+          NOP
+          MOV.L       L1574+142,R3; _njLoadTexture
+          MOV.L       L1574+138,R4; _init_texlist_8c03bf44
+          JSR         @R3
+          NOP
+          MOV.L       L1574+150,R4; _var_tasks_8c1ba3c8
+          MOV.L       L1574+146,R14; _clearTasks_8c014a9c
+          JSR         @R14
+          MOV         #16,R5
+          MOV.L       L1574+154,R4; _var_tasks_8c1ba5e8
+          JSR         @R14
+          MOV         #16,R5
+          MOV.L       L1574+158,R4; _var_tasks_8c1ba808
+          JSR         @R14
+          MOV         #32,R5
+          MOV.L       L1574+162,R4; _var_tasks_8c1bac28
+          JSR         @R14
+          MOV         #64,R5
+          MOV.L       L1574+166,R4; _var_tasks_8c1bb448
+          JSR         @R14
+          MOV         #32,R5
+          MOV.L       L1574+170,R2; _var_8c1bb86c
+          MOV         #-1,R14
+          MOV.L       L1574+174,R4; _var_8c1bbddc
+          MOV.L       L1574+178,R3; _FUN_8c013bbc
+          MOV.L       R14,@R2
+          JSR         @R3
+          MOV         #32,R5
+          MOV.L       L1574+178,R2; _FUN_8c013bbc
+          MOV.L       L1574+182,R4; _var_8c1bbfdc
+          JSR         @R2
+          MOV         #65,R5
+          MOV.L       L1574+190,R2; _var_8c1bc3f0
+          MOV.L       L1574+186,R3; _var_8c1bc3ec
+          MOV.L       L1574+194,R1; _var_8c1bc3f4
+          MOV.L       R14,@R3
+          MOV.L       R14,@R2
+          BRA         L1568
+          MOV.L       R14,@R1
+L1574:                            
+          .DATA.W     H'1000
+          .DATA.W     H'4E20
+          .DATA.W     H'0C00
+          .DATA.W     H'0200
+          .DATA.W     H'0100
+          .DATA.W     H'0B01
+          .DATA.W     H'03E7
+          .DATA.L     _sbInitSystem
+          .DATA.L     H'3F68F5C3
+          .DATA.L     _njSetAspect
+          .DATA.L     _var_matrix_8c2f8ca0
+          .DATA.L     _njInitMatrix
+          .DATA.L     _var_vbuf_8c255ca0
+          .DATA.L     _njInit3D
+          .DATA.L     H'0004E200
+          .DATA.L     H'000C3500
+          .DATA.L     _njInitVertexBuffer
+          .DATA.L     H'00020800
+          .DATA.L     _var_texbuf_8c277ca0
+          .DATA.L     _njInitTextureBuffer
+          .DATA.L     _var_tex_8c157af8
+          .DATA.L     _njInitTexture
+          .DATA.L     H'00020000
+          .DATA.L     _var_cachebuf_8c235ca0
+          .DATA.L     _njInitCacheTextureBuffer
+          .DATA.L     _var_shapebuf_8c2f84a0
+          .DATA.L     _njInitShape
+          .DATA.L     _syRtcInit
+          .DATA.L     _FUN_8c010924
+          .DATA.L     _var_8c226070
+          .DATA.L     _setSoundMode_8c0108c0
+          .DATA.L     _FUN_8c010fbe
+          .DATA.L     _BupInit_8c014b8c
+          .DATA.L     _njSetTextureInfo
+          .DATA.L     H'40800000
+          .DATA.L     _var_texname_8c18acf8
+          .DATA.L     _njSetTextureName
+          .DATA.L     _njSetRenderWidth
+          .DATA.L     _init_texlist_8c03bf44
+          .DATA.L     _njLoadTexture
+          .DATA.L     _clearTasks_8c014a9c
+          .DATA.L     _var_tasks_8c1ba3c8
+          .DATA.L     _var_tasks_8c1ba5e8
+          .DATA.L     _var_tasks_8c1ba808
+          .DATA.L     _var_tasks_8c1bac28
+          .DATA.L     _var_tasks_8c1bb448
+          .DATA.L     _var_8c1bb86c
+          .DATA.L     _var_8c1bbddc
+          .DATA.L     _FUN_8c013bbc
+          .DATA.L     _var_8c1bbfdc
+          .DATA.L     _var_8c1bc3ec
+          .DATA.L     _var_8c1bc3f0
+          .DATA.L     _var_8c1bc3f4
+L1568:                            
+          MOV.L       L1575+2,R3 ; _FUN_8c02171c
+          JSR         @R3
+          NOP
+          MOV.L       L1575+6,R2 ; _FUN_8c029acc
+          JSR         @R2
+          NOP
+          MOV.L       L1575+10,R3; _FUN_8c02aa28
+          JSR         @R3
+          NOP
+          MOV.L       L1575+14,R2; _var_8c1bc404
+          MOV.L       L1575+22,R1; _var_8c226438
+          MOV.L       R14,@R2
+          MOV.L       L1575+26,R2; _var_8c228234
+          MOV.L       L1575+18,R3; _var_8c226434
+          MOV.L       R14,@R3
+          MOV.L       R14,@R1
+          MOV.L       R14,@R2
+          MOV.L       L1575+34,R1; _var_8c227e24
+          MOV.L       L1575+38,R2; _var_8c2288f8
+          MOV.L       L1575+30,R3; _var_8c227e20
+          MOV.L       R14,@R3
+          MOV.L       R14,@R1
+          MOV.L       R14,@R2
+          MOV.L       L1575+46,R1; _var_8c1bc7a8
+          MOV.L       L1575+50,R2; _var_8c1bc7b4
+          MOV.L       L1575+42,R3; _var_8c1bc438
+          MOV.L       R14,@R3
+          MOV.L       R14,@R1
+          MOV.L       R14,@R2
+          MOV.L       L1575+58,R1; _var_8c1ba2e0
+          MOV.L       L1575+62,R2; _var_8c1ba348
+          MOV.L       L1575+54,R3; _var_8c2263a8
+          MOV.L       R14,@R3
+          MOV.L       R14,@R1
+          MOV.L       R14,@R2
+          MOV.L       L1575+70,R1; _var_8c225fb0
+          MOV.L       L1575+74,R2; _var_8c1ba3c4
+          MOV.L       L1575+66,R3; _var_8c1ba344
+          MOV.L       R14,@R3
+          MOV.L       R14,@R1
+          MOV.L       R14,@R2
+          MOV.L       L1575+78,R3; _var_8c1bc454
+          MOV         #0,R12
+          MOV.L       L1575+90,R0; _var_8c1bb8d8
+          MOV.L       L1575+82,R1; _var_8c1ba34c
+          MOV.L       R14,@R3
+          MOV         #100,R3
+          MOV.L       R14,@R1
+          MOV.L       L1575+86,R2; _var_8c1bb8c4
+          MOV.L       L1575+94,R1; _var_8c157a6c
+          MOV.L       R12,@R2
+          MOV.L       R3,@R0
+          MOV.L       L1575+98,R3; _FUN_8c01c8dc
+          JSR         @R3
+          MOV.L       R12,@R1
+          MOV.L       L1575+102,R2; _FUN_8c0189d2
+          JSR         @R2
+          NOP
+          MOV.L       L1575+106,R3; _njSetBorderColor
+          JSR         @R3
+          MOV         R12,R4
+          MOV.L       L1575+110,R2; _FUN_8c01c8fc
+          JSR         @R2
+          MOV         #3,R4
+          MOV.L       L1575+114,R3; _FUN_8c01c910
+          JSR         @R3
+          NOP
+          MOV.L       R12,@-R15
+          MOV         R12,R2
+          MOV.L       L1575+122,R4; _var_tasks_8c1ba3c8
+          MOV         R15,R7
+          MOV.L       L1575+118,R5; __task_8c013388
+          ADD         #12,R7
+          MOV.L       L1575+126,R3; _pushTask_8c014ae8
+          MOV         R15,R6
+          JSR         @R3
+          ADD         #8,R6
+          MOV.L       @(8,R15),R4
+          MOV         #8,R7
+          MOV.L       L1575+130,R3; _FUN_8c011f36
+          MOV         R7,R5
+          MOV.L       @(8,R4),R4
+          MOV         R12,R6
+          MOV.L       R12,@(8,R4)
+          JSR         @R3
+          MOV         #16,R4
+          MOV.L       L1575+134,R2; _FUN_8c011f6c
+          JSR         @R2
+          NOP
+          MOV.L       L1575+146,R3; _var_mark_parts_dat_8c1bc41c
+          MOV.L       L1575+150,R5; L1434
+          MOV.L       @R3,R6
+          MOV.L       L1575+142,R14; L1433
+          MOV.L       L1575+138,R13; _request_dat_8c011182
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+154,R2; _var_mark_dat_8c1bc420
+          MOV.L       L1575+158,R5; L1435
+          MOV.L       @R2,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+162,R3; _var_busstop_parts_dat_8c1bc428
+          MOV.L       L1575+166,R5; L1436
+          MOV.L       @R3,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+170,R2; _var_busstop_dat_8c1bc42c
+          MOV.L       L1575+174,R5; L1437
+          MOV.L       @R2,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+182,R2; _var_8c1bc3f8
+          MOV         #1,R7
+          MOV.L       L1575+178,R3; H'80000000
+          MOV.L       L1575+186,R5; L1439
+          MOV.L       L1575+190,R1; _request_pvm
+          MOV.L       R3,@-R15
+          MOV.L       @R2,R6
+          JSR         @R1
+          MOV         R14,R4
+          MOV.L       L1575+194,R3; _var_8c1bc3fc
+          MOV.L       L1575+198,R5; L1440
+          MOV.L       @R3,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+202,R2; _var_8c1bc400
+          MOV.L       L1575+206,R5; L1441
+          MOV.L       @R2,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+210,R3; _var_8c1ba1c8
+          MOV.L       L1575+214,R5; L1442
+          MOV.L       @R3,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+218,R2; _var_8c2260ac
+          MOV.L       L1575+222,R5; L1443
+          MOV.L       @R2,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+226,R3; _var_8c2260b8
+          MOV.L       L1575+230,R5; L1444
+          MOV.L       @R3,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+234,R2; _var_8c2260c4
+          MOV.L       L1575+238,R5; L1445
+          MOV.L       @R2,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+242,R2; _var_8c1bc440
+          MOV         #1,R7
+          MOV.L       L1575+246,R5; L1446
+          MOV         R12,R3
+          MOV.L       L1575+190,R1; _request_pvm
+          MOV.L       R12,@-R15
+          MOV.L       @R2,R6
+          JSR         @R1
+          MOV         R14,R4
+          MOV.L       L1575+254,R3; _var_8c1bc444
+          MOV         R12,R7
+          MOV.L       L1575+258,R5; L1448
+          MOV.L       @R3,R6
+          MOV.L       L1575+250,R13; _request_nj_8c011492
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+262,R2; _var_loadedFooNjm_8c1bc448
+          MOV         R12,R7
+          MOV.L       L1575+266,R5; L1449
+          MOV.L       @R2,R6
+          JSR         @R13
+          MOV         R14,R4
+          MOV.L       L1575+274,R5; L1451
+          MOV         R12,R7
+          MOV.L       L1575+278,R4; L1450
+          MOV.L       L1575+270,R3; _var_8c1bc410
+          JSR         @R13
+          MOV.L       @R3,R6
+          MOV.L       L1575+286,R5; L1452
+          MOV         R12,R7
+          MOV.L       L1575+278,R4; L1450
+          MOV.L       L1575+282,R2; _var_8c1bc414
+          JSR         @R13
+          MOV.L       @R2,R6
+          MOV.L       L1575+290,R3; _resetUknPvmBool_8c014322
+          JSR         @R3
+          NOP
+          MOV.L       L1575+294,R2; _setUknPvmBool_8c014330
+          MOV         R12,R6
+          MOV.L       L1575+298,R4; _nop_8c011120
+          MOV         R12,R7
+          MOV.L       L1575+302,R3; _FUN_8c011fe0
+          MOV.L       R2,@-R15
+          JSR         @R3
+          MOV         R12,R5
+          MOV.L       L1575+306,R2; _var_8c18ad14
+          MOV.L       L1575+310,R4; _usrGdErrFunc_8c0134d6
+          MOV.L       L1575+314,R3; _gdFsEntryErrFuncAll
+          MOV.L       R12,@R2
+          JSR         @R3
+          MOV         R12,R5
+          ADD         #72,R15
+          LDS.L       @R15+,PR
+          MOV.L       @R15+,R12
+          MOV.L       @R15+,R13
+          RTS
+          MOV.L       @R15+,R14
+_njUserMain_8c01392e:            ; function: njUserMain_8c01392e
+                                 ; frame size=12
+          MOV.L       L1575+322,R2; _init_8c03bd80
+          MOV.L       R14,@-R15
+          MOV.L       R13,@-R15
+          STS.L       PR,@-R15
+          MOV.L       @R2,R3
+          MOV.L       L1575+318,R14; _var_vibport_8c1ba354
+          TST         R3,R3
+          BT          L1552
+          MOV.L       L1575+326,R1; _init_8c03bd84
+          MOV.L       @R1,R3
+          TST         R3,R3
+          BT          L1576
+          BRA         L1479
+          NOP
+L1576:                            
+          MOV.L       @R14,R0
+          CMP/EQ      #-1,R0
+          BF          L1577
+          BRA         L1478
+          NOP
+L1577:                            
+          MOV.L       L1575+330,R3; _pdVibMxStop
+          JSR         @R3
+          MOV.L       @R14,R4
+          BRA         L1478
+          NOP
+L1552:                            
+          MOV.L       L1575+334,R2; _var_8c157a60
+          MOV.L       @R2,R3
+          TST         R3,R3
+          BT          L1578
+          BRA         L1556
+          NOP
+L1578:                            
+          MOV.L       L1575+338,R13; _init_8c03bfa8
+          MOV.L       @R13,R3
+          TST         R3,R3
+          BT          L1579
+          BRA         L1557
+          NOP
+L1579:                            
+          MOV.L       L1575+342,R3; _gdFsReqDrvStat
+          JSR         @R3
+          NOP
+          TST         R0,R0
+          BT          L1580
+          BRA         L1556
+          NOP
+L1580:                            
+          MOV         #1,R3
+          BRA         L1556
+          MOV.L       R3,@R13
+L1575:                            
+          .RES.W      1
+          .DATA.L     _FUN_8c02171c
+          .DATA.L     _FUN_8c029acc
+          .DATA.L     _FUN_8c02aa28
+          .DATA.L     _var_8c1bc404
+          .DATA.L     _var_8c226434
+          .DATA.L     _var_8c226438
+          .DATA.L     _var_8c228234
+          .DATA.L     _var_8c227e20
+          .DATA.L     _var_8c227e24
+          .DATA.L     _var_8c2288f8
+          .DATA.L     _var_8c1bc438
+          .DATA.L     _var_8c1bc7a8
+          .DATA.L     _var_8c1bc7b4
+          .DATA.L     _var_8c2263a8
+          .DATA.L     _var_8c1ba2e0
+          .DATA.L     _var_8c1ba348
+          .DATA.L     _var_8c1ba344
+          .DATA.L     _var_8c225fb0
+          .DATA.L     _var_8c1ba3c4
+          .DATA.L     _var_8c1bc454
+          .DATA.L     _var_8c1ba34c
+          .DATA.L     _var_8c1bb8c4
+          .DATA.L     _var_8c1bb8d8
+          .DATA.L     _var_8c157a6c
+          .DATA.L     _FUN_8c01c8dc
+          .DATA.L     _FUN_8c0189d2
+          .DATA.L     _njSetBorderColor
+          .DATA.L     _FUN_8c01c8fc
+          .DATA.L     _FUN_8c01c910
+          .DATA.L     __task_8c013388
+          .DATA.L     _var_tasks_8c1ba3c8
+          .DATA.L     _pushTask_8c014ae8
+          .DATA.L     _FUN_8c011f36
+          .DATA.L     _FUN_8c011f6c
+          .DATA.L     _request_dat_8c011182
+          .DATA.L     L1433
+          .DATA.L     _var_mark_parts_dat_8c1bc41c
+          .DATA.L     L1434
+          .DATA.L     _var_mark_dat_8c1bc420
+          .DATA.L     L1435
+          .DATA.L     _var_busstop_parts_dat_8c1bc428
+          .DATA.L     L1436
+          .DATA.L     _var_busstop_dat_8c1bc42c
+          .DATA.L     L1437
+          .DATA.L     H'80000000
+          .DATA.L     _var_8c1bc3f8
+          .DATA.L     L1439
+          .DATA.L     _request_pvm
+          .DATA.L     _var_8c1bc3fc
+          .DATA.L     L1440
+          .DATA.L     _var_8c1bc400
+          .DATA.L     L1441
+          .DATA.L     _var_8c1ba1c8
+          .DATA.L     L1442
+          .DATA.L     _var_8c2260ac
+          .DATA.L     L1443
+          .DATA.L     _var_8c2260b8
+          .DATA.L     L1444
+          .DATA.L     _var_8c2260c4
+          .DATA.L     L1445
+          .DATA.L     _var_8c1bc440
+          .DATA.L     L1446
+          .DATA.L     _request_nj_8c011492
+          .DATA.L     _var_8c1bc444
+          .DATA.L     L1448
+          .DATA.L     _var_loadedFooNjm_8c1bc448
+          .DATA.L     L1449
+          .DATA.L     _var_8c1bc410
+          .DATA.L     L1451
+          .DATA.L     L1450
+          .DATA.L     _var_8c1bc414
+          .DATA.L     L1452
+          .DATA.L     _resetUknPvmBool_8c014322
+          .DATA.L     _setUknPvmBool_8c014330
+          .DATA.L     _nop_8c011120
+          .DATA.L     _FUN_8c011fe0
+          .DATA.L     _var_8c18ad14
+          .DATA.L     _usrGdErrFunc_8c0134d6
+          .DATA.L     _gdFsEntryErrFuncAll
+          .DATA.L     _var_vibport_8c1ba354
+          .DATA.L     _init_8c03bd80
+          .DATA.L     _init_8c03bd84
+          .DATA.L     _pdVibMxStop
+          .DATA.L     _var_8c157a60
+          .DATA.L     _init_8c03bfa8
+          .DATA.L     _gdFsReqDrvStat
+L1557:                            
+          MOV.L       L1581+2,R1 ; _gdFsGetSysHn
+          JSR         @R1
+          NOP
+          MOV.L       L1581+6,R3 ; _gdFsGetStat
+          JSR         @R3
+          MOV         R0,R4
+          CMP/EQ      #4,R0
+          BT/S        L1556
+          MOV         R0,R4
+          MOV         #0,R3
+          MOV.L       R3,@R13
+L1556:                            
+          MOV.L       L1581+10,R2; _gdFsGetDrvStat
+          JSR         @R2
+          NOP
+          CMP/EQ      #6,R0
+          BT/S        L1475
+          MOV         R0,R4
+          MOV.L       L1581+10,R3; _gdFsGetDrvStat
+          JSR         @R3
+          NOP
+          CMP/EQ      #6,R0
+          BT/S        L1564
+          MOV         R0,R4
+          TST         R4,R4
+          BF          L1563
+L1564:                            
+          MOV.L       L1581+14,R2; _gdFsReqDrvStat
+          JSR         @R2
+          NOP
+L1563:                            
+          MOV.L       L1581+18,R2; _var_8c18ad14
+          MOV.L       @R2,R3
+          TST         R3,R3
+          BT          L1479
+L1475:
+          MOV.L       @R14,R0
+          CMP/EQ      #-1,R0
+          BT          L1478
+          MOV.L       L1581+22,R2; _pdVibMxStop
+          JSR         @R2
+          MOV.L       @R14,R4
+L1478:
+          BRA         L1555
+          MOV         #-1,R0
+L1479:
+          MOV.L       L1581+30,R3; _execTasks_8c014b42
+          MOV.L       L1581+26,R4; _var_tasks_8c1ba3c8
+          JSR         @R3
+          NOP
+          MOV         #0,R0
+L1555:                            
+          LDS.L       @R15+,PR
+          MOV.L       @R15+,R13
+          RTS
+          MOV.L       @R15+,R14
+_njUserExit_8c0139d4:            ; function: njUserExit_8c0139d4
+                                 ; frame size=4
+          STS.L       PR,@-R15
+          MOV.L       L1581+34,R3; _njExitTexture
+          JSR         @R3
+          NOP
+          MOV.L       L1581+38,R2; _sbExitSystem
+          JSR         @R2
+          NOP
+          MOV.L       L1581+42,R3; _syBtExit
+          JMP         @R3
+          LDS.L       @R15+,PR
+L1581:                            
+          .RES.W      1
+          .DATA.L     _gdFsGetSysHn
+          .DATA.L     _gdFsGetStat
+          .DATA.L     _gdFsGetDrvStat
+          .DATA.L     _gdFsReqDrvStat
+          .DATA.L     _var_8c18ad14
+          .DATA.L     _pdVibMxStop
+          .DATA.L     _var_tasks_8c1ba3c8
+          .DATA.L     _execTasks_8c014b42
+          .DATA.L     _njExitTexture
+          .DATA.L     _sbExitSystem
+          .DATA.L     _syBtExit
+          .SECTION    C,DATA,ALIGN=4
+L1398:
+          .SDATA      "\SOUND"
+          .DATA.B     H'00
+          .RES.B      1
+L1399:
+          .SDATA      "manatee.drv"
+          .DATA.B     H'00
+L1400:
+          .SDATA      "bus.mlt"
+          .DATA.B     H'00
+L1433:
+          .SDATA      "\SYSTEM"
+          .DATA.B     H'00
+L1434:
+          .SDATA      "mark_parts.dat"
+          .DATA.B     H'00
+          .RES.B      1
+L1435:
+          .SDATA      "mark.dat"
+          .DATA.B     H'00
+          .RES.B      1
+          .RES.W      1
+L1436:
+          .SDATA      "busstop_parts.dat"
+          .DATA.B     H'00
+          .RES.W      1
+L1437:
+          .SDATA      "busstop.dat"
+          .DATA.B     H'00
+L1439:
+          .SDATA      "loading.pvm"
+          .DATA.B     H'00
+L1440:
+          .SDATA      "load_parts.dat"
+          .DATA.B     H'00
+          .RES.B      1
+L1441:
+          .SDATA      "loading.dat"
+          .DATA.B     H'00
+L1442:
+          .SDATA      "bus_font.fff"
+          .DATA.B     H'00
+          .RES.B      1
+          .RES.W      1
+L1443:
+          .SDATA      "vm_bus.lcd"
+          .DATA.B     H'00
+          .RES.B      1
+L1444:
+          .SDATA      "vm_danger.lcd"
+          .DATA.B     H'00
+          .RES.W      1
+L1445:
+          .SDATA      "now_loading.lcd"
+          .DATA.B     H'00
+L1446:
+          .SDATA      "fuu.pvm"
+          .DATA.B     H'00
+L1448:
+          .SDATA      "fuu.njd"
+          .DATA.B     H'00
+L1449:
+          .SDATA      "fuu.njm"
+          .DATA.B     H'00
+L1450:
+          .SDATA      "\SD_COMMON"
+          .DATA.B     H'00
+          .RES.B      1
+L1451:
+          .SDATA      "3s_bus_m2.njm"
+          .DATA.B     H'00
+          .RES.W      1
+L1452:
+          .SDATA      "3s_bus_m2.njs"
+          .DATA.B     H'00
+          .END

@@ -6,11 +6,11 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Throwable;
 
-abstract class AbscractExpectation {}
+abstract class AbstractExpectation {}
 
-class CallExpectation extends AbscractExpectation
+class CallExpectation extends AbstractExpectation
 {
-    /** @var int|float|WildcardArgument */
+    /** @var array<int|float|WildcardArgument> */
     public array $parameters = [];
 
     public ?int $return = null;
@@ -19,20 +19,20 @@ class CallExpectation extends AbscractExpectation
         public string $name
     ) {}
 
-    public function with(...$parameters): self
+    public function with(int|float|WildcardArgument ...$parameters): self
     {
         $this->parameters = $parameters;
         return $this;
     }
 
-    public function andReturn($value): self
+    public function andReturn(int|float $value): self
     {
         $this->return = $value;
         return $this;
     }
 }
 
-class ReadExpectation extends AbscractExpectation
+class ReadExpectation extends AbstractExpectation
 {
     public function __construct(
         public int $address,
@@ -40,7 +40,7 @@ class ReadExpectation extends AbscractExpectation
     ) {}
 }
 
-class WriteExpectation extends AbscractExpectation
+class WriteExpectation extends AbstractExpectation
 {
     public function __construct(
         public int $address,
@@ -48,7 +48,7 @@ class WriteExpectation extends AbscractExpectation
     ) {}
 }
 
-class SymbolOffsetReadExpectation extends AbscractExpectation
+class SymbolOffsetReadExpectation extends AbstractExpectation
 {
     public function __construct(
         public string $name,
@@ -57,7 +57,7 @@ class SymbolOffsetReadExpectation extends AbscractExpectation
     ) {}
 }
 
-class SymbolOffsetWriteExpectation extends AbscractExpectation
+class SymbolOffsetWriteExpectation extends AbstractExpectation
 {
     public function __construct(
         public string $name,
@@ -69,6 +69,7 @@ class SymbolOffsetWriteExpectation extends AbscractExpectation
 class Entry {
     public function __construct(
         public ?string $symbol = null,
+        /** @var array<int,float> */
         public array $parameters = [],
         // TODO: functions can return pointers
         public ?int $return = null,
@@ -108,7 +109,7 @@ class TestCase
 
     private Entry $entry;
 
-    /** @var Expectation[] */
+    /** @var AbstractExpectation[] */
     private $expectations = [];
 
     private bool $forceStop = false;
@@ -128,7 +129,7 @@ class TestCase
         $this->entry = new Entry();
     }
 
-    protected function shouldCall($name)
+    protected function shouldCall(string $name): CallExpectation
     {
         $expectation = new CallExpectation($name);
         $this->expectations[] = $expectation;
@@ -136,7 +137,7 @@ class TestCase
         return $expectation;
     }
 
-    protected function shouldRead($address, $value)
+    protected function shouldRead(int $address, int $value): ReadExpectation
     {
         $expectation = new ReadExpectation($address, $value);
         $this->expectations[] = $expectation;
@@ -144,7 +145,7 @@ class TestCase
         return $expectation;
     }
 
-    protected function shouldWrite($address, $value)
+    protected function shouldWrite(int $address, int $value): WriteExpectation
     {
         $expectation = new WriteExpectation($address, $value);
         $this->expectations[] = $expectation;
@@ -152,7 +153,7 @@ class TestCase
         return $expectation;
     }
 
-    protected function shouldReadSymbolOffset($name, $offset, $value)
+    protected function shouldReadSymbolOffset(string $name, int $offset, int $value): SymbolOffsetReadExpectation
     {
         $expectation = new SymbolOffsetReadExpectation($name, $offset, $value);
         $this->expectations[] = $expectation;
@@ -160,7 +161,7 @@ class TestCase
         return $expectation;
     }
 
-    protected function shouldWriteSymbolOffset($name, $offset, $value)
+    protected function shouldWriteSymbolOffset(string $name, int $offset, int $value): SymbolOffsetWriteExpectation
     {
         $expectation = new SymbolOffsetWriteExpectation($name, $offset, $value);
         $this->expectations[] = $expectation;
@@ -176,15 +177,15 @@ class TestCase
         return $cur;
     }
 
-    protected function call($name): self
+    protected function call(string $name): self
     {
         $this->entry->symbol = $name;
         return $this;
     }
 
-    protected function with(...$parameters): self
+    protected function with(int|float|WildcardArgument ...$arguments): self
     {
-        $this->entry->parameters = $parameters;
+        $this->entry->parameters = $arguments;
         return $this;
     }
 
@@ -204,7 +205,7 @@ class TestCase
         $this->forceStop = true;
     }
 
-    protected function rellocate(string $name, int $address)
+    protected function rellocate(string $name, int $address): void
     {
         $this->testRelocations[] = new TestRelocation($name, $address);
     }
@@ -242,24 +243,27 @@ class TestCase
         $this->currentAlloc = 1024 * 1024 * 8;
     }
 
-    protected function initUint8($address, $value) {
+    protected function initUint8(int $address, int $value): void
+    {
         $this->initializations[] = new MemoryInitialization(8, $address, $value);
     }
 
-    protected function initUint16($address, $value) {
+    protected function initUint16(int $address, int $value): void
+    {
         $this->initializations[] = new MemoryInitialization(16, $address, $value);
     }
 
-    protected function initUint32($address, $value) {
+    protected function initUint32(int $address, int $value): void
+    {
         $this->initializations[] = new MemoryInitialization(32, $address, $value);
     }
 
-    public function setObjectFile(string $path)
+    public function setObjectFile(string $path): void
     {
         $this->objectFile = $path;
     }
 
-    public function enableDisasm()
+    public function enableDisasm(): void
     {
         $this->disasm = true;
     }

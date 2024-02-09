@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 
 function getN(int $instr): int
 {
@@ -24,10 +25,16 @@ function getNM(int $op): array
     return [getN($op), getM($op)];
 }
 
-function getImm4($instruction) { return $instruction & 0xf; }
-function getImm8($instruction) { return $instruction & 0xff; }
+function getImm4(int $instruction): int
+{
+    return $instruction & 0xf;
+}
 
-function u2s8(int $u8) {
+function getImm8(int $instruction): int {
+    return $instruction & 0xff;
+}
+
+function u2s8(int $u8): int {
     if ($u8 & 0x80) {
         return -((~$u8 & 0xff) + 1);
     }
@@ -35,11 +42,11 @@ function u2s8(int $u8) {
     return $u8;
 }
 
-function getSImm8($instruction) {
+function getSImm8(int $instruction): int {
     return u2s8($instruction & 0xff);
 }
 
-function getSImm12($instruction) {
+function getSImm12(int $instruction): int {
     $value = $instruction & 0xfff;
 
     if ($value & 0x800) {
@@ -49,11 +56,11 @@ function getSImm12($instruction) {
     return $value;
 }
 
-function branchTargetS8($instruction, $pc) {
+function branchTargetS8(int $instruction, int $pc): int {
     return getSImm8($instruction) * 2 + 2 + $pc;
 }
 
-function branchTargetS12($instruction, $pc) {
+function branchTargetS12(int $instruction, int $pc): int {
     return getSImm12($instruction) * 2 + 2 + $pc;
 }
 
@@ -66,6 +73,7 @@ class Simulator
     private int $pc;
 
     // TODO: Handle float and system registers
+    /** @var int[]|Relocation[] */
     private array $registers = [
         0,
         0,
@@ -86,6 +94,7 @@ class Simulator
     ];
 
     // TODO: Handle float and system registers
+    /** @var float[] */
     private array $fregisters = [
         0.0,
         0.0,
@@ -116,33 +125,30 @@ class Simulator
     /** @var AbstractExpectation[] */
     private array $pendingExpectations;
 
-    /** @var Relocation[] */
-    private array $relocations;
-
     private bool $disasm = false;
 
     public function __construct(
         private ParsedObject $object,
 
-        /** @var AbscractExpectation[] */
-        private array $expectations,
+        /** @param AbstractExpectation[] */
+        array $expectations,
 
         private Entry $entry,
-
+        
         private bool $forceStop,
-
+        
         /** @var TestRelocation[] */
         private array $testRelocations,
-
-        /** @var MemoryInitializaion[] */
+        
+        /** @var MemoryInitialization[] */
         private array $initializations,
-    )
+
+        )
     {
-        $this->relocations = $this->object->relocations;
         $this->pendingExpectations = $expectations;
 
         // Search entry in exports
-        /** @var ExportSymbol */
+        /** @var ?ExportSymbol */
         $entrySymbol = map($object->exports)->find(fn (ExportSymbol $e) => $e->name === $entry->symbol);
 
         if (!$entrySymbol) throw new \Exception("Entry symbol $entry->symbol not found.", 1);
@@ -150,7 +156,7 @@ class Simulator
         $this->entryAddress = $entrySymbol->offset;
     }
 
-    public function run()
+    public function run(): void
     {
         $this->running = true;
         $this->pc = $this->entryAddress;
@@ -169,7 +175,26 @@ class Simulator
             // TODO: Push parameter to stack
         }
 
-        $this->memory->writeBytes(0, $this->object->code);
+        // TODO: Handle multiple units?
+        $currentSectionAddress = 0;
+        foreach ($this->object->unit->sections as $section) {
+            // Align
+            $remainder = $currentSectionAddress % $section->alignment;
+            if ($remainder) {
+                $currentSectionAddress += $section->alignment - $remainder;
+            }
+
+            $section->rellocate($currentSectionAddress);
+
+            $code = $section->assembleObjectData();
+            $this->memory->writeBytes($currentSectionAddress, $code);
+
+            foreach ($section->relocations as $relocation) {
+                $relocation->rellocate($section->linkedAddress);
+            }
+
+            $currentSectionAddress += $section->length;
+        }
 
         foreach ($this->initializations as $initialization) {
             switch ($initialization->size) {
@@ -184,40 +209,65 @@ class Simulator
                 case 32:
                     $this->memory->writeUInt32($initialization->address, $initialization->value);
                     break;
-                
+
                 default:
                     throw new \Exception("Unsupported initialization size $initialization->size", 1);
-                    break;
             }
         }
 
-        // Note: Object offset is assumed to be 0.
         // TODO: Does not need to happen every run.
-        foreach ($this->object->internalAddressRelocations as $iar) {
-            $this->memory->writeUInt32($iar->address, $iar->target);
+        foreach ($this->object->unit->sections as $section) {
+            foreach ($section->localRelocationsLong as $lr) {
+                $targetSection = $this->object->unit->sections[$lr->sectionIndex];
+
+                $this->memory->writeUInt32(
+                    $section->linkedAddress + $lr->address,
+                    $targetSection->linkedAddress + $lr->target,
+                );
+            }
         }
 
-        $newObjectRelocations = [];
-        foreach ($this->object->relocations as $objectRelocation) {
-            $found = false;
+        // TODO: Does not need to happen every run.
+        // TODO: Consolidate section loop above?
+        foreach ($this->object->unit->sections as $section) {
+            foreach ($section->localRelocationsShort as $lr) {
+                $offset = $this->memory->readUInt32($lr->address);
+                $targetSection = $this->object->unit->sections[$lr->sectionIndex];
 
-            foreach ($this->testRelocations as $testRelocation) {
-                if ($objectRelocation->name === $testRelocation->name) {
-                    // FIXME: This is confusing:
-                    // - Object relocation address is the address of the literal pool data item
-                    // - Test relocation address is the value of the literal pool item
-                    $this->memory->writeUInt32($objectRelocation->address, $testRelocation->address + $objectRelocation->offset);
-                    $found = true;
-                    break;
+                $this->memory->writeUInt32(
+                    $section->linkedAddress + $lr->address,
+                    $targetSection->linkedAddress + $offset,
+                );
+            }
+        }
+
+        foreach ($this->object->unit->sections as $section) {
+            $remainingRelocations = [];
+            foreach ($section->relocations as $relocation) {
+                $found = false;
+    
+                foreach ($this->testRelocations as $userResolution) {
+                    if ($relocation->name === $userResolution->name) {
+                        // FIXME: This is confusing:
+                        // - Object relocation address is the address of the literal pool data item
+                        // - Test relocation address is the value of the literal pool item
+                        $this->memory->writeUInt32(
+                            $relocation->linkedAddress,
+                            $userResolution->address + $relocation->offset
+                        );
+                        $found = true;
+                        break;
+                    }
+                }
+    
+                if (!$found) {
+                    $remainingRelocations[] = $relocation;
                 }
             }
 
-            if (!$found) {
-                $newObjectRelocations[] = $objectRelocation;
-            }
+            $section->relocations = $remainingRelocations;
         }
 
-        $this->relocations = $newObjectRelocations;
 
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
@@ -252,17 +302,16 @@ class Simulator
                 throw new \Exception("Unexpected return value $actualFloatReturn, expecting $expectedFloatReturn", 1);
             }
         }
-        
 
         echo "Passed\n";
     }
 
-    public function readInstruction(int $address)
+    public function readInstruction(int $address): int
     {
         return $this->memory->readUInt16($address);
     }
 
-    public function executeDelaySlot()
+    public function executeDelaySlot(): void
     {
         // TODO: refactor duplicated code
         $instruction = $this->readInstruction($this->pc);
@@ -271,7 +320,7 @@ class Simulator
         $this->executeInstruction($instruction);
     }
 
-    public function executeInstruction(int $instruction)
+    public function executeInstruction(int $instruction): void
     {
         switch ($instruction) {
             // NOP
@@ -478,6 +527,8 @@ class Simulator
             case 0x600b:
                 [$n, $m] = getNM($instruction);
                 $this->log("NEG         R$m,R$n\n");
+
+                // @phpstan-ignore-next-line
                 $this->registers[$n] = -$this->registers[$m];
                 return;
 
@@ -929,10 +980,6 @@ class Simulator
             throw new \Exception("Unexpected call to $name at " . dechex($this->pc) . ", expecting $expectation->name", 1);
         }
 
-        if (!($expectation && $expectation instanceof CallExpectation)) {
-            throw new \Exception("Unexpected call to $name at " . dechex($this->pc), 1);
-        }
-
         if ($expectation->parameters) {
             // TODO: Handle other calling convetions?
             $args = 0;
@@ -957,7 +1004,8 @@ class Simulator
                         continue;
                     }
 
-                    $offset = ($stackOffset - 4) * 4;
+                    $offset = $stackOffset * 4;
+
                     $address = $this->registers[15] + $offset;
                     $actual = $this->memory->readUInt32($address);
 
@@ -1004,7 +1052,7 @@ class Simulator
         $this->log("✅ Expectation fulfilled: Call expectation to " . $name . "\n");
     }
 
-    public function hexdump()
+    public function hexdump(): void
     {
         echo "PC: " . dechex($this->pc) . "\n";
         // print_r($this->registers);
@@ -1030,23 +1078,28 @@ class Simulator
         }
     }
 
+    // TODO: Move to Unit
     public function getRelocationAt(int $address): ?Relocation
     {
-        foreach ($this->relocations as $relocation) {
-            if (($relocation->address) !== $address) continue;
+        foreach ($this->object->unit->sections as $section) {
+            foreach ($section->relocations as $relocation) {
+                if ($relocation->linkedAddress !== $address) {
+                    continue;
+                }
 
-            return $relocation;
+                return $relocation;
+            }
         }
 
         return null;
     }
 
-    public function enableDisasm()
+    public function enableDisasm(): void
     {
         $this->disasm = true;
     }
 
-    private function log($str)
+    private function log(mixed $str): void
     {
         if ($this->disasm) {
             echo $str;
@@ -1058,7 +1111,7 @@ class Simulator
         $expectation = reset($this->pendingExpectations);
 
         if ($addr instanceof Relocation) {
-            $relData = $this->memory->readUInt32($addr->address);
+            $relData = $this->memory->readUInt32($addr->linkedAddress);
 
             // TODO: Handle non offset reads?
             if (!($expectation instanceof SymbolOffsetReadExpectation)) {
@@ -1089,15 +1142,12 @@ class Simulator
         switch ($size) {
             case 8:
                 return $this->memory->readUInt8($displacedAddr);
-                break;
 
             case 16:
                 return $this->memory->readUInt16($displacedAddr);
-                    break;
 
             case 32:
                 return $this->memory->readUInt32($displacedAddr);
-                break;
         }
 
         throw new \Exception("Unsupported read size $size", 1);
@@ -1109,7 +1159,7 @@ class Simulator
     }
 
     /**
-     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
+     * @param int|Relocation $addr
     */
     protected function readUInt16(int|Relocation $addr, int $offset = 0): int
     {
@@ -1117,25 +1167,20 @@ class Simulator
     }
 
     /**
-     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
+     * @param int|Relocation $addr
     */
     protected function readUInt32(int|Relocation $addr, int $offset = 0): int
     {
         return $this->readUInt($addr, $offset,  32);
     }
 
-    /**
-     * @var int|Lhsazevedo\Sh4ObjTest\Relocation $addr
-     * @var int $offset
-     * @var int $value
-    */
-    protected function writeUInt32($addr, $offset, $value)
+    protected function writeUInt32(int|Relocation $addr, int $offset, int $value): void
     {
         $expectation = reset($this->pendingExpectations);
 
         // TODO: Duplicated in readUInt16, extract to method
         if ($addr instanceof Relocation) {
-            $relData = $this->memory->readUInt32($addr->address);
+            $relData = $this->memory->readUInt32($addr->linkedAddress);
 
             // TODO: Handle non offset writes?
             if (!($expectation instanceof SymbolOffsetWriteExpectation)) {

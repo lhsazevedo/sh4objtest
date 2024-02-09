@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 use Lhsazevedo\Sh4ObjTest\TestCase;
 
-function fdec(float $value) {
-    return unpack('L', pack('f', $value))[1];
-}
-
 return new class extends TestCase {
     public function testCycleOptionAndPlaySound_8c016c58() {
         $optionPtr = $this->alloc(0x0c);

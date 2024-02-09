@@ -8,7 +8,7 @@ enum ChunkType {
     case ModuleHeader;
     case UnitHeader;
     case UnitDebug;
-    case Section;
+    case SectionHeader;
     case Imports;
     case Exports;
     case SectionSelection;

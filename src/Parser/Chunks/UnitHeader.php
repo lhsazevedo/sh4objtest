@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
 use Lhsazevedo\Sh4ObjTest\BinaryReader;
-use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
 
-class Unit extends Base
+class UnitHeader extends Base
 {
     public int $format;
 
@@ -23,8 +22,8 @@ class Unit extends Base
 
     public string $toolDate;
 
-    /** @var ObjectData[] */
-    public array $objectDataEntries = []; 
+    /** @var SectionHeader[] */
+    public array $sections;
 
     public function __construct(BinaryReader $reader)
     {
@@ -41,27 +40,8 @@ class Unit extends Base
         //linkerDate = $reader->readBytes(12);
     }
 
-    public function addObjectData(ObjectData $objectData)
+    public function addSection(SectionHeader $section): void
     {
-        $this->objectDataEntries[] = $objectData;
-    }
-
-    public function assembleObjectData()
-    {
-        $data = '';
-
-        foreach ($this->objectDataEntries as $objectDataEntry) {
-            $currentLength = strlen($data);
-
-            if ($objectDataEntry->address > $currentLength) {
-                $data = str_pad($data, $objectDataEntry->address, "\0", STR_PAD_RIGHT);
-            } elseif ($objectDataEntry->address < $currentLength) {
-                throw new \Exception("Unexpected object address 0x" . dechex($objectDataEntry->address) . ", current length is 0x" . dechex($currentLength), 1);
-            }
-
-            $data .= $objectDataEntry->data;
-        }
-
-        return $data;
+        $this->sections[] = $section;
     }
 }

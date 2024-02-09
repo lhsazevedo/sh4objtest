@@ -6,7 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
 use Lhsazevedo\Sh4ObjTest\BinaryReader;
 
-class Module extends Base
+class ModuleHeader extends Base
 {
     const TYPE_ABS_ML = 0;
     const TYPE_REL_ML = 1;
@@ -47,7 +47,7 @@ class Module extends Base
 
     public string $cpuName;
 
-    /** @var Unit[] */
+    /** @var UnitHeader[] */
     public array $units = [];
 
     public function __construct(BinaryReader $reader)
@@ -98,7 +98,7 @@ class Module extends Base
         $this->cpuName = $reader->readBytes($reader->readUInt8());
     }
 
-    public function addUnit(Unit $unit)
+    public function addUnit(UnitHeader $unit): void
     {
         if (count($this->units) > $this->unitCount) {
             throw new \Exception("Number of units greater than module unit count", 1);
