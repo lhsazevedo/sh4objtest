@@ -539,6 +539,24 @@ class Simulator
                 $this->registers[$n] = $this->registers[$m] & 0xff;
                 return;
 
+            // FADD <FREG_M>,<FREG_N>
+            case 0xf000:
+                // if (fpscr.PR == 0)
+                // {
+                    [$n, $m] = GetNM($instruction);
+                    $this->log("FADD        FR$m,FR$n\n");
+                    $this->fregisters[$n] += $this->fregisters[$m];
+                    // TODO: NaN signaling bit
+                    // CHECK_FPU_32(fr[n]);
+                // }
+                // else
+                // {
+                //     double d = getDRn(op) - getDRm(op);
+                //     d = fixNaN64(d);
+                //     setDRn(op, d);
+                // }
+                return;
+
             // FSUB <FREG_M>,<FREG_N>
             case 0xf001:
                 // if (fpscr.PR == 0)
