@@ -8,7 +8,7 @@ return new class extends TestCase {
     protected ?string $objectFile = __DIR__ . '/0002_call.obj';
 
     public function testSimpleTest() {
-        $this->expectCall('syGetInfo');
+        $this->shouldCall('_syGetInfo');
 
         $this->call('_myfunc')->run();
     }

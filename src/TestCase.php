@@ -10,7 +10,7 @@ abstract class AbstractExpectation {}
 
 class CallExpectation extends AbstractExpectation
 {
-    /** @var array<int|float|WildcardArgument> */
+    /** @var array<int|float|string|WildcardArgument> */
     public array $parameters = [];
 
     public ?int $return = null;
@@ -19,7 +19,7 @@ class CallExpectation extends AbstractExpectation
         public string $name
     ) {}
 
-    public function with(int|float|WildcardArgument ...$parameters): self
+    public function with(int|float|string|WildcardArgument ...$parameters): self
     {
         $this->parameters = $parameters;
         return $this;

@@ -675,7 +675,7 @@ class Simulator
                     $this->log("FMOV.S      FR$m,@R$n\n");
 
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
-                    $this->memory->writeUInt32($this->registers[$n], $value);
+                    $this->writeUInt32($this->registers[$n], 0, $value);
                 // } else {
                     // ...
                 // }
@@ -710,13 +710,6 @@ class Simulator
                 // {
                 //     // TODO
                 // }
-                return;
-
-            // FSTS        FPUL,<FREG_N>
-            case 0xf00d:
-                $n = getN($instruction);
-                $this->log("FSTS        FPUL,FR$n");
-                $this->fregisters[$n] = unpack('f', pack('L', $this->fpul))[1];
                 return;
 
             // FMAC <FREG_0>,<FREG_M>,<FREG_N>
@@ -778,11 +771,11 @@ class Simulator
             // BT/S        <bdisp8>
             case 0x8d00:
                 $newpc = branchTargetS8($instruction, $this->pc);
+                $this->log("BT/S        H'" . dechex($newpc) . "\n");
                 if ($this->srT !== 0) {
                     $this->executeDelaySlot();
                     $this->pc = $newpc;
                 }
-                $this->log("BT/S        H'" . dechex($newpc) . "\n");
                 return;
 
             // BF/S <bdisp8>
@@ -938,22 +931,59 @@ class Simulator
             // LDS <REG_M>,FPUL
             case 0x405a:
                 $n = getN($instruction);
-                $this->log("LDS         R$n,FPUL");
+                $this->log("LDS         R$n,FPUL\n");
                 $this->fpul = $this->registers[$n];
 
                 return;
 
+            // FSTS        FPUL,<FREG_N>
+            case 0xf00d:
+                $n = getN($instruction);
+                $this->log("FSTS        FPUL,FR$n\n");
+                $this->fregisters[$n] = unpack('f', pack('L', $this->fpul))[1];
+                return;
+
+            // FLOAT       FPUL,<FREG_N>
+            case 0xf02d:
+                $n = getN($instruction);
+                $this->log("FLOAT       FPUL,FR$n\n");
+                $this->fregisters[$n] = (float) $this->fpul;
+                return;
+
+            // FNEG <FREG_N>
+            case 0xf04d:
+                $n = getN($instruction);
+                $this->log("FNEG        FR$n\n");
+
+                // if (fpscr.PR ==0)
+                $this->fregisters[$n] = -$this->fregisters[$n];
+                // else
+                return;
+
             // FLDI0
             case 0xf08d:
-                $this->log("FLDI0\n");
                 // TODO
                 // if (fpscr.PR!=0) {
                 //     return;
                 // }
-
+                    
                 $n = getN($instruction);
+                $this->log("FLDI0       FR$n\n");
 
                 $this->fregisters[$n] = 0.0;
+                return;
+
+            // FLDI1
+            case 0xf09d:
+                // TODO
+                // if (fpscr.PR!=0) {
+                //     return;
+                // }
+                    
+                $n = getN($instruction);
+                $this->log("FLDI1       FR$n\n");
+
+                $this->fregisters[$n] = 1.0;
                 return;
         }
 
@@ -1070,6 +1100,24 @@ class Simulator
                     // }
                     //
                     // $stackOffset++;
+                } else if (is_string($expected)) {
+                    $args++;
+
+                    if ($args <= 4) {
+                        $register = $args + 4 - 1;
+                        $address = $this->registers[$register];
+
+                        $actual = $this->memory->readString($address);
+                        if ($actual !== $expected) {
+                            $actualHex = bin2hex($actual);
+                            $expectedHex = bin2hex($expected);
+                            throw new \Exception("Unexpected char* argument for $name in r$register. Expected $expected ($expectedHex), got $actual ($actualHex)", 1);
+                        }
+
+                        continue;
+                    }
+
+                    throw new \Exception("String literal stack arguments are not supported at the moment", 1);
                 } else {
                     throw new \Exception("Only integer and floats are supported as parameter expectation", 1);
                 }
@@ -1241,7 +1289,9 @@ class Simulator
         // TODO: Improve code flow
         if ($expectation instanceof WriteExpectation && $expectation->address === $displacedAddr) {
             if ($value !== $expectation->value) {
-                throw new \Exception("Unexpected write value $value, expecting $expectation->value", 1);
+                $hexValue = dechex($value);
+                $expectedHex = dechex($expectation->value);
+                throw new \Exception("Unexpected write value $value (0x$hexValue), expecting $expectation->value (0x$expectedHex)", 1);
             }
 
             array_shift($this->pendingExpectations);

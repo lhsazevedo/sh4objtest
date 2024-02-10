@@ -295,6 +295,81 @@ return new class extends TestCase {
         $this->call('_FUN_8c01306e')->run();
     }
 
+    ////// task_8c013388 //////
+
+    public function test_task_8c013388_field0x08Is0_PvmBoolIs0()
+    {
+        $taskPtr = $this->alloc(0xc);
+
+        $this->shouldCall('_getUknPvmBool_8c01432a')
+            ->andReturn(0);
+
+        $this->call('_task_8c013388')
+            ->with($taskPtr, 0)
+            ->run();
+    }
+
+    public function test_task_8c013388_field0x08Is0_PvmBoolIs1()
+    {
+        $taskPtr = $this->alloc(0xc);
+
+        $var_loadedFooNjm_8c1bc448Ptr = $this->alloc(0x08);
+        $var_loadedFooNjm_8c1bc448PtrPtr = $this->allocRellocate('_var_loadedFooNjm_8c1bc448', 0x04);
+        $this->initUint32($var_loadedFooNjm_8c1bc448PtrPtr, $var_loadedFooNjm_8c1bc448Ptr);
+        $this->initUint32($var_loadedFooNjm_8c1bc448Ptr + 4, 42);
+        $var_8c1bc450Ptr = $this->allocRellocate('_var_8c1bc450', 4);
+        $memblkSource_8c0fcd48Ptr = $this->allocRellocate('_memblkSource_8c0fcd48', 4);
+        $memblkSource_8c0fcd4cPtr = $this->allocRellocate('_memblkSource_8c0fcd4c', 4);
+        $nop_8c011120Ptr = $this->allocRellocate('_nop_8c011120', 4);
+        $setUknPvmBool_8c014330Ptr = $this->allocRellocate('_setUknPvmBool_8c014330', 4);
+
+        $this->shouldCall('_getUknPvmBool_8c01432a')->andReturn(1);
+
+        $this->shouldWrite($taskPtr + 8, 1);
+        $this->shouldWrite($var_8c1bc450Ptr, fdec(41));
+
+        $this->shouldCall('_FUN_8c011f6c');
+        $this->shouldCall('_request_dat_8c011182')->with("\\SOUND", "manatee.drv", $memblkSource_8c0fcd48Ptr);
+        $this->shouldCall('_request_dat_8c011182')->with("\\SOUND", "bus.mlt", $memblkSource_8c0fcd4cPtr);
+        $this->shouldCall('_resetUknPvmBool_8c014322');
+        $this->shouldCall('_FUN_8c011fe0')->with($nop_8c011120Ptr, 0, 0, 0, $setUknPvmBool_8c014330Ptr);
+
+        $this->call('_task_8c013388')
+            ->with($taskPtr, 0)
+            ->run();
+    }
+
+    public function test_task_8c013388_field0x08Is1_PvmBoolIs0()
+    {
+        $taskPtr = $this->alloc(0xc);
+        $this->initUint32($taskPtr + 8, 1);
+
+        $this->shouldCall('_getUknPvmBool_8c01432a')->andReturn(0);
+
+        $this->call('_task_8c013388')
+            ->with($taskPtr, 0)
+            ->run();
+    }
+
+    public function test_task_8c013388_field0x08Is1_PvmBoolIs1()
+    {
+        $taskPtr = $this->alloc(0xc);
+        $this->initUint32($taskPtr + 8, 1);
+        $var_8c2260a8Ptr = $this->allocRellocate('_var_8c2260a8', 4);
+
+        $this->shouldCall('_getUknPvmBool_8c01432a')->andReturn(1);
+
+        $this->shouldCall('_FUN_8c011f7e');
+        $this->shouldCall('_freeTask_8c014b66')->with($taskPtr);
+        $this->shouldCall('_FUN_8c010e18');
+        $this->shouldWrite($var_8c2260a8Ptr, 1);
+        $this->shouldCall('_FUN_8c015fd6');
+
+        $this->call('_task_8c013388')
+            ->with($taskPtr, 0)
+            ->run();
+    }
+
     private function allocRellocate($name, $size)
     {
         $ptr = $this->alloc($size);

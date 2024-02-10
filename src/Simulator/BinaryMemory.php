@@ -32,6 +32,17 @@ class BinaryMemory {
         return $unpacked[1];
     }
 
+    public function readString($address)
+    {
+        $string = '';
+
+        while(($char = $this->readUint8($address++)) !== 0) {
+            $string .= chr($char);
+        }
+
+        return $string;
+    }
+
     public function writeUInt8(int $address, int $value): void
     {
         $this->memory[$address] = pack('C', $value);

@@ -71,16 +71,13 @@
           .IMPORT     _var_8c227da0
           .IMPORT     _var_8c227da8
           .IMPORT     _var_8c1ba291
-          .IMPORT     _const_8c033364
           .IMPORT     _getUknPvmBool_8c01432a
           .IMPORT     _var_loadedFooNjm_8c1bc448
           .IMPORT     _var_8c1bc450
           .IMPORT     _FUN_8c011f6c
           .IMPORT     _memblkSource_8c0fcd48
-          .IMPORT     _const_8c03336c
           .IMPORT     _request_dat_8c011182
           .IMPORT     _memblkSource_8c0fcd4c
-          .IMPORT     _const_8c033378
           .IMPORT     _resetUknPvmBool_8c014322
           .IMPORT     _setUknPvmBool_8c014330
           .IMPORT     _nop_8c011120
@@ -201,6 +198,7 @@
           .EXPORT     _FUN_8c01306e
           .EXPORT     _FUN_8c01328c
           .EXPORT     _FUN_8c013310
+          .EXPORT     _task_8c013388 ; For testing
           .EXPORT     _FUN_8c0134d6
           .EXPORT     _njUserInit_8c0134ec
           .EXPORT     _njUserMain_8c01392e
@@ -742,7 +740,7 @@ LAB_8c01335a:
           MOV.L       @R15+,R13
           JMP         @R2
           MOV.L       @R15+,R14
-task_8c013388:
+_task_8c013388:
           MOV.L       R14,@-R15
           MOV         R4,R14
           MOV.L       R13,@-R15
@@ -1465,7 +1463,7 @@ _njUserExit_8c0139d4:
 LP_GEN_19861:
           .DATA.L _FUN_8c01c8fc ; LP_GEN_19861+0
           .DATA.L _FUN_8c01c910
-          .DATA.L task_8c013388
+          .DATA.L _task_8c013388
           .DATA.L _var_tasks_8c1ba3c8
           .DATA.L _pushTask_8c014ae8
           .DATA.L _FUN_8c011f36
@@ -1527,4 +1525,15 @@ LP_GEN_19861:
           .DATA.L _njExitTexture
           .DATA.L _sbExitSystem_8c014a24
           .DATA.L _syBtExit
+          .SECTION     C,DATA,ALIGN=4
+_const_8c033364:
+          .SDATA       "\SOUND"
+          .DATA.B      H'00
+          .RES.B       1
+_const_8c03336c:
+          .SDATA       "manatee.drv"
+          .DATA.B      H'00
+_const_8c033378:
+          .SDATA       "bus.mlt"
+          .DATA.B      H'00
           .END
