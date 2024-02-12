@@ -823,9 +823,15 @@ class Simulator
 
             // MOVT <REG_N>
             case 0x0029:
-                $this->log("MOVT        <REG_N>\n");
                 $n = getN($instruction);
+                $this->log("MOVT        R$n\n");
                 $this->registers[$n] = $this->srT;
+                return;
+
+            case 0x002a:
+                $n = getN($instruction);
+                $this->log("STS         PR,R$n\n");
+                $this->registers[$n] = $this->pr;
                 return;
 
             // SHLL <REG_N>
@@ -1118,8 +1124,6 @@ class Simulator
                     }
 
                     throw new \Exception("String literal stack arguments are not supported at the moment", 1);
-                } else {
-                    throw new \Exception("Only integer and floats are supported as parameter expectation", 1);
                 }
             }
         }
