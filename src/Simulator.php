@@ -64,6 +64,19 @@ function branchTargetS12(int $instruction, int $pc): int {
     return getSImm12($instruction) * 2 + 2 + $pc;
 }
 
+function s8tos32(int $value)
+{
+    // Ensure value is 8 bit
+    $value &= 0xff;
+
+    // Extend if MSB is set
+    if ($value & 0x80) {
+        $value |= 0xffffff00;
+    }
+
+    return $value;
+}
+
 class Simulator
 {
     private int $entryAddress;
@@ -163,7 +176,7 @@ class Simulator
         $this->memory = new BinaryMemory(1024 * 1024 * 16);
 
         // Stack pointer
-        $this->registers[15] = 1024 * 1024 * 16 - 1;
+        $this->registers[15] = 1024 * 1024 * 16 - 4;
 
         // TODO: Handle other calling convetions
         foreach ($this->entry->parameters as $i => $parameter) {
@@ -407,6 +420,15 @@ class Simulator
                 $this->registers[$n] = $this->readUInt32($this->registers[0], $this->registers[$m]);
                 return;
 
+            // MOV.B Rm,@Rn
+            case 0x2000:
+                [$n, $m] = getNM($instruction);
+                $this->log("MOV.B       R$m,@R$n\n");
+
+                $addr = $this->registers[$n];
+                $this->writeUInt8($this->registers[$n], 0, $this->registers[$m] & 0xff);
+                return;
+
             // MOV.L Rm,@Rn
             case 0x2002:
                 [$n, $m] = getNM($instruction);
@@ -492,14 +514,19 @@ class Simulator
                 $this->registers[$n] += $this->registers[$m];
                 return;
 
+            // MOV.B @Rm,Rn
+            case 0x6000:
+                [$n, $m] = getNM($instruction);
+                $this->log("MOV.B       @R$m,R$n\n");
+
+                $this->registers[$n] = s8tos32($this->readUInt8($this->registers[$m]));
+                return;
+
             // MOV @Rm,Rn
             case 0x6002:
                 [$n, $m] = getNM($instruction);
                 $this->log("MOV         @R$m,R$n\n");
 
-                $addr = $this->registers[$m];
-
-                // TODO: Use read proxy?
                 $this->registers[$n] = $this->readUInt32($this->registers[$m]);
                 return;
 
@@ -514,7 +541,6 @@ class Simulator
             case 0x6006:
                 [$n, $m] = getNM($instruction);
                 $this->log("MOV         @R$m+,R$n\n");
-                // TODO: Use read proxy?
                 $this->registers[$n] = $this->readUInt32($this->registers[$m]);
 
                 if ($n != $m) {
@@ -537,6 +563,13 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $this->log("EXTU.B      R$m,R$n\n");
                 $this->registers[$n] = $this->registers[$m] & 0xff;
+                return;
+            
+            // EXTS.B <REG_M>,<REG_N>
+            case 0x600e:
+                [$n, $m] = getNM($instruction);
+                $this->log("EXTS.B      R$m,R$n\n");
+                $this->registers[$n] = s8tos32($this->registers[$m]);
                 return;
 
             // FADD <FREG_M>,<FREG_N>
@@ -1058,14 +1091,37 @@ class Simulator
                     continue;
                 }
 
-                if (is_int($expected)) {
+                if ($expected instanceof LocalArgument) {
+                    // FIXME: Why increment here!?
                     $args++;
 
                     if ($args <= 4) {
                         $register = $args + 4 - 1;
                         $actual = $this->registers[$register];
+
+                        if ($actual < $this->registers[15]) {
+                            throw new \Exception("Unexpected local argument for $name in r$register. $actual is not in the stack", 1);
+                        }
+
+                        continue;
+                    }
+
+                    throw new \Exception("Stack arguments stored in stack are not supported at the moment", 1);
+                }
+
+                if (is_int($expected)) {
+                    $expected &= 0xffffffff;
+
+                    // FIXME: Why increment here!?
+                    $args++;
+
+                    if ($args <= 4) {
+                        $register = $args + 4 - 1;
+                        $actual = $this->registers[$register];
+                        $actualHex = dechex($actual);
+                        $expectedHex = dechex($expected);
                         if ($actual !== $expected) {
-                            throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected, got $actual", 1);
+                            throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
                         }
 
                         continue;
@@ -1117,7 +1173,7 @@ class Simulator
                         if ($actual !== $expected) {
                             $actualHex = bin2hex($actual);
                             $expectedHex = bin2hex($expected);
-                            throw new \Exception("Unexpected char* argument for $name in r$register. Expected $expected ($expectedHex), got $actual ($actualHex)", 1);
+                            throw new \Exception("Unexpected char* argument for $name in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
                         }
 
                         continue;
@@ -1257,6 +1313,58 @@ class Simulator
         return $this->readUInt($addr, $offset,  32);
     }
 
+    protected function writeUInt8(int|Relocation $addr, int $offset, int $value): void
+    {
+        $expectation = reset($this->pendingExpectations);
+
+        // TODO: Check if value is in byte range
+
+        // TODO: Duplicated in writeUInt16, extract to method
+        if ($addr instanceof Relocation) {
+            $relData = $this->memory->readUInt32($addr->linkedAddress);
+
+            // TODO: Handle non offset writes?
+            if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
+                throw new \Exception("Unexpected offset write", 1);
+            }
+
+            if ($expectation->name !== $addr->name) {
+                throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
+            }
+
+            // TODO: Double check this
+            if ($expectation->offset !== $relData + $offset) {
+                throw new \Exception("Unexpected offset write " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
+            }
+
+            if ($expectation->value !== $value) {
+                throw new \Exception("Unexpected offset write value " . dechex($value) . ". Expecting " . dechex($expectation->value), 1);
+
+            }
+
+            array_shift($this->pendingExpectations);
+            return;
+        }
+
+        $displacedAddr = $addr + $offset;
+
+        // TODO: Improve code flow
+        if ($expectation instanceof WriteExpectation && $expectation->address === $displacedAddr) {
+            if ($value !== $expectation->value) {
+                $hexValue = dechex($value);
+                $expectedHex = dechex($expectation->value);
+                throw new \Exception("Unexpected write value $value (0x$hexValue), expecting $expectation->value (0x$expectedHex)", 1);
+            }
+
+            array_shift($this->pendingExpectations);
+            $this->log("✅ WriteExpectation fulfilled: Wrote " . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n");
+        } else if ($displacedAddr < $this->pr) { // Stack writes are allowed (TODO: Allow user to define allowed writes)
+            throw new \Exception("Unexpected write of 0x" . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n", 1);
+        }
+
+        $this->memory->writeUInt8($displacedAddr, $value);
+    }
+
     protected function writeUInt32(int|Relocation $addr, int $offset, int $value): void
     {
         $expectation = reset($this->pendingExpectations);
@@ -1300,7 +1408,7 @@ class Simulator
 
             array_shift($this->pendingExpectations);
             $this->log("✅ WriteExpectation fulfilled: Wrote " . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n");
-        } else if ($displacedAddr < $this->pr) { // Stack writes are allowed (TODO: Allow user to define allowed writes)
+        } else if ($displacedAddr < $this->registers[15]) { // Stack writes are allowed (TODO: Allow user to define allowed writes)
             throw new \Exception("Unexpected write of 0x" . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n", 1);
         }
 

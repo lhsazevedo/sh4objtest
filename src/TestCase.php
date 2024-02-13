@@ -10,7 +10,7 @@ abstract class AbstractExpectation {}
 
 class CallExpectation extends AbstractExpectation
 {
-    /** @var array<int|float|string|WildcardArgument> */
+    /** @var array<int|float|string|WildcardArgument|LocalArgument> */
     public array $parameters = [];
 
     public ?int $return = null;
@@ -19,7 +19,7 @@ class CallExpectation extends AbstractExpectation
         public string $name
     ) {}
 
-    public function with(int|float|string|WildcardArgument ...$parameters): self
+    public function with(int|float|string|WildcardArgument|LocalArgument ...$parameters): self
     {
         $this->parameters = $parameters;
         return $this;
@@ -45,7 +45,9 @@ class WriteExpectation extends AbstractExpectation
     public function __construct(
         public int $address,
         public int $value
-    ) {}
+    ) {
+        $this->value &= 0xffffffff;
+    }
 }
 
 class SymbolOffsetReadExpectation extends AbstractExpectation
@@ -97,6 +99,11 @@ readonly class MemoryInitialization
 }
 
 class WildcardArgument
+{
+
+}
+
+class LocalArgument
 {
 
 }

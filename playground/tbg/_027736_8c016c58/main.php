@@ -13,6 +13,8 @@ return new class extends TestCase {
         $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
         $this->shouldRead($peripheralPtr + 16, 0);
 
+        $this->shouldWrite($optionPtr, 0);
+
         $this->call('_cycleOptionAndPlaySound_8c016c58')
             ->with($optionPtr, 3)
             ->shouldReturn(0)
@@ -110,6 +112,8 @@ return new class extends TestCase {
         $peripheralPtr = $this->alloc(52);
         $this->rellocate('_peripheral_8c1ba35c', $peripheralPtr);
         $this->shouldRead($peripheralPtr + 16, 0);
+
+        $this->shouldWrite($optionPtr, 1);
 
         $this->call('_cycleOptionAndPlaySound_8c016c58')
             ->with($optionPtr, 3)
