@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
+use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
+use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Throwable;
 
 abstract class AbstractExpectation {}
@@ -98,16 +100,6 @@ readonly class MemoryInitialization
     {}
 }
 
-class WildcardArgument
-{
-
-}
-
-class LocalArgument
-{
-
-}
-
 class TestCase
 {
     protected ?string $objectFile = null;
@@ -158,6 +150,18 @@ class TestCase
         $this->expectations[] = $expectation;
 
         return $expectation;
+    }
+
+    protected function shouldReadFrom(string $name, int $value): ReadExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldRead($address, $value);
+    }
+
+    protected function shouldWriteTo(string $name, int $value): WriteExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldWrite($address, $value);
     }
 
     protected function shouldReadSymbolOffset(string $name, int $offset, int $value): SymbolOffsetReadExpectation
@@ -273,5 +277,42 @@ class TestCase
     public function enableDisasm(): void
     {
         $this->disasm = true;
+    }
+
+    protected function findTestRelocation(string $name): ?TestRelocation
+    {
+        $relocations = array_filter($this->testRelocations, fn($r) => $r->name === $name);
+
+        return $relocations ? reset($relocations) : null;
+    }
+
+    /*
+     * Allocates a symbol with the given size and returns its address.
+     */
+    public function setSize(string $name, int $size): int
+    {
+        if ($this->findTestRelocation($name)) {
+            throw new \RuntimeException("Symbol $name already allocated");
+        }
+
+        $address = $this->alloc($size);
+        $this->rellocate($name, $address);
+
+        return $address;
+    }
+
+    /**
+     * Returns the address of a symbol, allocating it if necessary.
+     */
+    public function addressOf(string $name): int
+    {
+        if ($relocation = $this->findTestRelocation($name)) {
+            return $relocation->address;
+        }
+
+        $address = $this->alloc(4);
+        $this->rellocate($name, $address);
+
+        return $address;
     }
 }

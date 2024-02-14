@@ -6,6 +6,8 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
+use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
+use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 
 function getN(int $instr): int
 {
@@ -64,7 +66,7 @@ function branchTargetS12(int $instruction, int $pc): int {
     return getSImm12($instruction) * 2 + 2 + $pc;
 }
 
-function s8tos32(int $value)
+function s8tos32(int $value): int
 {
     // Ensure value is 8 bit
     $value &= 0xff;
@@ -140,10 +142,12 @@ class Simulator
 
     private bool $disasm = false;
 
+    /**
+     * @param AbstractExpectation[] $expectations
+     * */ 
     public function __construct(
         private ParsedObject $object,
 
-        /** @param AbstractExpectation[] */
         array $expectations,
 
         private Entry $entry,
