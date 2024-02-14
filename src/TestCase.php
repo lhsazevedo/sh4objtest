@@ -46,9 +46,11 @@ class WriteExpectation extends AbstractExpectation
 {
     public function __construct(
         public int $address,
-        public int $value
+        public int|string $value
     ) {
-        $this->value &= 0xffffffff;
+        if (is_int($value)) {
+            $this->value &= 0xffffffff;
+        }
     }
 }
 
@@ -144,7 +146,10 @@ class TestCase
         return $expectation;
     }
 
-    protected function shouldWrite(int $address, int $value): WriteExpectation
+    /**
+     * @todo: Use another expectation class for string literals
+     */
+    protected function shouldWrite(int $address, int|string $value): WriteExpectation
     {
         $expectation = new WriteExpectation($address, $value);
         $this->expectations[] = $expectation;
@@ -158,7 +163,7 @@ class TestCase
         return $this->shouldRead($address, $value);
     }
 
-    protected function shouldWriteTo(string $name, int $value): WriteExpectation
+    protected function shouldWriteTo(string $name, int|string $value): WriteExpectation
     {
         $address = $this->addressOf($name);
         return $this->shouldWrite($address, $value);
