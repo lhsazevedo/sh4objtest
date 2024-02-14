@@ -247,11 +247,13 @@ class TestCase
         }
 
         // Cleanup
+        // TODO: Better to instance the TestCase every time
         $this->forceStop = false;
         $this->entry = new Entry();
         $this->expectations = [];
         $this->testRelocations = [];
         $this->currentAlloc = 1024 * 1024 * 8;
+        $this->initializations = [];
     }
 
     protected function initUint8(int $address, int $value): void
