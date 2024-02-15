@@ -1188,6 +1188,12 @@ class Simulator
             }
         }
 
+        // TODO: Temporary hack to modify write during runtime
+        if ($expectation->callback) {
+            $callback = \Closure::bind($expectation->callback, $this, $this);
+            $callback($expectation->parameters);
+        }
+
         if ($expectation->return !== null) {
             $this->registers[0] = $expectation->return;
         }

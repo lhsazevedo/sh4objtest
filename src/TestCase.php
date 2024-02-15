@@ -17,6 +17,8 @@ class CallExpectation extends AbstractExpectation
 
     public ?int $return = null;
 
+    public ?\Closure $callback = null;
+
     public function __construct(
         public string $name
     ) {}
@@ -30,6 +32,12 @@ class CallExpectation extends AbstractExpectation
     public function andReturn(int|float $value): self
     {
         $this->return = $value;
+        return $this;
+    }
+
+    public function do(\Closure $callback): self
+    {
+        $this->callback = $callback;
         return $this;
     }
 }
