@@ -938,6 +938,19 @@ class Simulator
                 }
                 return;
 
+            // CMP/PL <REG_N>
+            case 0x4015:
+                $n = getN($instruction);
+                $this->log("CMP/PL      R$n\n");
+                
+                if (u2s8($this->registers[$n] & 0xff) > 0) {
+                    $this->srT = 1;
+                    return;
+                }
+
+                $this->srT = 0;
+                return;
+
             // SHLL8  Rn;
             case 0x4018:
                 $n = getN($instruction);
