@@ -522,6 +522,13 @@ class Simulator
                 $this->srT = 0;
                 return;
 
+            // SUB <REG_M>,<REG_N>
+            case 0x3008:
+                [$n, $m] = getNM($instruction);
+                $this->log("SUB         R$m,R$n\n");
+                $this->registers[$n] -= $this->registers[$m];
+                return;
+
             // ADD Rm,Rn
             case 0x300c:
                 [$n, $m] = getNM($instruction);
