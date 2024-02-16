@@ -368,7 +368,7 @@ class Simulator
             case 0x5000:
                 [$n, $m] = getNM($instruction);
                 $disp = getImm4($instruction) << 2;
-                $this->log("MOV.L        @($disp,R$m),R$n\n");
+                $this->log("MOV.L       @($disp,R$m),R$n\n");
                 $this->registers[$n] = $this->readUInt32($this->registers[$m], $disp);
                 return;
 
@@ -446,7 +446,7 @@ class Simulator
             case 0x2006:
                 $n = getN($instruction);
                 $m = getM($instruction);
-                $this->log("MOV.L        R$m,@-R$n\n");
+                $this->log("MOV.L       R$m,@-R$n\n");
 
                 $addr = $this->registers[$n] - 4;
 
@@ -472,6 +472,17 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $this->log("OR          R$m,R$n\n");
                 $this->registers[$n] |= $this->registers[$m];
+                return;
+
+            // CMP/EQ <REG_M>,<REG_N>
+            case 0x3000:
+                [$n, $m] = getNM($instruction);
+                $this->log("CMP/EQ      R$m,R$n\n");
+                if ($this->registers[$n] === $this->registers[$m]) {
+                    $this->srT = 1;
+                } else {
+                    $this->srT = 0;
+                }
                 return;
 
             // CMP/HS <REG_M>,<REG_N>
