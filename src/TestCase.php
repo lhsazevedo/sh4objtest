@@ -334,4 +334,17 @@ class TestCase
 
         return $address;
     }
+
+    /**
+     * Allocates a string and returns its address.
+     */
+    protected function allocString(string $str): int
+    {
+        $address = $this->alloc(strlen($str) + 1);
+        foreach (str_split($str) as $i => $char) {
+            $this->initUint8($address + $i, ord($char));
+        }
+        $this->initUint8($address + strlen($str), 0);
+        return $address;
+    }
 }
