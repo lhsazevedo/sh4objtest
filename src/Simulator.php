@@ -1291,25 +1291,7 @@ class Simulator
         $expectation = reset($this->pendingExpectations);
 
         if ($addr instanceof Relocation) {
-            $relData = $this->memory->readUInt32($addr->linkedAddress);
-
-            // TODO: Handle non offset reads?
-            if (!($expectation instanceof SymbolOffsetReadExpectation)) {
-                throw new \Exception("Unexpected offset read to " . $addr->name, 1);
-            }
-
-            if ($expectation->name !== $addr->name) {
-                throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
-            }
-
-            // TODO: Double check this
-            if ($expectation->offset !== $relData + $offset) {
-                throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
-            }
-
-            array_shift($this->pendingExpectations);
-
-            return $expectation->value;
+            return $this->handleRelocationRead($addr, $offset, $expectation);
         }
 
         $displacedAddr = $addr + $offset;
@@ -1331,6 +1313,29 @@ class Simulator
         }
 
         throw new \Exception("Unsupported read size $size", 1);
+    }
+
+    private  function handleRelocationRead(Relocation $addr, int $offset, mixed $expectation): int
+    {
+        $relData = $this->memory->readUInt32($addr->linkedAddress);
+
+        // TODO: Handle non offset reads?
+        if (!($expectation instanceof SymbolOffsetReadExpectation)) {
+            throw new \Exception("Unexpected offset read to " . $addr->name, 1);
+        }
+
+        if ($expectation->name !== $addr->name) {
+            throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
+        }
+
+        // TODO: Double check this
+        if ($expectation->offset !== $relData + $offset) {
+            throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
+        }
+
+        array_shift($this->pendingExpectations);
+
+        return $expectation->value;
     }
 
     protected function readUInt8(int|Relocation $addr, int $offset = 0): int
