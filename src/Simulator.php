@@ -1299,25 +1299,39 @@ class Simulator
 
         $displacedAddr = $addr + $offset;
 
-        // Handle read expectations
+        $readableAddress = '0x' . dechex($displacedAddr);
+        foreach ($this->testRelocations as $relocation) {
+            if ($relocation->address === $displacedAddr) {
+                $readableAddress = "$relocation->name($readableAddress)";
+                break;
+            }
+        }
+
         $expectation = reset($this->pendingExpectations);
+
+        // Handle read expectations
         if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
+            $readableValue = $expectation->value . ' (0x' . dechex($expectation->value) . ')';
+            $this->log("✅ ReadExpectation fulfilled: (forced) Read $readableValue to $readableAddress\n");
             array_shift($this->pendingExpectations);
             return $expectation->value;
         }
 
-        switch ($size) {
-            case 8:
-                return $this->memory->readUInt8($displacedAddr);
+        $value = match ($size) {
+            8 => $this->memory->readUInt8($displacedAddr),
+            16 => $this->memory->readUInt16($displacedAddr),
+            32 => $this->memory->readUInt32($displacedAddr),
+            default => throw new \Exception("Unsupported read size $size", 1),
+        };
 
-            case 16:
-                return $this->memory->readUInt16($displacedAddr);
+        $readableValue = $value . ' (0x' . dechex($value) . ')';
 
-            case 32:
-                return $this->memory->readUInt32($displacedAddr);
+        // Do not log literal pool reads
+        if ($displacedAddr >= 1024 * 1024 * 8) {
+            $this->log("ⓘ Allowed read of $readableValue from $readableAddress\n");
         }
 
-        throw new \Exception("Unsupported read size $size", 1);
+        return $value;
     }
 
     private  function handleRelocationRead(Relocation $addr, int $offset): int
@@ -1361,8 +1375,6 @@ class Simulator
 
     private function writeUInt(int|Relocation $addr, int $offset, int $value, int $size): void
     {
-        $expectation = reset($this->pendingExpectations);
-
         // TODO: Deprecate this
         if ($addr instanceof Relocation) {
             $this->handleRelocationWrite($addr, $offset, $value);
@@ -1407,12 +1419,12 @@ class Simulator
     {
         $expectation = reset($this->pendingExpectations);
         $readableAddress = '0x' . dechex($address);
-        $readableValue = '0x' . $value . ' (0x' . dechex($value) . ')';
+        $readableValue = $value . ' (0x' . dechex($value) . ')';
         
         // Stack writes are allowed
         // TODO: Allow user to define allowed writes
         if (is_int($this->registers[15]) && $address >= $this->registers[15]) {
-            $this->log("ℹ️ Allowed stack write of $readableValue to $readableAddress\n");
+            $this->log("ⓘ Allowed stack write of $readableValue to $readableAddress\n");
             return;
         }
 
