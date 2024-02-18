@@ -198,6 +198,10 @@ class TestCase
         $cur = $this->currentAlloc;
         $this->currentAlloc += $size;
 
+        if ($this->currentAlloc % 4 !== 0) {
+            $this->currentAlloc += 4 - ($this->currentAlloc % 4);
+        }
+
         return $cur;
     }
 
