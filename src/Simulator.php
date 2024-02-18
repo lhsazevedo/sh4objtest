@@ -1448,25 +1448,30 @@ class Simulator
             }
         }
 
-        $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
-
-        if ($expectation->address !== $address) {
-            throw new \Exception("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
-        }
-
         // Handle char* writes
         if (is_string($expectation->value)) {
             $actual = $this->memory->readString($value);
             $readableValue = $actual . ' (' . bin2hex($actual) . ')';
-            $expectedLog = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
+            $readableExpectedValue = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
+
+            if ($expectation->address !== $address) {
+                throw new \Exception("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
+            }
+            
             if ($actual !== $expectation->value) {
-                throw new \Exception("Unexpected char* write value $readableValue to $readableAddress, expecting $expectedLog", 1);
+                throw new \Exception("Unexpected char* write value $readableValue to $readableAddress, expecting $readableExpectedValue", 1);
             }
         }
         // Hanlde int writes
-        elseif ($value !== $expectation->value) {
-            $expectedHex = dechex($expectation->value);
-            throw new \Exception("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue", 1);
+        else {
+            $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
+            if ($expectation->address !== $address) {
+                throw new \Exception("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
+            }
+
+            if ($value !== $expectation->value) {
+                throw new \Exception("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue", 1);
+            }
         }
 
         array_shift($this->pendingExpectations);
