@@ -79,6 +79,11 @@ function s8tos32(int $value): int
     return $value;
 }
 
+// function hexpad($hex, $len)
+// {
+//     return str_pad($hex, $len, '0', STR_PAD_LEFT);
+// }
+
 class Simulator
 {
     private int $entryAddress;
@@ -284,7 +289,6 @@ class Simulator
 
             $section->relocations = $remainingRelocations;
         }
-
 
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
@@ -1288,14 +1292,15 @@ class Simulator
 
     protected function readUInt(int|Relocation $addr, int $offset, int $size): int
     {
-        $expectation = reset($this->pendingExpectations);
-
+        // TODO: Deprecate this
         if ($addr instanceof Relocation) {
-            return $this->handleRelocationRead($addr, $offset, $expectation);
+            return $this->handleRelocationRead($addr, $offset);
         }
 
         $displacedAddr = $addr + $offset;
 
+        // Handle read expectations
+        $expectation = reset($this->pendingExpectations);
         if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
             array_shift($this->pendingExpectations);
             return $expectation->value;
@@ -1315,8 +1320,9 @@ class Simulator
         throw new \Exception("Unsupported read size $size", 1);
     }
 
-    private  function handleRelocationRead(Relocation $addr, int $offset, mixed $expectation): int
+    private  function handleRelocationRead(Relocation $addr, int $offset): int
     {
+        $expectation = reset($this->pendingExpectations);
         $relData = $this->memory->readUInt32($addr->linkedAddress);
 
         // TODO: Handle non offset reads?
@@ -1343,129 +1349,130 @@ class Simulator
         return $this->readUInt($addr, $offset, 8);
     }
 
-    /**
-     * @param int|Relocation $addr
-    */
     protected function readUInt16(int|Relocation $addr, int $offset = 0): int
     {
         return $this->readUInt($addr, $offset, 16);
     }
 
-    /**
-     * @param int|Relocation $addr
-    */
     protected function readUInt32(int|Relocation $addr, int $offset = 0): int
     {
         return $this->readUInt($addr, $offset,  32);
     }
 
-    protected function writeUInt8(int|Relocation $addr, int $offset, int $value): void
+    private function writeUInt(int|Relocation $addr, int $offset, int $value, int $size): void
     {
         $expectation = reset($this->pendingExpectations);
 
-        // TODO: Check if value is in byte range
-
-        // TODO: Duplicated in writeUInt16, extract to method
+        // TODO: Deprecate this
         if ($addr instanceof Relocation) {
-            $relData = $this->memory->readUInt32($addr->linkedAddress);
-
-            // TODO: Handle non offset writes?
-            if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
-                throw new \Exception("Unexpected offset write", 1);
-            }
-
-            if ($expectation->name !== $addr->name) {
-                throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
-            }
-
-            // TODO: Double check this
-            if ($expectation->offset !== $relData + $offset) {
-                throw new \Exception("Unexpected offset write " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
-            }
-
-            if ($expectation->value !== $value) {
-                throw new \Exception("Unexpected offset write value " . dechex($value) . ". Expecting " . dechex($expectation->value), 1);
-
-            }
-
-            array_shift($this->pendingExpectations);
+            $this->handleRelocationWrite($addr, $offset, $value);
             return;
         }
 
         $displacedAddr = $addr + $offset;
 
-        // TODO: Improve code flow
-        if ($expectation instanceof WriteExpectation && $expectation->address === $displacedAddr) {
-            if ($value !== $expectation->value) {
-                $hexValue = dechex($value);
-                $expectedHex = dechex($expectation->value);
-                throw new \Exception("Unexpected write value $value (0x$hexValue), expecting $expectation->value (0x$expectedHex)", 1);
-            }
+        $this->validateWriteExpectation($displacedAddr, $value);
 
-            array_shift($this->pendingExpectations);
-            $this->log("✅ WriteExpectation fulfilled: Wrote " . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n");
-        } else if ($displacedAddr < $this->registers[15]) { // Stack writes are allowed (TODO: Allow user to define allowed writes)
-            throw new \Exception("Unexpected write of 0x" . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n", 1);
+        $this->memory->writeUInt32($displacedAddr, $value);
+    }
+
+    private function handleRelocationWrite(Relocation $addr, int $offset, int $value): void
+    {
+        $expectation = reset($this->pendingExpectations);
+        $relData = $this->memory->readUInt32($addr->linkedAddress);
+
+        // TODO: Handle non offset writes?
+        if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
+            throw new \Exception("Unexpected offset write", 1);
         }
 
-        $this->memory->writeUInt8($displacedAddr, $value);
+        if ($expectation->name !== $addr->name) {
+            throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
+        }
+
+        // TODO: Double check this
+        if ($expectation->offset !== $relData + $offset) {
+            throw new \Exception("Unexpected offset write " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
+        }
+
+        if ($expectation->value !== $value) {
+            throw new \Exception("Unexpected offset write value " . dechex($value) . ". Expecting " . dechex($expectation->value), 1);
+        }
+
+        array_shift($this->pendingExpectations);
+        return;
+    }
+
+    private function validateWriteExpectation(int $address, int $value): void
+    {
+        $expectation = reset($this->pendingExpectations);
+        $readableAddress = '0x' . dechex($address);
+        $readableValue = '0x' . $value . ' (0x' . dechex($value) . ')';
+        
+        // Stack writes are allowed
+        // TODO: Allow user to define allowed writes
+        if (is_int($this->registers[15]) && $address >= $this->registers[15]) {
+            $this->log("ℹ️ Allowed stack write of $readableValue to $readableAddress\n");
+            return;
+        }
+
+        foreach ($this->testRelocations as $relocation) {
+            if ($relocation->address === $address) {
+                $readableAddress = "$relocation->name($readableAddress)";
+                break;
+            }
+        }
+
+        if (!($expectation instanceof WriteExpectation)) {
+            throw new \Exception("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n", 1);
+        }
+
+        $readableExpectedAddress = '0x' . dechex($expectation->address);
+
+        foreach ($this->testRelocations as $relocation) {
+            if ($relocation->address === $address) {
+                $readableExpectedAddress = "$relocation->name($readableExpectedAddress)";
+                break;
+            }
+        }
+
+        $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
+
+        if ($expectation->address !== $address) {
+            throw new \Exception("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
+        }
+
+        // Handle char* writes
+        if (is_string($expectation->value)) {
+            $actual = $this->memory->readString($value);
+            $readableValue = $actual . ' (' . bin2hex($actual) . ')';
+            $expectedLog = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
+            if ($actual !== $expectation->value) {
+                throw new \Exception("Unexpected char* write value $readableValue to $readableAddress, expecting $expectedLog", 1);
+            }
+        }
+        // Hanlde int writes
+        elseif ($value !== $expectation->value) {
+            $expectedHex = dechex($expectation->value);
+            throw new \Exception("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue", 1);
+        }
+
+        array_shift($this->pendingExpectations);
+        $this->log("✅ WriteExpectation fulfilled: Wrote $readableValue to $readableAddress\n");
+    }
+
+    protected function writeUInt8(int|Relocation $addr, int $offset, int $value): void
+    {
+        $this->writeUInt($addr, $offset, $value, 8);
+    }
+
+    protected function writeUInt16(int|Relocation $addr, int $offset, int $value): void
+    {
+        $this->writeUInt($addr, $offset, $value, 16);
     }
 
     protected function writeUInt32(int|Relocation $addr, int $offset, int $value): void
     {
-        $expectation = reset($this->pendingExpectations);
-
-        // TODO: Duplicated in readUInt16, extract to method
-        if ($addr instanceof Relocation) {
-            $relData = $this->memory->readUInt32($addr->linkedAddress);
-
-            // TODO: Handle non offset writes?
-            if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
-                throw new \Exception("Unexpected offset write", 1);
-            }
-
-            if ($expectation->name !== $addr->name) {
-                throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
-            }
-
-            // TODO: Double check this
-            if ($expectation->offset !== $relData + $offset) {
-                throw new \Exception("Unexpected offset write " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
-            }
-
-            if ($expectation->value !== $value) {
-                throw new \Exception("Unexpected offset write value " . dechex($value) . ". Expecting " . dechex($expectation->value), 1);
-
-            }
-
-            array_shift($this->pendingExpectations);
-            return;
-        }
-
-        $displacedAddr = $addr + $offset;
-
-        // TODO: Improve code flow
-        if ($expectation instanceof WriteExpectation && $expectation->address === $displacedAddr) {
-            $actualLog = $value . '(0x' . dechex($value) . ')';
-
-            if (is_string($expectation->value)) {
-                $actual = $this->memory->readString($value);
-                $actualLog = $actual . ' (' . bin2hex($actual) . ')';
-                $expectedLog = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
-                if ($actual !== $expectation->value) {
-                    throw new \Exception("Unexpected char* write value $actualLog, expecting $expectedLog", 1);
-                }
-            } elseif ($value !== $expectation->value) {
-                $expectedHex = dechex($expectation->value);
-                throw new \Exception("Unexpected write value $actualLog, expecting $expectation->value (0x$expectedHex)", 1);
-            }
-
-            array_shift($this->pendingExpectations);
-            $this->log("✅ WriteExpectation fulfilled: Wrote " . $actualLog . " to 0x" . dechex($displacedAddr) . "\n");
-        } else if ($displacedAddr < $this->registers[15]) { // Stack writes are allowed (TODO: Allow user to define allowed writes)
-            throw new \Exception("Unexpected write of 0x" . dechex($value) . " to 0x" . dechex($displacedAddr) . "\n", 1);
-        }
-
-        $this->memory->writeUInt32($displacedAddr, $value);
+        $this->writeUInt($addr, $offset, $value, 32);
     }
 }

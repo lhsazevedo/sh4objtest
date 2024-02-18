@@ -13,7 +13,7 @@ use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
 
-function hexpad($hex, $len)
+function hexpad(string $hex, int $len): string
 {
     return str_pad($hex, $len, '0', STR_PAD_LEFT);
 }
