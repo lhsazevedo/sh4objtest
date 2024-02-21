@@ -35,11 +35,11 @@ $test = require $testFile;
 if ($objectFile) {
     $test->setObjectFile($objectFile);
 }
+$test->parseObject();
 
 if ($disasm) {
     $test->enableDisasm();
 }
-
 
 $reflectionClass = new ReflectionClass($test);
 

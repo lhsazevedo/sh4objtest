@@ -32,7 +32,7 @@ class BinaryMemory {
         return $unpacked[1];
     }
 
-    public function readString($address)
+    public function readString(int $address): string
     {
         $string = '';
 

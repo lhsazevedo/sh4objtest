@@ -38,7 +38,7 @@ class Relocation {
 
     ////// Link/Simulation methods //////
 
-    public function rellocate(int $address)
+    public function rellocate(int $address): void
     {
         $this->linkedAddress = $this->address + $address;
     }

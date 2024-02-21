@@ -12,6 +12,7 @@ use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
 use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 
 function hexpad(string $hex, int $len): string
 {
@@ -66,23 +67,8 @@ readonly class ImportSymbol
     ) {}
 }
 
-readonly class ExportSymbol
-{
-    public function __construct(
-        public string $name,
-        public int $section,
-        public int $type,
-        public int $offset,
-    ) {}
-}
-
 class ParsedObject {
     public function __construct(
-        // public array $imports,
-
-        /** @var ExportSymbol[] */
-        public array $exports,
-
         public UnitHeader $unit,
     )
     {}
@@ -97,9 +83,6 @@ final class ObjectParser
 
     /** @var ImportSymbol[] */
     private array $imports = [];
-
-    /** @var ExportSymbol[] */
-    private array $exports = [];
 
     private function realParse(string $objectFile): ParsedObject
     {
@@ -167,14 +150,14 @@ final class ObjectParser
 
                 case ChunkType::Exports:
                     while($reader->tell() < $chunkBase + $len) {
-                        $section = $reader->readUInt16();
+                        $section = $reader->readUInt16BE();
                         $type = $reader->readUInt8();
                         $offset = $reader->readUInt32BE();
                         $name = $reader->readBytes($reader->readUInt8());
 
-                        $this->exports[] = new ExportSymbol(
+                        $currentUnit->sections[$section]->addExport(new ExportSymbol(
                             $name, $section, $type, $offset
-                        );
+                        ));
                     }
                     break;
 
@@ -342,10 +325,7 @@ final class ObjectParser
             $reader->seek($chunkBase + $len);
         }
 
-        return new ParsedObject(
-            $this->exports,
-            $this->modules[0]->units[0],
-        );
+        return new ParsedObject($this->modules[0]->units[0]);
     }
 
     public static function parse(string $objectFile): ParsedObject

@@ -133,6 +133,8 @@ class TestCase
 
     private bool $disasm = false;
 
+    private string $linkedCode;
+
     public function __construct()
     {
         $this->entry = new Entry();
@@ -240,8 +242,6 @@ class TestCase
 
     protected function run(): void
     {
-        $this->parsedObject = ObjectParser::parse($this->objectFile);
-
         $simulator = new Simulator(
             $this->parsedObject,
             $this->expectations,
@@ -249,6 +249,7 @@ class TestCase
             $this->forceStop,
             $this->testRelocations,
             $this->initializations,
+            $this->linkedCode,
         );
 
         if ($this->disasm) {
@@ -293,6 +294,28 @@ class TestCase
         $this->objectFile = $path;
     }
 
+    public function parseObject(): void
+    {
+        $this->parsedObject = ObjectParser::parse($this->objectFile);
+
+        $linkedCode = '';
+        // TODO: Handle multiple units?
+        foreach ($this->parsedObject->unit->sections as $section) {
+            // Align
+            $remainder = strlen($linkedCode) % $section->alignment;
+            if ($remainder) {
+                $linkedCode .= str_repeat("\0", $section->alignment - $remainder);
+            }
+
+            $section->rellocate(strlen($linkedCode));
+
+            $code = $section->assembleObjectData();
+            $linkedCode .= $code;
+        }
+
+        $this->linkedCode = $linkedCode;
+    }
+
     public function enableDisasm(): void
     {
         $this->disasm = true;
@@ -327,6 +350,10 @@ class TestCase
     {
         if ($relocation = $this->findTestRelocation($name)) {
             return $relocation->address;
+        }
+
+        if ($symbol = $this->parsedObject->unit->findExportedSymbol($name)) {
+            return $symbol->linkedAddress;
         }
 
         $address = $this->alloc(4);

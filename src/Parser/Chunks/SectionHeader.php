@@ -9,6 +9,7 @@ use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
 use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 
 function bitf(int $bitfield, int $position, int $length): int
 {
@@ -44,7 +45,6 @@ class SectionHeader extends Base
     public readonly int $flags3;
     public readonly string $name;
 
-    ////// Link/Simulation properties //////
     public ?int $linkedAddress = null;
 
     /** @var ObjectData[] */
@@ -58,6 +58,9 @@ class SectionHeader extends Base
 
     /** @var LocalRelocationShort[] */
     public array $localRelocationsShort = [];
+
+    /** @var ExportSymbol[] */
+    public array $exports = [];
 
     public function __construct(BinaryReader $reader)
     {
@@ -121,10 +124,33 @@ class SectionHeader extends Base
         return $data;
     }
 
-    ////// Link/Simulation methods //////
 
-    public function rellocate(int $address)
+    public function rellocate(int $address): void
     {
         $this->linkedAddress = $this->address + $address;
+
+        foreach ($this->relocations as $relocation) {
+            $relocation->rellocate($this->linkedAddress);
+        }
+
+        foreach ($this->exports as $export) {
+            $export->rellocate($this->linkedAddress);
+        }
+    }
+
+    public function addExport(ExportSymbol $export): void
+    {
+        $this->exports[] = $export;
+    }
+
+    public function findExportedSymbol(string $name): ?ExportSymbol
+    {
+        foreach ($this->exports as $export) {
+            if ($export->name === $name) {
+                return $export;
+            }
+        }
+
+        return null;
     }
 }

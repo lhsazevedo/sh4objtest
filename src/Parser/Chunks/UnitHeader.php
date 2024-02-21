@@ -44,4 +44,15 @@ class UnitHeader extends Base
     {
         $this->sections[] = $section;
     }
+
+    public function findExportedSymbol(string $name): ?ExportSymbol
+    {
+        foreach ($this->sections as $section) {
+            if ($symbol = $section->findExportedSymbol($name)) {
+                return $symbol;
+            }
+        }
+
+        return null;
+    }
 }

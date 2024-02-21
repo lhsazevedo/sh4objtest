@@ -8,6 +8,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 
 function getN(int $instr): int
 {
@@ -165,13 +166,14 @@ class Simulator
         /** @var MemoryInitialization[] */
         private array $initializations,
 
+        private string $linkedCode,
         )
     {
         $this->pendingExpectations = $expectations;
 
         // Search entry in exports
         /** @var ?ExportSymbol */
-        $entrySymbol = map($object->exports)->find(fn (ExportSymbol $e) => $e->name === $entry->symbol);
+        $entrySymbol = $object->unit->findExportedSymbol($entry->symbol);
 
         if (!$entrySymbol) throw new \Exception("Entry symbol $entry->symbol not found.", 1);
 
@@ -197,26 +199,7 @@ class Simulator
             // TODO: Push parameter to stack
         }
 
-        // TODO: Handle multiple units?
-        $currentSectionAddress = 0;
-        foreach ($this->object->unit->sections as $section) {
-            // Align
-            $remainder = $currentSectionAddress % $section->alignment;
-            if ($remainder) {
-                $currentSectionAddress += $section->alignment - $remainder;
-            }
-
-            $section->rellocate($currentSectionAddress);
-
-            $code = $section->assembleObjectData();
-            $this->memory->writeBytes($currentSectionAddress, $code);
-
-            foreach ($section->relocations as $relocation) {
-                $relocation->rellocate($section->linkedAddress);
-            }
-
-            $currentSectionAddress += $section->length;
-        }
+        $this->memory->writeBytes(0, $this->linkedCode);
 
         foreach ($this->initializations as $initialization) {
             switch ($initialization->size) {
@@ -1241,10 +1224,25 @@ class Simulator
         echo "PC: " . dechex($this->pc) . "\n";
         // print_r($this->registers);
 
-        return;
-
         // TODO: Unhardcode memory size
-        for ($i=0; $i < 4096; $i++) {
+        for ($i=0x800; $i < 0x900; $i++) {
+            if ($i % 16 === 0) {
+                echo "\n";
+                echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
+            } else if ($i !== 0 && $i % 4 === 0) {
+                echo " ";
+            }
+
+            if ($this->getRelocationAt($i)) {
+                echo "RR RR RR RR ";
+                $i += 3;
+                continue;
+            }
+
+            echo str_pad(dechex($this->memory->readUInt8($i)), 2, '0', STR_PAD_LEFT) . ' ';
+        }
+
+        for ($i=0x800000; $i < 0x800000 + 0x40; $i++) {
             if ($i % 16 === 0) {
                 echo "\n";
                 echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
