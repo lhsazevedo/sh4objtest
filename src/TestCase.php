@@ -309,8 +309,7 @@ class TestCase
 
             $section->rellocate(strlen($linkedCode));
 
-            $code = $section->assembleObjectData();
-            $linkedCode .= $code;
+            $linkedCode .= $section->assembleObjectData();
         }
 
         $this->linkedCode = $linkedCode;

@@ -148,6 +148,9 @@ class Simulator
 
     private bool $disasm = false;
 
+    /** @var Relocation[] */
+    private array $unresolvedRelocations = [];
+
     /**
      * @param AbstractExpectation[] $expectations
      * */ 
@@ -246,11 +249,11 @@ class Simulator
             }
         }
 
+        $unresolvedRelocations = [];
         foreach ($this->object->unit->sections as $section) {
-            $remainingRelocations = [];
             foreach ($section->relocations as $relocation) {
                 $found = false;
-    
+
                 foreach ($this->testRelocations as $userResolution) {
                     if ($relocation->name === $userResolution->name) {
                         // FIXME: This is confusing:
@@ -264,14 +267,13 @@ class Simulator
                         break;
                     }
                 }
-    
+
                 if (!$found) {
-                    $remainingRelocations[] = $relocation;
+                    $unresolvedRelocations[] = $relocation;
                 }
             }
-
-            $section->relocations = $remainingRelocations;
         }
+        $this->unresolvedRelocations = $unresolvedRelocations;
 
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
@@ -1225,7 +1227,7 @@ class Simulator
         // print_r($this->registers);
 
         // TODO: Unhardcode memory size
-        for ($i=0x800; $i < 0x900; $i++) {
+        for ($i=0x600; $i < 0x900; $i++) {
             if ($i % 16 === 0) {
                 echo "\n";
                 echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
@@ -1263,12 +1265,8 @@ class Simulator
     // TODO: Move to Unit
     public function getRelocationAt(int $address): ?Relocation
     {
-        foreach ($this->object->unit->sections as $section) {
-            foreach ($section->relocations as $relocation) {
-                if ($relocation->linkedAddress !== $address) {
-                    continue;
-                }
-
+        foreach ($this->unresolvedRelocations as $relocation) {
+            if ($relocation->linkedAddress === $address) {
                 return $relocation;
             }
         }
