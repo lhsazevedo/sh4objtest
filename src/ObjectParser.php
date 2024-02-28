@@ -26,9 +26,14 @@ function xdump(string $data): void
     $data = array_chunk($data, 16);
 
     foreach ($data as $i => $v) {
-        echo '0x' . hexpad(dechex($i * 16), 4) . ': ' . join(' ', $v) . "\n";
+        $ascii = [];
+        foreach ($v as $hex) {
+            $ascii[] = ctype_print(hex2bin($hex)) ? chr(hexdec($hex)) : '.';
+        }
+        echo '0x' . hexpad(dechex($i * 16), 4) . ': ' . str_pad(join(' ', $v), 47) . ' | ' . join('', $ascii) . "\n";
     }
 }
+
 
 class Chunk {
     public ChunkType $type;
@@ -153,6 +158,15 @@ final class ObjectParser
                         $section = $reader->readUInt16BE();
                         $type = $reader->readUInt8();
                         $offset = $reader->readUInt32BE();
+
+                        // TODO: Extract to a ChunkReader or ObjectReader class
+                        if ($reader->tell() >= $chunkBase + $len) {
+                            $chunkBase = $reader->tell();
+                            $ukn = $reader->readUInt8();
+                            $type = $reader->readUInt8();
+                            $len = $reader->readUInt8();
+                        }
+
                         $name = $reader->readBytes($reader->readUInt8());
 
                         $currentUnit->sections[$section]->addExport(new ExportSymbol(
