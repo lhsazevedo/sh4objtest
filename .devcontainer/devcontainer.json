@@ -12,6 +12,7 @@
   },
   "remoteUser": "1000:1000",
   "mounts": [
-    "type=bind,source=${localEnv:DC_SDK_PATH},target=/sdk"
+    "type=bind,source=${localEnv:DC_SDK_PATH},target=/sdk",
+    //"type=bind,source=${localEnv:GAME_PATH},target=/game"
   ]
 }
