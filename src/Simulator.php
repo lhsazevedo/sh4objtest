@@ -880,8 +880,8 @@ class Simulator
 
             // SHLL <REG_N>
             case 0x4000:
-                $this->log("SHLL        <REG_N>\n");
                 $n = getN($instruction);
+                $this->log("SHLL        R$n\n");
                 $this->srT = $n >> 31;
                 $this->registers[$n] <<= 1;
                 return;
