@@ -20,7 +20,8 @@ class CallExpectation extends AbstractExpectation
     public ?\Closure $callback = null;
 
     public function __construct(
-        public string $name
+        public string $name,
+        public int $address,
     ) {}
 
     public function with(int|float|string|WildcardArgument|LocalArgument ...$parameters): self
@@ -142,7 +143,8 @@ class TestCase
 
     protected function shouldCall(string $name): CallExpectation
     {
-        $expectation = new CallExpectation($name);
+        $address = $this->addressOf($name);
+        $expectation = new CallExpectation($name, $address);
         $this->expectations[] = $expectation;
 
         return $expectation;
