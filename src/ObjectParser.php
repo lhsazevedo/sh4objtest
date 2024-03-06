@@ -178,6 +178,18 @@ final class ObjectParser
                 case ChunkType::Imports:
                     while($reader->tell() < $chunkBase + $len) {
                         $type = $reader->readUInt8();
+
+                        // TODO: Extract to a ChunkReader or ObjectReader class
+                        // It is possible that the contents are split into multiple chunks
+                        // so we need to check if we are at the end of the current chunk.
+                        // Ideally, there should be a class that abstract this away.
+                        if ($reader->tell() >= $chunkBase + $len) {
+                            $chunkBase = $reader->tell();
+                            $ukn = $reader->readUInt8();
+                            $type = $reader->readUInt8();
+                            $len = $reader->readUInt8();
+                        }
+
                         $name = $reader->readBytes($reader->readUInt8());
 
                         $this->imports[] = new ImportSymbol($name, $type);
@@ -212,6 +224,7 @@ final class ObjectParser
                         // Probably should not be determined by relocation data length
                         $relLen = $reader->readUInt8();
                         $raw .= $reader->peekBytes($relLen);
+                        //xdump($raw);
                         if ($relLen === 4) {
                             $maybeRelType = $reader->readUInt8();
                             if ($maybeRelType === 2) {
@@ -222,6 +235,16 @@ final class ObjectParser
                                 }
 
                                 $importIndex = $reader->readUInt8();
+
+                                if ($importIndex >= count($this->imports)) {
+                                    echo "Import index $importIndex out of bounds\n";
+                                    $terminator = $reader->readUInt8();
+                                    if ($terminator !== 0xff) {
+                                        throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
+                                    }
+
+                                    continue;
+                                }
                                 $name = $this->imports[$importIndex]->name;
                                 $offset = 0;
                             } else if ($maybeRelType === 0) {
@@ -332,7 +355,7 @@ final class ObjectParser
 
                     // echo "WARN: Unknown chunk type " . dechex($type) . "\n";
                     // xdump($reader->readBytes($len - 3));
-                    // throw new \Exception("Unknown chunk type " . dechex($type), 1);
+                    //throw new \Exception("Unknown chunk type " . dechex($type), 1);
                     break;
             }
 

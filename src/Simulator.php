@@ -1085,8 +1085,12 @@ class Simulator
         throw new \Exception("Unknown instruction " . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT));
     }
 
-    private function setRegister(int $n, int $value): void
+    private function setRegister(int $n, int|Relocation $value): void
     {
+        if ($value instanceof Relocation) {
+            throw new \Exception("Trying to write relocation $value->name to a register");
+        }
+
         $this->registers[$n] = $value;
 
         if ($this->disasm) {
