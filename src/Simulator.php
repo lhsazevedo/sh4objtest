@@ -1085,12 +1085,8 @@ class Simulator
         throw new \Exception("Unknown instruction " . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT));
     }
 
-    private function setRegister(int $n, int|Relocation $value): void
+    private function setRegister(int $n, int $value): void
     {
-        if ($value instanceof Relocation) {
-            throw new \Exception("Trying to write relocation $value->name to a register");
-        }
-
         $this->registers[$n] = $value;
 
         if ($this->disasm) {
@@ -1099,7 +1095,7 @@ class Simulator
         }
     }
 
-    private function getRegister($n)
+    private function getRegister(int $n): int
     {
         $value = $this->registers[$n];
 
@@ -1305,13 +1301,15 @@ class Simulator
         return null;
     }
 
-    public function getResolutionAt(int $address)
+    public function getResolutionAt(int $address): ?TestRelocation
     {
         foreach ($this->testRelocations as $relocation) {
             if ($relocation->address === $address) {
                 return $relocation;
             }
         }
+
+        return null;
     }
 
     public function enableDisasm(): void
@@ -1326,13 +1324,8 @@ class Simulator
         }
     }
 
-    protected function readUInt(int|Relocation $addr, int $offset, int $size): int
+    protected function readUInt(int $addr, int $offset, int $size): int
     {
-        // TODO: Deprecate this
-        if ($addr instanceof Relocation) {
-            return $this->handleRelocationRead($addr, $offset);
-        }
-
         $displacedAddr = $addr + $offset;
 
         $readableAddress = '0x' . dechex($displacedAddr);
@@ -1345,14 +1338,6 @@ class Simulator
 
         $expectation = reset($this->pendingExpectations);
 
-        // Handle read expectations
-        if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
-            $readableValue = $expectation->value . ' (0x' . dechex($expectation->value) . ')';
-            $this->log("✅ ReadExpectation fulfilled: (forced) Read $readableValue to $readableAddress\n");
-            array_shift($this->pendingExpectations);
-            return $expectation->value;
-        }
-
         $value = match ($size) {
             8 => $this->memory->readUInt8($displacedAddr),
             16 => $this->memory->readUInt16($displacedAddr),
@@ -1362,6 +1347,19 @@ class Simulator
 
         $readableValue = $value . ' (0x' . dechex($value) . ')';
 
+        // Handle read expectations
+        if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
+            $readableExpected = $expectation->value . ' (0x' . dechex($expectation->value) . ')';
+
+            if ($value !== $expectation->value) {
+                throw new \Exception("Unexpected read of $readableValue from $readableAddress. Expecting value $readableExpected", 1);
+            }
+
+            $this->log("✅ ReadExpectation fulfilled: Read $readableExpected from $readableAddress\n");
+            array_shift($this->pendingExpectations);
+            return $value;
+        }
+
         // Do not log literal pool reads
         if ($displacedAddr >= 1024 * 1024 * 8) {
             $this->log("[INFO] Allowed read of $readableValue from $readableAddress\n");
@@ -1370,85 +1368,28 @@ class Simulator
         return $value;
     }
 
-    private  function handleRelocationRead(Relocation $addr, int $offset): int
-    {
-        $expectation = reset($this->pendingExpectations);
-        $relData = $this->memory->readUInt32($addr->linkedAddress);
-
-        // TODO: Handle non offset reads?
-        if (!($expectation instanceof SymbolOffsetReadExpectation)) {
-            throw new \Exception("Unexpected offset read to " . $addr->name, 1);
-        }
-
-        if ($expectation->name !== $addr->name) {
-            throw new \Exception("Unexpected offset read to $addr->name. Expecting $expectation->name", 1);
-        }
-
-        // TODO: Double check this
-        if ($expectation->offset !== $relData + $offset) {
-            throw new \Exception("Unexpected offset read " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
-        }
-
-        array_shift($this->pendingExpectations);
-
-        return $expectation->value;
-    }
-
-    protected function readUInt8(int|Relocation $addr, int $offset = 0): int
+    protected function readUInt8(int $addr, int $offset = 0): int
     {
         return $this->readUInt($addr, $offset, 8);
     }
 
-    protected function readUInt16(int|Relocation $addr, int $offset = 0): int
+    protected function readUInt16(int $addr, int $offset = 0): int
     {
         return $this->readUInt($addr, $offset, 16);
     }
 
-    protected function readUInt32(int|Relocation $addr, int $offset = 0): int
+    protected function readUInt32(int $addr, int $offset = 0): int
     {
         return $this->readUInt($addr, $offset,  32);
     }
 
-    private function writeUInt(int|Relocation $addr, int $offset, int $value, int $size): void
+    private function writeUInt(int $addr, int $offset, int $value, int $size): void
     {
-        // TODO: Deprecate this
-        if ($addr instanceof Relocation) {
-            $this->handleRelocationWrite($addr, $offset, $value);
-            return;
-        }
-
         $displacedAddr = $addr + $offset;
 
         $this->validateWriteExpectation($displacedAddr, $value);
 
         $this->memory->writeUInt32($displacedAddr, $value);
-    }
-
-    private function handleRelocationWrite(Relocation $addr, int $offset, int $value): void
-    {
-        $expectation = reset($this->pendingExpectations);
-        $relData = $this->memory->readUInt32($addr->linkedAddress);
-
-        // TODO: Handle non offset writes?
-        if (!($expectation instanceof SymbolOffsetWriteExpectation)) {
-            throw new \Exception("Unexpected offset write", 1);
-        }
-
-        if ($expectation->name !== $addr->name) {
-            throw new \Exception("Unexpected offset write to $addr->name. Expecting $expectation->name", 1);
-        }
-
-        // TODO: Double check this
-        if ($expectation->offset !== $relData + $offset) {
-            throw new \Exception("Unexpected offset write " . dechex($relData + $offset) . ". Expecting " . dechex($expectation->offset), 1);
-        }
-
-        if ($expectation->value !== $value) {
-            throw new \Exception("Unexpected offset write value " . dechex($value) . ". Expecting " . dechex($expectation->value), 1);
-        }
-
-        array_shift($this->pendingExpectations);
-        return;
     }
 
     private function validateWriteExpectation(int $address, int $value): void
@@ -1514,17 +1455,17 @@ class Simulator
         $this->log("✅ WriteExpectation fulfilled: Wrote $readableValue to $readableAddress\n");
     }
 
-    protected function writeUInt8(int|Relocation $addr, int $offset, int $value): void
+    protected function writeUInt8(int $addr, int $offset, int $value): void
     {
         $this->writeUInt($addr, $offset, $value, 8);
     }
 
-    protected function writeUInt16(int|Relocation $addr, int $offset, int $value): void
+    protected function writeUInt16(int $addr, int $offset, int $value): void
     {
         $this->writeUInt($addr, $offset, $value, 16);
     }
 
-    protected function writeUInt32(int|Relocation $addr, int $offset, int $value): void
+    protected function writeUInt32(int $addr, int $offset, int $value): void
     {
         $this->writeUInt($addr, $offset, $value, 32);
     }
