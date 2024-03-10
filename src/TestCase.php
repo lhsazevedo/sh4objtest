@@ -181,20 +181,14 @@ class TestCase
         return $this->shouldWrite($address, $value);
     }
 
-    protected function shouldReadSymbolOffset(string $name, int $offset, int $value): SymbolOffsetReadExpectation
+    protected function shouldReadSymbolOffset(string $name, int $offset, int $value): ReadExpectation
     {
-        $expectation = new SymbolOffsetReadExpectation($name, $offset, $value);
-        $this->expectations[] = $expectation;
-
-        return $expectation;
+        return $this->shouldRead($this->addressOf($name) + $offset, $value);
     }
 
-    protected function shouldWriteSymbolOffset(string $name, int $offset, int $value): SymbolOffsetWriteExpectation
+    protected function shouldWriteSymbolOffset(string $name, int $offset, int $value): WriteExpectation
     {
-        $expectation = new SymbolOffsetWriteExpectation($name, $offset, $value);
-        $this->expectations[] = $expectation;
-
-        return $expectation;
+        return $this->shouldWrite($this->addressOf($name) + $offset, $value);
     }
 
     protected function alloc(int $size): int
