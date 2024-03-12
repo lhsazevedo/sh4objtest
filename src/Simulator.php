@@ -786,7 +786,7 @@ class Simulator
 
             // CMP/EQ #<imm>,R0
             case 0x8800:
-                $imm = getSImm8($instruction);
+                $imm = getSImm8($instruction) & 0xffffffff;
                 $this->log("CMP/EQ      #$imm,R0\n");
                 if ($this->registers[0] === $imm) {
                     $this->srT = 1;
