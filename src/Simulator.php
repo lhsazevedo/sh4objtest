@@ -1085,8 +1085,12 @@ class Simulator
         throw new \Exception("Unknown instruction " . str_pad(dechex($instruction), 4, '0', STR_PAD_LEFT));
     }
 
-    private function setRegister(int $n, int $value): void
+    private function setRegister(int $n, int|Relocation $value): void
     {
+        if ($value instanceof Relocation) {
+            throw new \Exception("Trying to write relocation $value->name to R$n");
+        }
+
         $this->registers[$n] = $value;
 
         if ($this->disasm) {
@@ -1201,7 +1205,7 @@ class Simulator
                         continue;
                     }
 
-                    throw new \Exception("Flaot stack parameters are not supported at the moment", 1);
+                    throw new \Exception("Float stack parameters are not supported at the moment", 1);
                     // $offset = ($stackOffset - 4) * 4;
                     // $address = $this->registers[15] + $offset;
                     // $actual = $this->memory->readUInt32($address);
@@ -1329,11 +1333,8 @@ class Simulator
         $displacedAddr = $addr + $offset;
 
         $readableAddress = '0x' . dechex($displacedAddr);
-        foreach ($this->testRelocations as $relocation) {
-            if ($relocation->address === $displacedAddr) {
-                $readableAddress = "$relocation->name($readableAddress)";
-                break;
-            }
+        if ($relocation = $this->getResolutionAt($displacedAddr)) {
+            $readableAddress = "$relocation->name($readableAddress)";
         }
 
         $expectation = reset($this->pendingExpectations);
@@ -1344,6 +1345,10 @@ class Simulator
             32 => $this->memory->readUInt32($displacedAddr),
             default => throw new \Exception("Unsupported read size $size", 1),
         };
+
+        if ($value instanceof Relocation) {
+            throw new \Exception("Trying to read relocation $value->name in $readableAddress");
+        }
 
         $readableValue = $value . ' (0x' . dechex($value) . ')';
 
