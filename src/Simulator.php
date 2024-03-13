@@ -199,7 +199,10 @@ class Simulator
                 continue;
             }
 
-            // TODO: Push parameter to stack
+            $this->registers[15] -= 4;
+            $this->memory->writeUInt32($this->registers[15], $parameter);
+
+            // TODO: Handle float parameters
         }
 
         $this->memory->writeBytes(0, $this->linkedCode);
