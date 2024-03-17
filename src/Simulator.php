@@ -45,6 +45,22 @@ function u2s8(int $u8): int {
     return $u8;
 }
 
+function u2s32(int $u32): int {
+    if ($u32 & 0x80000000) {
+        return -((~$u32 & 0xffffffff) + 1);
+    }
+
+    return $u32;
+}
+
+function s2u32(int $s32): int {
+    if ($s32 < 0) {
+        return (~(-$s32) + 1) & 0xffffffff;
+    }
+
+    return $s32;
+}
+
 function getSImm8(int $instruction): int {
     return u2s8($instruction & 0xff);
 }
@@ -137,7 +153,10 @@ class Simulator
 
     private int $pr = 0;
 
+    /* TODO: Implement SR correctly */
     private int $srT = 0;
+
+    private int $macl = 0;
 
     private int $fpul = 0;
 
@@ -400,6 +419,15 @@ class Simulator
                 $this->log("MOV.L       R$m, @(R0,R$n)\n");
                 // TODO: Is R0 always the offset?
                 $this->writeUInt32($this->registers[$n], $this->registers[0], $this->registers[$m]);
+                return;
+
+            // MUL.L <REG_M>,<REG_N>
+            case 0x0007:
+                [$n, $m] = getNM($instruction);
+                $this->log("MUL.L       R$m,R$n\n");
+                $result = s2u32(u2s32($this->registers[$n]) * u2s32($this->registers[$m]));
+                $this->macl = $result;
+                $this->log("[INFO] MACL = 0x" . dechex($result) . "\n");
                 return;
 
             // MOV.W @(R0,<REG_M>),<REG_N>
@@ -856,6 +884,13 @@ class Simulator
 
         // f0ff
         switch ($instruction & 0xf0ff) {
+            // STS MACL,<REG_N>
+            case 0x001a:
+                $n = getN($instruction);
+                $this->log("STS         MACL,R$n\n");
+                $this->setRegister($n, $this->macl);
+                return;
+
             // BRAF <REG_N>
             case 0x0023:
                 $n = getN($instruction);
