@@ -1091,9 +1091,27 @@ class Simulator
         switch ($instruction & 0xf000) {
             // BRA <bdisp12>
             case 0xa000:
-                $this->log("BRA         <bdisp12>\n");
                 $newpc = branchTargetS12($instruction, $this->pc);
+                $newpcHex = dechex($newpc);
+                $this->log("BRA         H'$newpcHex\n");
                 $this->executeDelaySlot();
+                $this->pc = $newpc;
+                return;
+
+            // BSR <bdisp12>
+            case 0xb000:
+                $newpr = $this->pc + 2;   //return after delayslot
+                $newpc = branchTargetS12($instruction, $this->pc);
+                $newpcHex = dechex($newpc);
+                $this->log("BSR         H'$newpcHex\n");
+                $this->executeDelaySlot();
+
+                if ($this->object->unit->findExportedAddress($newpc)) {
+                    $this->assertCall($newpc);
+                    return;
+                }
+
+                $this->pr = $newpr;
                 $this->pc = $newpc;
                 return;
 
@@ -1150,10 +1168,15 @@ class Simulator
         return $value;
     }
 
-    private function assertCall(int $address): void
+    private function assertCall(int $target): void
     {
-        $resolution = $this->getResolutionAt($address);
-        $name = $resolution->name;
+        if ($export = $this->object->unit->findExportedAddress($target)) {
+            $name = $export->name;
+        } elseif ($resolution = $this->getResolutionAt($target)) {
+            $name = $resolution->name;
+        } else {
+            throw new \Exception("Call to unknown address 0x" . dechex($target));
+        }
 
         if ($name === '__modls') {
             $this->setRegister(0, $this->registers[1] % $this->registers[0]);

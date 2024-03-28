@@ -55,4 +55,15 @@ class UnitHeader extends Base
 
         return null;
     }
+
+    public function findExportedAddress(int $address): ?ExportSymbol
+    {
+        foreach ($this->sections as $section) {
+            if ($symbol = $section->findExportedAddress($address)) {
+                return $symbol;
+            }
+        }
+
+        return null;
+    }
 }

@@ -153,4 +153,15 @@ class SectionHeader extends Base
 
         return null;
     }
+
+    public function findExportedAddress(int $address): ?ExportSymbol
+    {
+        foreach ($this->exports as $export) {
+            if ($export->linkedAddress === $address) {
+                return $export;
+            }
+        }
+
+        return null;
+    }
 }
