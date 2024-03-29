@@ -986,8 +986,8 @@ class Simulator
 
             // STS.L PR,@-<REG_N>
             case 0x4022:
-                $this->log("STS.L PR,@-<REG_N>\n");
                 $n = getN($instruction);
+                $this->log("STS.L PR,@-R$n\n");
                 $address = $this->registers[$n] - 4;
                 $this->memory->writeUInt32($address, $this->pr);
                 $this->setRegister($n, $address);
@@ -995,8 +995,8 @@ class Simulator
 
             // LDS.L @<REG_N>+,PR
             case 0x4026:
-                $this->log("LDS.L @<REG_N>+,PR\n");
                 $n = getN($instruction);
+                $this->log("LDS.L @R$n+,PR\n");
                 // TODO: Use read proxy?
                 $this->pr = $this->memory->readUInt32($this->registers[$n]);
 
@@ -1021,6 +1021,19 @@ class Simulator
                     $this->assertCall($newpc);
 
                     // Program jumped to external symbol
+                    $this->running = false;
+                    return;
+                }
+
+                // Handle dynamic jumps (mostly used in tail calls)
+                $expectation = reset($this->pendingExpectations);
+                if ($expectation && $expectation instanceof CallExpectation && $expectation->address === $newpc) {
+                    $this->assertCall($newpc);
+
+                    // Program jumped to dynamic function.
+                    //
+                    // For now we assume that the function will never jump back
+                    // to the caller.
                     $this->running = false;
                     return;
                 }
@@ -1170,12 +1183,13 @@ class Simulator
 
     private function assertCall(int $target): void
     {
+        $name = null;
+        $readableName = "<NO_SYMBOL>";
+
         if ($export = $this->object->unit->findExportedAddress($target)) {
-            $name = $export->name;
+            $name = $readableName = $export->name;
         } elseif ($resolution = $this->getResolutionAt($target)) {
-            $name = $resolution->name;
-        } else {
-            throw new \Exception("Call to unknown address 0x" . dechex($target));
+            $name = $readableName = $resolution->name;
         }
 
         if ($name === '__modls') {
@@ -1187,11 +1201,11 @@ class Simulator
         $expectation = array_shift($this->pendingExpectations);
 
         if (!($expectation instanceof CallExpectation)) {
-            throw new \Exception("Unexpected function call to $name at " . dechex($this->pc));
+            throw new \Exception("Unexpected function call to $readableName at " . dechex($this->pc));
         }
 
         if ($name !== $expectation->name) {
-            throw new \Exception("Unexpected call to $name at " . dechex($this->pc) . ", expecting $expectation->name", 1);
+            throw new \Exception("Unexpected call to $readableName at " . dechex($this->pc) . ", expecting $expectation->name", 1);
         }
 
         if ($expectation->parameters) {
@@ -1214,7 +1228,7 @@ class Simulator
                         $actual = $this->registers[$register];
 
                         if ($actual < $this->registers[15]) {
-                            throw new \Exception("Unexpected local argument for $name in r$register. $actual is not in the stack", 1);
+                            throw new \Exception("Unexpected local argument for $readableName in r$register. $actual is not in the stack", 1);
                         }
 
                         continue;
@@ -1235,7 +1249,7 @@ class Simulator
                         $actualHex = dechex($actual);
                         $expectedHex = dechex($expected);
                         if ($actual !== $expected) {
-                            throw new \Exception("Unexpected parameter for $name in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
+                            throw new \Exception("Unexpected parameter for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
                         }
 
                         continue;
@@ -1260,7 +1274,7 @@ class Simulator
                         $actualDecRepresentation = unpack('L', pack('f', $actual))[1];
                         $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
                         if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                            throw new \Exception("Unexpected float parameter for $name in fr$register. Expected $expected, got $actual", 1);
+                            throw new \Exception("Unexpected float parameter for $readableName in fr$register. Expected $expected, got $actual", 1);
                         }
     
                         continue;
@@ -1287,7 +1301,7 @@ class Simulator
                         if ($actual !== $expected) {
                             $actualHex = bin2hex($actual);
                             $expectedHex = bin2hex($expected);
-                            throw new \Exception("Unexpected char* argument for $name in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
+                            throw new \Exception("Unexpected char* argument for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
                         }
 
                         continue;
@@ -1308,7 +1322,7 @@ class Simulator
             $this->setRegister(0, $expectation->return);
         }
 
-        $this->log("✅ Expectation fulfilled: Call expectation to " . $name . "\n");
+        $this->log("✅ Expectation fulfilled: Call expectation to " . $readableName . '(0x'. dechex($target) . ")\n");
     }
 
     public function hexdump(): void

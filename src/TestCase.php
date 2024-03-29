@@ -20,7 +20,7 @@ class CallExpectation extends AbstractExpectation
     public ?\Closure $callback = null;
 
     public function __construct(
-        public string $name,
+        public ?string $name,
         public int $address,
     ) {}
 
@@ -141,9 +141,17 @@ class TestCase
         $this->entry = new Entry();
     }
 
-    protected function shouldCall(string $name): CallExpectation
+    protected function shouldCall(string|int $target): CallExpectation
     {
-        $address = $this->addressOf($name);
+        // Assume target is address
+        $address = $target;
+        $name = null;
+
+        if (is_string($target)) {
+            $address = $this->addressOf($target);
+            $name = $target;
+        }
+
         $expectation = new CallExpectation($name, $address);
         $this->expectations[] = $expectation;
 
