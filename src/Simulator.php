@@ -1012,9 +1012,9 @@ class Simulator
 
             // JMP
             case 0x402b:
-                $this->log("JMP\n");
                 $n = getN($instruction);
                 $newpc = $this->registers[$n];
+                $this->log("JMP         R$n\n");
                 $this->executeDelaySlot();
 
                 if ($this->getResolutionAt($newpc)) {
@@ -1037,6 +1037,8 @@ class Simulator
                     $this->running = false;
                     return;
                 }
+
+                $this->log("[INFO] PC = 0x" . dechex($newpc) . "\n");
 
                 $this->pc = $newpc;
                 return;
