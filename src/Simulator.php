@@ -949,6 +949,14 @@ class Simulator
                     return;
                 }
 
+                // FIXME: Duplicated in JMP
+                // Handle dynamic calls
+                $expectation = reset($this->pendingExpectations);
+                if ($expectation && $expectation instanceof CallExpectation && $expectation->address === $newpc) {
+                    $this->assertCall($newpc);
+                    return;
+                }
+
                 $this->pr = $newpr;
                 $this->pc = $newpc;
                 return;
