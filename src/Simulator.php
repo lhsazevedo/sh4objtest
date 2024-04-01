@@ -1118,6 +1118,21 @@ class Simulator
                 $newpcHex = dechex($newpc);
                 $this->log("BRA         H'$newpcHex\n");
                 $this->executeDelaySlot();
+
+                // Handle dynamic jumps
+                // FIXME: Duplicated
+                $expectation = reset($this->pendingExpectations);
+                if ($expectation && $expectation instanceof CallExpectation && $expectation->address === $newpc) {
+                    $this->assertCall($newpc);
+
+                    // Program jumped to dynamic function.
+                    //
+                    // For now we assume that the function will never jump back
+                    // to the caller.
+                    $this->running = false;
+                    return;
+                }
+
                 $this->pc = $newpc;
                 return;
 
@@ -1492,6 +1507,15 @@ class Simulator
         // TODO: Allow user to define allowed writes
         if (is_int($this->registers[15]) && $address >= $this->registers[15]) {
             $this->log("[INFO] Allowed stack write of $readableValue to $readableAddress\n");
+
+            // TODO: Fix code flow
+            // Should stack writes be disallowed?
+            if ($expectation instanceof WriteExpectation && $expectation->address === $address) {
+                //array_shift($this->pendingExpectations);
+                //$this->log("✅ WriteExpectation fulfilled: Wrote $readableValue to $readableAddress\n");
+                throw new \Exception("Unimplemented stack write expectation handling", 1);
+                
+            }
             return;
         }
 
