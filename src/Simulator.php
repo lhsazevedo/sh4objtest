@@ -920,8 +920,16 @@ class Simulator
             case 0x4000:
                 $n = getN($instruction);
                 $this->log("SHLL        R$n\n");
-                $this->srT = $n >> 31;
+                $this->srT = $this->registers[$n] >> 31;
                 $this->setRegister($n, $this->registers[$n] << 1);
+                return;
+
+            // SHLR <REG_N>
+            case 0x4001:
+                $n = getN($instruction);
+                $this->log("SHLR        R$n\n");
+                $this->srT = $this->registers[$n] & 0x1;
+                $this->setRegister($n, $this->registers[$n] >> 1);
                 return;
 
             // SHLL2  Rn;
@@ -990,6 +998,15 @@ class Simulator
                 $n = getN($instruction);
                 $this->log("SHLL8       R$n\n");
                 $this->setRegister($n, $this->registers[$n] << 8);
+                return;
+
+            // SHAR  Rn;
+            case 0x4021:
+                $n = getN($instruction);
+                $this->log("SHAR        R$n\n");
+                $this->srT = $this->registers[$n] & 0x1;
+                $sign = $this->registers[$n] & 0x80000000;
+                $this->setRegister($n, ($this->registers[$n] >> 1) | $sign);
                 return;
 
             // STS.L PR,@-<REG_N>
