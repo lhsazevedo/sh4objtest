@@ -45,6 +45,7 @@ $reflectionClass = new ReflectionClass($test);
 
 // TODO: Setup and teardown.
 
+echo "# $testFile against $objectFile\n";
 foreach ($reflectionClass->getMethods() as $reflectionMethod) {
     if ($reflectionMethod->isPublic() && str_starts_with($reflectionMethod->name, 'test')) {
         echo $reflectionMethod->name . "...\n";
