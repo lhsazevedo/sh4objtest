@@ -430,6 +430,13 @@ class Simulator
                 $this->log("[INFO] MACL = 0x" . dechex($result) . "\n");
                 return;
 
+            // MOV.B @(R0,<REG_M>),<REG_N>
+            case 0x000c:
+                [$n, $m] = getNM($instruction);
+                $this->log("MOV.B       @(R0, R$m),R$n\n");
+                $this->setRegister($n, $this->readUInt8($this->registers[0], $this->registers[$m]));
+                return;
+
             // MOV.W @(R0,<REG_M>),<REG_N>
             case 0x000d:
                 [$n, $m] = getNM($instruction);
