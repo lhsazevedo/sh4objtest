@@ -1217,7 +1217,8 @@ class Simulator
             $name = $readableName = $resolution->name;
         }
 
-        if ($name === '__modls') {
+        // FIXME: modls and modlu probrably behave differently
+        if ($name === '__modls' || $name === '__modlu') {
             $this->setRegister(0, $this->registers[1] % $this->registers[0]);
             return;
         }
