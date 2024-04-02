@@ -47,37 +47,43 @@ class ReadExpectation extends AbstractExpectation
 {
     public function __construct(
         public int $address,
-        public int $value
-    ) {}
+        public int $value,
+        public int $size,
+    ) {
+        /* TODO: Move this to value object? */
+        if ($value < -(2 ** $size - 1)) {
+            throw new \RuntimeException("Value $value is too small for $size bits");
+        } elseif ($value >= 2 ** $size) {
+            throw new \RuntimeException("Value $value is too big for $size bits");
+        }
+
+        $this->value &= (2**$size) - 1;
+    }
 }
 
 class WriteExpectation extends AbstractExpectation
 {
     public function __construct(
         public int $address,
-        public int|string $value
+        public int $value,
+        public int $size,
     ) {
-        if (is_int($value)) {
-            $this->value &= 0xffffffff;
+        /* TODO: Move this to value object? */
+        if ($value < -(2**$size)) {
+            throw new \RuntimeException("Value $value is too small for $size bits");
+        } elseif ($value >= 2**$size) {
+            throw new \RuntimeException("Value $value is too big for $size bits");
         }
+
+        $this->value &= (2**$size) - 1;
     }
 }
 
-class SymbolOffsetReadExpectation extends AbstractExpectation
+class StringWriteExpectation extends AbstractExpectation
 {
     public function __construct(
-        public string $name,
-        public int $offset,
-        public int $value
-    ) {}
-}
-
-class SymbolOffsetWriteExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public string $name,
-        public int $offset,
-        public int $value
+        public int $address,
+        public string $value,
     ) {}
 }
 
@@ -160,7 +166,28 @@ class TestCase
 
     protected function shouldRead(int $address, int $value): ReadExpectation
     {
-        $expectation = new ReadExpectation($address, $value);
+        return $this->shouldReadLong($address, $value);
+    }
+
+    protected function shouldReadLong(int $address, int $value): ReadExpectation
+    {
+        $expectation = new ReadExpectation($address, $value, 32);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldReadWord(int $address, int $value): ReadExpectation
+    {
+        $expectation = new ReadExpectation($address, $value, 16);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldReadByte(int $address, int $value): ReadExpectation
+    {
+        $expectation = new ReadExpectation($address, $value, 8);
         $this->expectations[] = $expectation;
 
         return $expectation;
@@ -171,7 +198,36 @@ class TestCase
      */
     protected function shouldWrite(int $address, int|string $value): WriteExpectation
     {
-        $expectation = new WriteExpectation($address, $value);
+        return $this->shouldWriteLong($address, $value);
+    }
+
+    protected function shouldWriteLong(int $address, int|string $value): WriteExpectation
+    {
+        $expectation = new WriteExpectation($address, $value, 32);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldWriteWord(int $address, int|string $value): WriteExpectation
+    {
+        $expectation = new WriteExpectation($address, $value, 16);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldWriteByte(int $address, int|string $value): WriteExpectation
+    {
+        $expectation = new WriteExpectation($address, $value, 8);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    protected function shouldWriteString(int $address, string $value): StringWriteExpectation
+    {
+        $expectation = new StringWriteExpectation($address, $value);
         $this->expectations[] = $expectation;
 
         return $expectation;
@@ -183,20 +239,61 @@ class TestCase
         return $this->shouldRead($address, $value);
     }
 
-    protected function shouldWriteTo(string $name, int|string $value): WriteExpectation
+    protected function shouldReadLongFrom(string $name, int $value): ReadExpectation
     {
         $address = $this->addressOf($name);
-        return $this->shouldWrite($address, $value);
+        return $this->shouldReadLong($address, $value);
+    }
+
+    protected function shouldReadWordFrom(string $name, int $value): ReadExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldReadWord($address, $value);
+    }
+
+    protected function shouldReadByteFrom(string $name, int $value): ReadExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldReadByte($address, $value);
+    }
+
+    protected function shouldWriteTo(string $name, int $value): WriteExpectation
+    {
+        return $this->shouldWriteLongTo($name, $value);
+    }
+
+    protected function shouldWriteLongTo(string $name, int $value): WriteExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldWriteLong($address, $value);
+    }
+
+    protected function shouldWriteWordTo(string $name, int $value): WriteExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldWriteWord($address, $value);
+    }
+
+    protected function shouldWriteByteTo(string $name, int $value): WriteExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldWriteByte($address, $value);
+    }
+
+    protected function shouldWriteStringTo(string $name, string $value): StringWriteExpectation
+    {
+        $address = $this->addressOf($name);
+        return $this->shouldWriteString($address, $value);
     }
 
     protected function shouldReadSymbolOffset(string $name, int $offset, int $value): ReadExpectation
     {
-        return $this->shouldRead($this->addressOf($name) + $offset, $value);
+        return $this->shouldReadLong($this->addressOf($name) + $offset, $value);
     }
 
     protected function shouldWriteSymbolOffset(string $name, int $offset, int $value): WriteExpectation
     {
-        return $this->shouldWrite($this->addressOf($name) + $offset, $value);
+        return $this->shouldWriteLong($this->addressOf($name) + $offset, $value);
     }
 
     protected function alloc(int $size): int

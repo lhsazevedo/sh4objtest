@@ -1481,6 +1481,10 @@ class Simulator
         if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
             $readableExpected = $expectation->value . ' (0x' . dechex($expectation->value) . ')';
 
+            if ($size !== $expectation->size) {
+                throw new \Exception("Unexpected read size $size from $readableAddress. Expecting size $expectation->size", 1);
+            }
+
             if ($value !== $expectation->value) {
                 throw new \Exception("Unexpected read of $readableValue from $readableAddress. Expecting value $readableExpected", 1);
             }
@@ -1517,12 +1521,17 @@ class Simulator
     {
         $displacedAddr = $addr + $offset;
 
-        $this->validateWriteExpectation($displacedAddr, $value);
+        $this->validateWriteExpectation($displacedAddr, $value, $size);
 
-        $this->memory->writeUInt32($displacedAddr, $value);
+        match ($size) {
+            8 => $this->memory->writeUInt8($displacedAddr, $value),
+            16 => $this->memory->writeUInt16($displacedAddr, $value),
+            32 => $this->memory->writeUInt32($displacedAddr, $value),
+            default => throw new \Exception("Unsupported write size $size", 1),
+        };
     }
 
-    private function validateWriteExpectation(int $address, int $value): void
+    private function validateWriteExpectation(int $address, int $value, int $size): void
     {
         $expectation = reset($this->pendingExpectations);
         $readableAddress = '0x' . dechex($address);
@@ -1544,28 +1553,30 @@ class Simulator
             return;
         }
 
-        foreach ($this->testRelocations as $relocation) {
-            if ($relocation->address === $address) {
-                $readableAddress = "$relocation->name($readableAddress)";
-                break;
-            }
+        if ($relocation = $this->getResolutionAt($address)) {
+            $readableAddress = "$relocation->name($readableAddress)";
         }
 
-        if (!($expectation instanceof WriteExpectation)) {
+        if (!($expectation instanceof WriteExpectation || $expectation instanceof StringWriteExpectation)) {
             throw new \Exception("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n", 1);
         }
 
         $readableExpectedAddress = '0x' . dechex($expectation->address);
 
-        foreach ($this->testRelocations as $relocation) {
-            if ($relocation->address === $address) {
-                $readableExpectedAddress = "$relocation->name($readableExpectedAddress)";
-                break;
-            }
+        if ($relocation = $this->getResolutionAt($expectation->address)) {
+            $readableExpectedAddress = "$relocation->name($readableExpectedAddress)";
         }
 
         // Handle char* writes
         if (is_string($expectation->value)) {
+            if (!($expectation instanceof StringWriteExpectation)) {
+                throw new \Exception("Unexpected char* write of $readableValue to $readableAddress, expecting int write of $readableExpectedAddress", 1);
+            }
+
+            if ($size !== 32) {
+                throw new \Exception("Unexpected non 32bit char* write of $readableValue to $readableAddress", 1);
+            }
+
             $actual = $this->memory->readString($value);
             $readableValue = $actual . ' (' . bin2hex($actual) . ')';
             $readableExpectedValue = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
@@ -1577,21 +1588,36 @@ class Simulator
             if ($actual !== $expectation->value) {
                 throw new \Exception("Unexpected char* write value $readableValue to $readableAddress, expecting $readableExpectedValue", 1);
             }
+
+            $this->log("✅ StringWriteExpectation fulfilled: Wrote $readableValue to $readableAddress\n");
         }
         // Hanlde int writes
         else {
+            if (!($expectation instanceof WriteExpectation)) {
+                throw new \Exception("Unexpected int write of $readableValue to $readableAddress, expecting char* write of $readableExpectedAddress", 1);
+            }
+
+            if ($size !== $expectation->size) {
+                throw new \Exception("Unexpected $size bit write of $readableValue to $readableAddress, expecting $expectation->size bit write", 1);
+            }
+
             $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
             if ($expectation->address !== $address) {
                 throw new \Exception("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
             }
 
+            if ($value < 0) {
+                throw new \Exception("Unexpected negative write value $readableValue to $readableAddress", 1);
+            }
+
             if ($value !== $expectation->value) {
                 throw new \Exception("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue", 1);
             }
+
+            $this->log("✅ WriteExpectation fulfilled: Wrote $readableValue to $readableAddress\n");
         }
 
         array_shift($this->pendingExpectations);
-        $this->log("✅ WriteExpectation fulfilled: Wrote $readableValue to $readableAddress\n");
     }
 
     protected function writeUInt8(int $addr, int $offset, int $value): void
