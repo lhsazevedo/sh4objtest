@@ -675,6 +675,21 @@ class Simulator
                 // }
                 return;
 
+            // FDIV <FREG_M>,<FREG_N>
+            case 0xf003:
+                // if (fpscr.PR == 0)
+                // {
+                    [$n, $m] = GetNM($instruction);
+                    $this->log("FDIV        FR$m,FR$n\n");
+                    $this->fregisters[$n] /= $this->fregisters[$m];
+                    // TODO: NaN signaling bit
+                    // CHECK_FPU_32(fr[n]);
+                // }
+                // else
+                // {
+                // }
+                return;
+
             // FCMP/GT <FREG_M>,<FREG_N>
             case 0xf005:
                 // if (fpscr.PR == 0)
@@ -917,6 +932,13 @@ class Simulator
                 $this->setRegister($n, $this->srT);
                 return;
 
+            // STS FPUL,<REG_N>
+            case 0x005a:
+                $n = getN($instruction);
+                $this->log("STS         FPUL,R$n\n");
+                $this->setRegister($n, $this->fpul);
+                return;
+
             case 0x002a:
                 $n = getN($instruction);
                 $this->log("STS         PR,R$n\n");
@@ -1097,6 +1119,13 @@ class Simulator
                 $this->fregisters[$n] = (float) $this->fpul;
                 return;
 
+            // FTRC <FREG_N>,FPUL
+            case 0xf03d:
+                $n = getN($instruction);
+                $this->log("FTRC        FR$n,FPUL\n");
+                $this->fpul = (int) $this->fregisters[$n];
+                return;
+
             // FNEG <FREG_N>
             case 0xf04d:
                 $n = getN($instruction);
@@ -1244,6 +1273,11 @@ class Simulator
         // FIXME: modls and modlu probrably behave differently
         if ($name === '__modls' || $name === '__modlu') {
             $this->setRegister(0, $this->registers[1] % $this->registers[0]);
+            return;
+        }
+
+        if ($name === '__divls') {
+            $this->setRegister(0, (int) ($this->registers[1] / $this->registers[0]));
             return;
         }
 
