@@ -278,10 +278,7 @@ final class ObjectParser
                             } else if ($maybeRelType === 0) {
                                 // Internal Address Relocation (long form, data in relocation)
 
-                                // Unknown
-                                $reader->eat(1);
-
-                                $sectionIndex = $reader->readUInt8();
+                                $sectionIndex = $reader->readUInt16BE();
 
                                 // Unknown, usually 03 04
                                 $reader->eat(2);
@@ -305,6 +302,45 @@ final class ObjectParser
                                 continue;
                             } else {
                                 echo "WARN: Wrong relocation data type for relLen 11: $maybeRelType?\n";
+                            }
+                        } elseif ($relLen === 18) {
+                            $maybeRelType = $reader->readUInt8();
+
+                            if ($maybeRelType === 3) {
+                                // Unknown byte
+                                $reader->eat(1);
+
+                                $offset = $reader->readUInt32BE();
+
+                                // Unknown byte
+                                $reader->eat(1);
+                                
+                                $targetSectionIndex = $reader->readUInt16BE();
+
+                                // Unknown, usually 03 04
+                                $reader->eat(2);
+
+                                $target = $reader->readUInt32BE();
+
+                                // Unknown, usually 20 20
+                                $reader->eat(2);
+
+                                $terminator = $reader->readUInt8();
+                                if ($terminator !== 0xff) {
+                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
+                                }
+
+                                $currentSection->addLocalRelocationLong(new LocalRelocationLong(
+                                    $targetSectionIndex,
+                                    $address,
+                                    $target + $offset
+                                ));
+
+                                continue;
+                            } else if ($maybeRelType === 0) {
+                                throw new \Exception("WARN: Unsupported relocation type $maybeRelType for relLen 18", 1);
+                            } else {
+                                throw new \Exception("WARN: Unsupported relocation type $maybeRelType for relLen 18", 1);
                             }
                         } else {
                             throw new \Exception("Unsupported relocation length $relLen", 1);
