@@ -1457,7 +1457,7 @@ class Simulator
         }
 
         if ($expectation->return !== null) {
-            $this->setRegister(0, U32::of($expectation->return));
+            $this->setRegister(0, U32::of($expectation->return & 0xffffffff));
         }
 
         $this->log("✅ Expectation fulfilled: Call expectation to " . $readableName . '(0x'. dechex($target) . ")\n");
