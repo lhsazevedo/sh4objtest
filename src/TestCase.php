@@ -375,19 +375,24 @@ class TestCase
         $this->initializations = [];
     }
 
+    protected function initUint(int $address, int $value, int $size): void
+    {
+        $this->initializations[] = new MemoryInitialization($size, $address, $value);
+    }
+
     protected function initUint8(int $address, int $value): void
     {
-        $this->initializations[] = new MemoryInitialization(8, $address, $value);
+        $this->initUint($address, $value, 8);
     }
 
     protected function initUint16(int $address, int $value): void
     {
-        $this->initializations[] = new MemoryInitialization(16, $address, $value);
+        $this->initUint($address, $value, 16);
     }
 
     protected function initUint32(int $address, int $value): void
     {
-        $this->initializations[] = new MemoryInitialization(32, $address, $value);
+        $this->initUint($address, $value, 32);
     }
 
     public function setObjectFile(string $path): void
@@ -435,6 +440,10 @@ class TestCase
     {
         if ($this->findTestRelocation($name)) {
             throw new \RuntimeException("Symbol $name already allocated");
+        }
+
+        if ($this->parsedObject->unit->findExportedSymbol($name)) {
+            throw new \RuntimeException("Cannot allocate symbol $name, it is already defined in the object file");
         }
 
         $address = $this->alloc($size);

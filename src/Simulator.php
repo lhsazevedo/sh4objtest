@@ -553,7 +553,7 @@ class Simulator
             case 0x3008:
                 [$n, $m] = getNM($instruction);
                 $this->log("SUB         R$m,R$n\n");
-                $this->registers[$n] -= $this->registers[$m];
+                $this->setRegister($n, $this->registers[$n] - $this->registers[$m]);
                 return;
 
             // ADD Rm,Rn
@@ -627,7 +627,7 @@ class Simulator
                 // {
                     [$n, $m] = GetNM($instruction);
                     $this->log("FADD        FR$m,FR$n\n");
-                    $this->fregisters[$n] += $this->fregisters[$m];
+                    $this->setFloatRegister($n, $this->fregisters[$n] + $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -645,7 +645,7 @@ class Simulator
                 // {
                     [$n, $m] = GetNM($instruction);
                     $this->log("FSUB        FR$m,FR$n\n");
-                    $this->fregisters[$n] -= $this->fregisters[$m];
+                    $this->setFloatRegister($n, $this->fregisters[$n] - $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -663,7 +663,7 @@ class Simulator
                 // {
                     [$n, $m] = GetNM($instruction);
                     $this->log("FMUL        FR$m,FR$n\n");
-                    $this->fregisters[$n] *= $this->fregisters[$m];
+                    $this->setFloatRegister($n, $this->fregisters[$n] * $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -681,7 +681,7 @@ class Simulator
                 // {
                     [$n, $m] = GetNM($instruction);
                     $this->log("FDIV        FR$m,FR$n\n");
-                    $this->fregisters[$n] /= $this->fregisters[$m];
+                    $this->setFloatRegister($n, $this->fregisters[$n] / $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -695,6 +695,7 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = getNM($instruction);
+                    $this->log("FCMP/GT     FR$m,FR$n\n");
 
                     if ($this->fregisters[$n] > $this->fregisters[$m]) {
                         $this->srT = 1;
@@ -716,7 +717,7 @@ class Simulator
 
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m], $this->registers[0]);
-                    $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+                    $this->setFloatRegister($n, unpack('f', pack('L', $value))[1]);
                 // } else {
                     // ...
                 // }
@@ -743,7 +744,7 @@ class Simulator
 
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m]);
-                    $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+                    $this->setFloatRegister($n, unpack('f', pack('L', $value))[1]);
                 // } else {
                     // ...
                 // }
@@ -757,7 +758,7 @@ class Simulator
 
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m]);
-                    $this->fregisters[$n] = unpack('f', pack('L', $value))[1];
+                    $this->setFloatRegister($n, unpack('f', pack('L', $value))[1]);
 
                     $this->registers[$m] += 4;
                 // } else {
@@ -801,7 +802,7 @@ class Simulator
                 // {
                     [$n, $m] = getNM($instruction);
                     $this->log("FMOV        FR$m,FR$n\n");
-                    $this->fregisters[$n] = $this->fregisters[$m];
+                    $this->setFloatRegister($n, $this->fregisters[$m]);
                 // }
                 // else
                 // {
@@ -814,8 +815,8 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->log("FMAC        FR0,FR$m,FR$n");
-                    $this->fregisters[$n] += $this->fregisters[0] * $this->fregisters[$m];
+                    $this->log("FMAC        FR0,FR$m,FR$n\n");
+                    $this->setFloatRegister($n, $this->fregisters[$n] + $this->fregisters[0] * $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -901,6 +902,13 @@ class Simulator
                     $this->srT = 0;
                 }
 
+                return;
+
+            // AND #imm,R0
+            case 0xc900:
+                $imm = getImm8($instruction);
+                $this->log("AND         #$imm,R0\n");
+                $this->setRegister(0, $this->registers[0] & $imm);
                 return;
         }
 
@@ -1109,21 +1117,21 @@ class Simulator
             case 0xf00d:
                 $n = getN($instruction);
                 $this->log("FSTS        FPUL,FR$n\n");
-                $this->fregisters[$n] = unpack('f', pack('L', $this->fpul))[1];
+                $this->setFloatRegister($n, unpack('f', pack('L', $this->fpul))[1]);
                 return;
 
             // FLOAT       FPUL,<FREG_N>
             case 0xf02d:
                 $n = getN($instruction);
                 $this->log("FLOAT       FPUL,FR$n\n");
-                $this->fregisters[$n] = (float) $this->fpul;
+                $this->setFloatRegister($n, (float) $this->fpul);
                 return;
 
             // FTRC <FREG_N>,FPUL
             case 0xf03d:
                 $n = getN($instruction);
                 $this->log("FTRC        FR$n,FPUL\n");
-                $this->fpul = (int) $this->fregisters[$n];
+                $this->fpul = ((int) $this->fregisters[$n]) & 0xffffffff;
                 return;
 
             // FNEG <FREG_N>
@@ -1132,7 +1140,7 @@ class Simulator
                 $this->log("FNEG        FR$n\n");
 
                 // if (fpscr.PR ==0)
-                $this->fregisters[$n] = -$this->fregisters[$n];
+                $this->setFloatRegister($n, -$this->fregisters[$n]);
                 // else
                 return;
 
@@ -1146,7 +1154,7 @@ class Simulator
                 $n = getN($instruction);
                 $this->log("FLDI0       FR$n\n");
 
-                $this->fregisters[$n] = 0.0;
+                $this->setFloatRegister($n, 0.0);
                 return;
 
             // FLDI1
@@ -1159,7 +1167,7 @@ class Simulator
                 $n = getN($instruction);
                 $this->log("FLDI1       FR$n\n");
 
-                $this->fregisters[$n] = 1.0;
+                $this->setFloatRegister($n, 1.0);
                 return;
         }
 
@@ -1238,6 +1246,11 @@ class Simulator
             throw new \Exception("Trying to write relocation $value->name to R$n");
         }
 
+        // Throw if value is not in uin32 range
+        if ($value < 0 || $value > 0xffffffff) {
+            throw new \Exception("Trying to write value $value to R$n");
+        } 
+
         $this->registers[$n] = $value;
 
         if ($this->disasm) {
@@ -1257,6 +1270,15 @@ class Simulator
         }
 
         return $value;
+    }
+
+    private function setFloatRegister(int $n, float $value): void
+    {
+        $this->fregisters[$n] = $value;
+
+        if ($this->disasm) {
+            $this->log("[INFO] FR$n = $value\n");
+        }
     }
 
     private function assertCall(int $target): void
@@ -1417,7 +1439,7 @@ class Simulator
         return;
 
         // TODO: Unhardcode memory size
-        for ($i=0x600; $i < 0x900; $i++) {
+        for ($i=0xe00; $i < 0xf00; $i++) {
             if ($i % 16 === 0) {
                 echo "\n";
                 echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
