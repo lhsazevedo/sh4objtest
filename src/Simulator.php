@@ -244,15 +244,18 @@ class Simulator
         foreach ($this->initializations as $initialization) {
             switch ($initialization->size) {
                 case U8::BIT_COUNT:
-                    $this->memory->writeUInt8($initialization->address, U8::of($initialization->value));
+                    // TODO: Use SInt value object
+                    $this->memory->writeUInt8($initialization->address, U8::of($initialization->value & U8::MAX_VALUE));
                     break;
 
                 case U16::BIT_COUNT:
-                    $this->memory->writeUInt16($initialization->address, U16::of($initialization->value));
+                    // TODO: Use SInt value object
+                    $this->memory->writeUInt16($initialization->address, U16::of($initialization->value & U16::MAX_VALUE));
                     break;
 
                 case U32::BIT_COUNT:
-                    $this->memory->writeUInt32($initialization->address, U32::of($initialization->value));
+                    // TODO: Use SInt value object
+                    $this->memory->writeUInt32($initialization->address, U32::of($initialization->value & U32::MAX_VALUE));
                     break;
 
                 default:
