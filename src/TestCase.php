@@ -90,10 +90,13 @@ class StringWriteExpectation extends AbstractExpectation
 class Entry {
     public function __construct(
         public ?string $symbol = null,
-        /** @var array<int,float> */
+
+        /** @var int[]|float[] */
         public array $parameters = [],
+
         // TODO: functions can return pointers
         public ?int $return = null,
+
         public ?float $floatReturn = null,
     ) {}
 }
