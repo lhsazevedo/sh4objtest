@@ -228,7 +228,7 @@ class Simulator
             }
 
             if ($i < 4) {
-                $this->registers[4 + $i] = $parameter;
+                $this->registers[4 + $i] = U32::of($parameter);
                 continue;
             }
 
