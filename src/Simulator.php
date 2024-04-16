@@ -330,7 +330,7 @@ class Simulator
 
         $expectedReturn = $this->entry->return;
         $actualReturn = $this->registers[0];
-        if ($expectedReturn !== null && $actualReturn !== $expectedReturn) {
+        if ($expectedReturn !== null && !$actualReturn->equals($expectedReturn)) {
             throw new \Exception("Unexpected return value $actualReturn, expecting $expectedReturn", 1);
         }
 
