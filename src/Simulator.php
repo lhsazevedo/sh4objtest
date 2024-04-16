@@ -388,7 +388,7 @@ class Simulator
             case 0x1000:
                 [$n, $m] = getNM($instruction);
                 // TODO: Extract to Instruction Value Object
-                $disp = getImm4($instruction)->shiftLeft(2)->u32();
+                $disp = getImm4($instruction)->u32()->shiftLeft(2);
                 $this->log("MOV.L       R$m,@($disp,R$n)\n");
                 $this->writeUInt32($this->registers[$n]->value, $disp->value, $this->registers[$m]);
                 return;
@@ -396,7 +396,7 @@ class Simulator
             // MOV.L @(<disp>,<REG_M>),<REG_N>
             case 0x5000:
                 [$n, $m] = getNM($instruction);
-                $disp = getImm4($instruction)->shiftLeft(2)->u32();
+                $disp = getImm4($instruction)->u32()->shiftLeft(2);
                 $this->log("MOV.L       @($disp,R$m),R$n\n");
                 $this->setRegister($n, $this->readUInt32($this->registers[$m]->value, $disp->value));
                 return;
@@ -413,7 +413,7 @@ class Simulator
             // MOV.W @(<disp>,PC),<REG_N>
             case 0x9000:
                 $n = getN($instruction);
-                $disp = getImm8($instruction)->shiftLeft(1);
+                $disp = getImm8($instruction)->u32()->shiftLeft(1);
                 $this->log("MOV.W       @($disp,PC),R$n\n");
                 $this->setRegister($n, $this->readUInt16($this->pc + 2, $disp->value)->extend32());
                 return;
@@ -582,7 +582,7 @@ class Simulator
             case 0x300c:
                 [$n, $m] = getNM($instruction);
                 $this->log("ADD         R$m,R$n\n");
-                $result = $this->registers[$n]->add($this->registers[$m]);
+                $result = $this->registers[$n]->add($this->registers[$m], allowOverflow: true);
                 $this->setRegister($n, $result);
                 return;
 
@@ -751,7 +751,7 @@ class Simulator
                     $this->log("FMOV.S      FR$m,@(R0,R$n)\n");
 
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
-                    $this->writeUInt32($this->registers[$n]->value, $this->registers[0]->value, $value);
+                    $this->writeUInt32($this->registers[$n]->value, $this->registers[0]->value, U32::of($value));
                 // } else {
                     // ...
                 // }
@@ -1247,7 +1247,7 @@ class Simulator
             // MOV.L @(<disp>,PC),<REG_N>
             case 0xd000:
                 $n = getN($instruction);
-                $disp = getImm8($instruction)->mul(4);
+                $disp = getImm8($instruction)->u32()->mul(4);
 
                 $addr = (($this->pc + 2) & 0xFFFFFFFC);
 
@@ -1458,10 +1458,10 @@ class Simulator
         echo "PC: " . dechex($this->pc) . "\n";
         // print_r($this->registers);
 
-        return;
+        //return;
 
         // TODO: Unhardcode memory size
-        for ($i=0xe00; $i < 0xf00; $i++) {
+        for ($i=0x0; $i < 0x400; $i++) {
             if ($i % 16 === 0) {
                 echo "\n";
                 echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';

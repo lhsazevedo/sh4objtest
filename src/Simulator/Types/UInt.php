@@ -18,6 +18,7 @@ abstract readonly class UInt
 
     public final function __construct(
         public int $value,
+        public bool $allowOverflow = false,
     )
     {
         if ($value < static::MIN_VALUE || $value > static::MAX_VALUE) {
@@ -27,15 +28,31 @@ abstract readonly class UInt
         }
     }
 
-    public final static function of(int $value): static
+    public static function of(int $value): static
     {
         return new static($value);
     }
 
-    public final static function unpack(string $data): static
+    public static function unpack(string $data): static
     {
         $unpacked = unpack(static::PACK_FORMAT, $data);
         return new static($unpacked[1]);
+    }
+
+    public static function checkOverflow(int $value): void
+    {
+        if ($value >= static::MIN_VALUE && $value <= static::MAX_VALUE) {
+            return;
+        }
+
+        throw new \OverflowException(
+            static::class . ' overflow. Value must be between ' . static::MIN_VALUE . ' and ' . static::MAX_VALUE . '. Got: ' . $value
+        );
+    }
+
+    public function allowOverflow(): static
+    {
+        return new static($this->value, allowOverflow: true);
     }
 
     public function signedValue(): int
@@ -50,10 +67,16 @@ abstract readonly class UInt
     /**
      * @param static|int $other
      */
-    public function add($other): static
+    public function add($other, bool $allowOverflow = false): static
     {
         $other = $this->other($other);
         $result = $this->value + $other->value;
+
+        // TODO: Create SInt class to handle signed integers
+        if (!$allowOverflow) {
+            self::checkOverflow($result);
+        }
+
         return new static($result & static::MAX_VALUE);
     }
 
@@ -64,6 +87,7 @@ abstract readonly class UInt
     {
         $other = $this->other($other);
         $result = $this->value - $other->value;
+        self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);
     }
 
@@ -74,6 +98,7 @@ abstract readonly class UInt
     {
         $other = $this->other($other);
         $result = $this->value * $other->value;
+        self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);
     }
 
@@ -84,6 +109,7 @@ abstract readonly class UInt
     {
         $other = $this->other($other);
         $result = intdiv($this->value, $other->value);
+        self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);
     }
 
@@ -123,13 +149,14 @@ abstract readonly class UInt
     public function shiftLeft(int $shift): static
     {
         $result = $this->value << $shift;
+        self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);
     }
 
     public function shiftRight(int $shift): static
     {
         $result = $this->value >> $shift;
-        return new static($result & static::MAX_VALUE);
+        return new static($result);
     }
 
     public function equals(self|int $other): bool
