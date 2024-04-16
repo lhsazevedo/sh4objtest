@@ -803,7 +803,7 @@ class Simulator
                     $this->log("FMOV.S      FR$m,@R$n\n");
 
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
-                    $this->writeUInt32($this->registers[$n]->value, 0, $value);
+                    $this->writeUInt32($this->registers[$n]->value, 0, U32::of($value));
                 // } else {
                     // ...
                 // }
