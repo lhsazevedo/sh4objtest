@@ -407,7 +407,8 @@ class Simulator
                 $imm = getImm8($instruction);
                 $this->log("ADD         #$imm,R$n\n");
 
-                $this->setRegister($n, $this->registers[$n]->add($imm->extend32()));
+                // TODO: Use SInt value object
+                $this->setRegister($n, $this->registers[$n]->add($imm->extend32(), allowOverflow: true));
                 return;
 
             // MOV.W @(<disp>,PC),<REG_N>
@@ -589,6 +590,8 @@ class Simulator
             case 0x300c:
                 [$n, $m] = getNM($instruction);
                 $this->log("ADD         R$m,R$n\n");
+
+                // TODO: Use SInt value object
                 $result = $this->registers[$n]->add($this->registers[$m], allowOverflow: true);
                 $this->setRegister($n, $result);
                 return;
