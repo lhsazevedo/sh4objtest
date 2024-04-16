@@ -515,6 +515,13 @@ class Simulator
 
                 return;
 
+            // AND <REG_M>,<REG_N>
+            case 0x2009:
+                [$n, $m] = getNM($instruction);
+                $this->log("AND         R$m,R$n\n");
+                $this->setRegister($n, $this->registers[$n]->band($this->registers[$m]));
+                return;
+
             // OR Rm,Rn
             case 0x200b:
                 [$n, $m] = getNM($instruction);
