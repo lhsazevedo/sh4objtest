@@ -1,55 +1,15 @@
 #!/usr/bin/env php
-<?php
+<?php declare(strict_types=1);
 
-declare(strict_types=1);
+require $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 
-include $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
+use Lhsazevedo\Sh4ObjTest\Console\TestCommand;
 
-$testFile = null;
-$objectFile = null;
-$disasm = false;
+$app = new Symfony\Component\Console\Application();
+$command = new TestCommand();
 
-$binName = array_shift($argv);
-foreach ($argv as $v) {
-    if ($v === '--disasm') {
-        $disasm = true;
-        continue;
-    }
+$app->add($command);
 
-    if (!$testFile) {
-        $testFile = $v;
-        continue;
-    }
+$app->setDefaultCommand($command->getName(), isSingleCommand: true);
 
-    if (!$objectFile) {
-        $objectFile = $v;
-        continue;
-    }
-
-    echo "Unexpected command argument $v";
-    exit;
-}
-
-$test = require $testFile;
-
-if ($objectFile) {
-    $test->setObjectFile($objectFile);
-}
-$test->parseObject();
-
-if ($disasm) {
-    $test->enableDisasm();
-}
-
-$reflectionClass = new ReflectionClass($test);
-
-// TODO: Setup and teardown.
-
-echo "# $testFile against $objectFile\n";
-foreach ($reflectionClass->getMethods() as $reflectionMethod) {
-    if ($reflectionMethod->isPublic() && str_starts_with($reflectionMethod->name, 'test')) {
-        echo $reflectionMethod->name . "...\n";
-        call_user_func([$test, $reflectionMethod->name]);
-    }
-}
-
+$app->run();

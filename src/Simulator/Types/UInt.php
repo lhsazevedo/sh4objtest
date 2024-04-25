@@ -257,6 +257,11 @@ abstract readonly class UInt
         return str_pad(dechex($this->value), static::BIT_COUNT / 4, '0', STR_PAD_LEFT);
     }
 
+    public function shortHex(): string
+    {
+        return dechex($this->value);
+    }
+
     public function __toString(): string
     {
         return (string) $this->value;
@@ -264,7 +269,7 @@ abstract readonly class UInt
 
     public function readable(): string
     {
-        return 'U' . static::BIT_COUNT . ": $this->value (0x{$this->hex()})";
+        return "$this->value (0x{$this->hex()})";
     }
 
     /**

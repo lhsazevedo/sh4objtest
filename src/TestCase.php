@@ -6,6 +6,9 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
+use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 abstract class AbstractExpectation {}
@@ -145,9 +148,21 @@ class TestCase
 
     private string $linkedCode;
 
+    private InputInterface $input;
+    
+    private OutputInterface $output;
+
     public function __construct()
     {
         $this->entry = new Entry();
+    }
+
+    public function _inject(
+        InputInterface $input,
+        OutputInterface $output,
+    ) {
+        $this->input = $input;
+        $this->output = $output;
     }
 
     protected function shouldCall(string|int $target): CallExpectation
@@ -347,6 +362,8 @@ class TestCase
     protected function run(): void
     {
         $simulator = new Simulator(
+            $this->input,
+            $this->output,
             $this->parsedObject,
             $this->expectations,
             $this->entry,
@@ -360,13 +377,7 @@ class TestCase
             $simulator->enableDisasm();
         }
 
-        try {
-            $simulator->run();
-        } catch (Throwable $t) {
-            echo $t->getMessage()  . "\n";
-            $simulator->hexdump();
-            throw $t;
-        }
+        $simulator->run();
 
         // Cleanup
         // TODO: Better to instance the TestCase every time

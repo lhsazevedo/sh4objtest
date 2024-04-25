@@ -17,7 +17,7 @@
     "require": {
         "php": "^8.3",
         "composer-runtime-api": "^2.2",
-        "aimeos/map": "^3.6"
+        "symfony/console": "^7.0"
     },
     "require-dev": {
         "bamarni/composer-bin-plugin": "^1.8"
