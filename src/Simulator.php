@@ -1705,8 +1705,10 @@ class Simulator
             return $line;
         };
 
-        $disasm = $addLog($this->disasm, $this->registerLog);
-        $this->output->writeln($disasm);
+        if ($this->disasm) {
+            $disasm = $addLog($this->disasm, $this->registerLog);
+            $this->output->writeln($disasm);
+        }
 
         if ($this->delaySlotDisasm) {
             $disasm = $addLog($this->delaySlotDisasm, $this->delaySlotRegisterLog);
@@ -1722,10 +1724,10 @@ class Simulator
         }
 
         $this->disasm = null;
-        $this->messages = [];
-        $this->registerLog = [];
         $this->delaySlotDisasm = null;
+        $this->messages = [];
         $this->delaySlotMessages = [];
+        $this->registerLog = [];
         $this->delaySlotRegisterLog = [];
     }
 
