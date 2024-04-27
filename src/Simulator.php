@@ -989,6 +989,13 @@ class Simulator
                 $this->setRegister(0, $this->registers[0]->band($imm));
                 $this->disasm("AND", ["#$imm", "R0"]);
                 return;
+
+            // OR #imm,R0
+            case 0xcb00:
+                $imm = getImm8($instruction)->u32();
+                $this->setRegister(0, $this->registers[0]->bor($imm));
+                $this->disasm("OR", ["#$imm", "R0"]);
+                return;
         }
 
         // f0ff
