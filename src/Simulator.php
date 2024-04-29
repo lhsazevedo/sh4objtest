@@ -601,7 +601,8 @@ class Simulator
             // CMP/GE <REG_M>,<REG_N>
             case 0x3003:
                 [$n, $m] = getNM($instruction);
-                if ($this->registers[$n] >= $this->registers[$m]) {
+                // TODO: Create SInt value object
+                if ($this->registers[$n]->signedValue() >= $this->registers[$m]->signedValue()) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
