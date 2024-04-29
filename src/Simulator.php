@@ -1617,7 +1617,7 @@ class Simulator
             $fg = 'gray';
         }
 
-        $addr = str_pad(dechex($this->pc), 6, '0', STR_PAD_LEFT);
+        $addr = str_pad(dechex($this->disasmPc), 6, '0', STR_PAD_LEFT);
 
         $line = "<fg=gray>0x$addr " . U16::of($this->disasmPc)->hex() . "</> ";
         $line .= $this->inDelaySlot ? '_' : ' ';
