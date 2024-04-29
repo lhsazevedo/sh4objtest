@@ -626,7 +626,8 @@ class Simulator
             // SUB <REG_M>,<REG_N>
             case 0x3008:
                 [$n, $m] = getNM($instruction);
-                $result = $this->registers[$n]->sub($this->registers[$m]);
+                // TODO: Use SInt value object
+                $result = U32::of(($this->registers[$n]->value - $this->registers[$m]->value) & 0xffffffff);
                 $this->setRegister($n, $result);
                 $this->disasm("SUB", ["R$m","R$n"]);
                 return;
