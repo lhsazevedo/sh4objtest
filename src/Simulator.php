@@ -650,6 +650,13 @@ class Simulator
                 $this->disasm("MOV.B", ["@R$m","R$n"]);
                 return;
 
+            // MOV.W @<REG_M>,<REG_N>
+            case 0x6001:
+                [$n, $m] = getNM($instruction);
+                $this->setRegister($n, $this->readUInt16($this->registers[$m]->value)->extend32());
+                $this->disasm("MOV.W", ["@R$m","R$n"]);
+                return;
+
             // MOV @Rm,Rn
             case 0x6002:
                 [$n, $m] = getNM($instruction);
@@ -1620,9 +1627,9 @@ class Simulator
 
         $addr = str_pad(dechex($this->disasmPc), 6, '0', STR_PAD_LEFT);
 
-        $line = "<fg=gray>0x$addr " . U16::of($this->disasmPc)->hex() . "</> ";
+        $line = "<fg=gray>0x$addr " . $this->memory->readUInt16($this->disasmPc)->hex() . "</> ";
         $line .= $this->inDelaySlot ? '_' : ' ';
-        
+
         $instruction = str_pad($instruction, 8, ' ', STR_PAD_RIGHT);
         $line .= "<fg=$fg>$instruction</>";
 
