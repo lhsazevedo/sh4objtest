@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+    branches:
+      - main
+  workflow_call:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.x
+          tools: composer:v2, box
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --no-dev
+
+      - name: Package PHAR
+        run: box compile
+
+      - name: Download static PHP micro binary
+        run: |
+          curl https://dl.static-php.dev/static-php-cli/common/php-8.3.6-micro-linux-x86_64.tar.gz -o micro.sfx.tar.gz
+          tar -zxvf micro.sfx.tar.gz
+
+      - name: Concat phpmicro
+        run: cat micro.sfx sh4objtest.phar > sh4objtest && chmod +x sh4objtest
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: sh4objtest
+          path: sh4objtest
+
+      - name: Archive asset
+        run: tar -czvf sh4objtest-linux-x86_64.tar.gz sh4objtest
+
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.ref }} sh4objtest-linux-x86_64.tar.gz --generate-notes
