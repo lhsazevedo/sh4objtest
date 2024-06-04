@@ -895,7 +895,7 @@ class Simulator
         switch ($instruction & 0xff00) {
             // MOV.W R0,@(<disp>,<REG_M>)
             case 0x8100:
-                $m = getN($instruction);
+                $m = getM($instruction);
                 $disp = getImm4($instruction)->u32()->shiftLeft()->value;
                 $this->disasm("MOV.W", ["R0", "@($disp, R$m)"]);
                 $this->writeUInt16($this->registers[$m]->value, $disp, $this->registers[0]->trunc16());
