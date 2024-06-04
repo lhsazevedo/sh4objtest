@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Simulator\Types;
 
-define('U16_MAX_VALUE', 0xFFFF);
-
 abstract readonly class UInt
 {
     public const BIT_COUNT = 0;
@@ -146,14 +144,14 @@ abstract readonly class UInt
         return new static($result);
     }
 
-    public function shiftLeft(int $shift): static
+    public function shiftLeft(int $shift = 1): static
     {
         $result = $this->value << $shift;
         self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);
     }
 
-    public function shiftRight(int $shift): static
+    public function shiftRight(int $shift = 1): static
     {
         $result = $this->value >> $shift;
         return new static($result);

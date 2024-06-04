@@ -459,7 +459,7 @@ class Simulator
             // MOV.W @(<disp>,PC),<REG_N>
             case 0x9000:
                 $n = getN($instruction);
-                $disp = getImm8($instruction)->u32()->shiftLeft(1);
+                $disp = getImm8($instruction)->u32()->shiftLeft();
                 $this->setRegister($n, $this->readUInt16($this->pc + 2, $disp->value)->extend32());
                 $this->disasm("MOV.W", ["@($disp,PC)","R$n"]);
                 return;
@@ -911,6 +911,14 @@ class Simulator
         }
 
         switch ($instruction & 0xff00) {
+            // MOV.W R0,@(<disp>,<REG_M>)
+            case 0x8100:
+                $m = getN($instruction);
+                $disp = getImm4($instruction)->u32()->shiftLeft()->value;
+                $this->writeUInt16($this->registers[$m]->value, $disp, $this->registers[0]->trunc16());
+                $this->disasm("MOV.W", ["R0", "@($disp, R$m)"]);
+                return;
+
             // MOV.B @(<disp>, <REG_M>),R0
             case 0x8400:
                 $m = getM($instruction);
@@ -1052,7 +1060,7 @@ class Simulator
             case 0x4000:
                 $n = getN($instruction);
                 $this->srT = $this->registers[$n]->shiftRight(31)->value;
-                $this->setRegister($n, $this->registers[$n]->shiftLeft(1));
+                $this->setRegister($n, $this->registers[$n]->shiftLeft());
                 $this->disasm("SHLL", ["R$n"]);
                 return;
 
@@ -1060,7 +1068,7 @@ class Simulator
             case 0x4001:
                 $n = getN($instruction);
                 $this->srT = $this->registers[$n]->band(0x1)->value;
-                $this->setRegister($n, $this->registers[$n]->shiftRight(1));
+                $this->setRegister($n, $this->registers[$n]->shiftRight());
                 $this->disasm("SHLR", ["R$n"]);
                 return;
 
@@ -1139,7 +1147,7 @@ class Simulator
                 $n = getN($instruction);
                 $this->srT = $this->registers[$n]->band(0x1)->value;
                 $sign = $this->registers[$n]->band(0x80000000);
-                $this->setRegister($n, $this->registers[$n]->shiftRight(1)->bor($sign));
+                $this->setRegister($n, $this->registers[$n]->shiftRight()->bor($sign));
                 $this->disasm("SHAR", ["R$n"]);
                 return;
 
