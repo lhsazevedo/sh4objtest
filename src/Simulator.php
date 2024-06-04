@@ -449,27 +449,26 @@ class Simulator
             case 0x7000:
                 $n = getN($instruction);
                 $imm = getImm8($instruction);
+                $this->disasm("ADD", ["#$imm","R$n"]);
 
                 // TODO: Use SInt value object
                 $this->setRegister($n, $this->registers[$n]->add($imm->extend32(), allowOverflow: true));
-
-                $this->disasm("ADD", ["#$imm","R$n"]);
                 return;
 
             // MOV.W @(<disp>,PC),<REG_N>
             case 0x9000:
                 $n = getN($instruction);
                 $disp = getImm8($instruction)->u32()->shiftLeft();
-                $this->setRegister($n, $this->readUInt16($this->pc + 2, $disp->value)->extend32());
                 $this->disasm("MOV.W", ["@($disp,PC)","R$n"]);
+                $this->setRegister($n, $this->readUInt16($this->pc + 2, $disp->value)->extend32());
                 return;
 
             // MOV #imm,Rn
             case 0xe000:
                 $imm = getImm8($instruction);
                 $n = getN($instruction);
-                $this->setRegister($n, $imm->extend32());
                 $this->disasm("MOV", ["#$imm","R$n"]);
+                $this->setRegister($n, $imm->extend32());
                 return;
         }
 
@@ -481,48 +480,47 @@ class Simulator
             // MOV.L <REG_M>, @(R0,<REG_N>)
             case 0x0006:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("MOV.L", ["R$m", "@(R0,R$n)"]);
                 // TODO: Is R0 always the offset?
                 $this->writeUInt32($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]);
-                $this->disasm("MOV.L", ["R$m", "@(R0,R$n)"]);
                 return;
 
             // MUL.L <REG_M>,<REG_N>
             case 0x0007:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("MUL.L", ["R$m","R$n"]);
                 $result = $this->registers[$n]->mul($this->registers[$m]);
                 $this->macl = $result->value;
                 $this->addRegisterLog("MACL={$result->readable()}");
-                $this->disasm("MUL.L", ["R$m","R$n"]);
                 return;
 
             // MOV.B @(R0,<REG_M>),<REG_N>
             case 0x000c:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("MOV.B", ["@(R0, R$m)","R$n"]);
                 $value = $this->readUInt8($this->registers[0]->value, $this->registers[$m]->value);
                 $this->setRegister($n, $value->extend32());
-                $this->disasm("MOV.B", ["@(R0, R$m)","R$n"]);
                 return;
 
             // MOV.W @(R0,<REG_M>),<REG_N>
             case 0x000d:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("MOV.W", ["@(R0,R$m)","R$n"]);
                 $value = $this->readUInt16($this->registers[0]->value, $this->registers[$m]->value);
                 $this->setRegister($n, $value->extend32());
-                $this->disasm("MOV.W", ["@(R0,R$m)","R$n"]);
                 return;
 
             // MOV.L @(R0,<REG_M>),<REG_N>
             case 0x000e:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->readUInt32($this->registers[0]->value, $this->registers[$m]->value));
                 $this->disasm("MOV.L", ["@(R0,R$m)","R$n"]);
+                $this->setRegister($n, $this->readUInt32($this->registers[0]->value, $this->registers[$m]->value));
                 return;
 
             // MOV.B Rm,@Rn
             case 0x2000:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("MOV.B", ["R$m", "@R$n"]);
-
                 $addr = $this->registers[$n];
                 $this->writeUInt8($this->registers[$n]->value, 0, $this->registers[$m]->trunc8());
                 return;
@@ -530,64 +528,62 @@ class Simulator
             // MOV.L Rm,@Rn
             case 0x2002:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("MOV.L", ["R$m", "@R$n"]);
                 $addr = $this->registers[$n];
                 $this->writeUInt32($this->registers[$n]->value, 0, $this->registers[$m]);
-                $this->disasm("MOV.L", ["R$m", "@R$n"]);
                 return;
 
             // MOV.L Rm,@-Rn
             case 0x2006:
                 $n = getN($instruction);
                 $m = getM($instruction);
-
+                $this->disasm("MOV.L", ["R$m", "@-R$n"]);   
                 $addr = $this->registers[$n]->value - 4;
-
                 $this->memory->writeUInt32($addr, $this->registers[$m]);
                 $this->setRegister($n, U32::of($addr));
-                $this->disasm("MOV.L", ["R$m", "@-R$n"]);
                 return;
 
             // TST Rm,Rn
             case 0x2008:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("TST", ["R$m","R$n"]);
 
                 if ($this->registers[$n]->band($this->registers[$m])->value !== 0) {
                     $this->srT = 0;
                 } else {
                     $this->srT = 1;
                 }
-
-                $this->disasm("TST", ["R$m","R$n"]);
                 return;
 
             // AND <REG_M>,<REG_N>
             case 0x2009:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->registers[$n]->band($this->registers[$m]));
                 $this->disasm("AND", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$n]->band($this->registers[$m]));
                 return;
 
             // OR Rm,Rn
             case 0x200b:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->registers[$n]->bor($this->registers[$m]));
                 $this->disasm("OR", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$n]->bor($this->registers[$m]));
                 return;
 
             // CMP/EQ <REG_M>,<REG_N>
             case 0x3000:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("CMP/EQ", ["R$m","R$n"]);
                 if ($this->registers[$n]->equals($this->registers[$m])) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
                 }
-                $this->disasm("CMP/EQ", ["R$m","R$n"]);
                 return;
 
             // CMP/HS <REG_M>,<REG_N>
             case 0x3002:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("CMP/HS", ["R$m","R$n"]);
                 // TODO: Double check signed to unsigned convertion
                 if ($this->registers[$n]->greaterThanOrEqual($this->registers[$m])) {
                     $this->srT = 1;
@@ -595,12 +591,12 @@ class Simulator
                     $this->srT = 0;
                 }
 
-                $this->disasm("CMP/HS", ["R$m","R$n"]);
                 return;
 
             // CMP/GE <REG_M>,<REG_N>
             case 0x3003:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("CMP/GE", ["R$m","R$n"]);
                 // TODO: Create SInt value object
                 if ($this->registers[$n]->signedValue() >= $this->registers[$m]->signedValue()) {
                     $this->srT = 1;
@@ -608,102 +604,94 @@ class Simulator
                     $this->srT = 0;
                 }
 
-                $this->disasm("CMP/GE", ["R$m","R$n"]);
                 return;
 
             // CMP/GT <REG_M>,<REG_N>
             case 0x3007:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("CMP/GT", ["R$m","R$n"]);
                 if ($this->registers[$n]->greaterThan($this->registers[$m])) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
                 }
-
-                $this->disasm("CMP/GT", ["R$m","R$n"]);
                 return;
 
             // SUB <REG_M>,<REG_N>
             case 0x3008:
                 [$n, $m] = getNM($instruction);
+                $this->disasm("SUB", ["R$m","R$n"]);
                 // TODO: Use SInt value object
                 $result = U32::of(($this->registers[$n]->value - $this->registers[$m]->value) & 0xffffffff);
                 $this->setRegister($n, $result);
-                $this->disasm("SUB", ["R$m","R$n"]);
                 return;
 
             // ADD Rm,Rn
             case 0x300c:
                 [$n, $m] = getNM($instruction);
-                
+                $this->disasm("ADD", ["R$m","R$n"]);
                 // TODO: Use SInt value object
                 $result = $this->registers[$n]->add($this->registers[$m], allowOverflow: true);
                 $this->setRegister($n, $result);
-                $this->disasm("ADD", ["R$m","R$n"]);
                 return;
 
             // MOV.B @Rm,Rn
             case 0x6000:
                 [$n, $m] = getNM($instruction);
-                
-                $this->setRegister($n, $this->readUInt8($this->registers[$m]->value)->extend32());
                 $this->disasm("MOV.B", ["@R$m","R$n"]);
+                $this->setRegister($n, $this->readUInt8($this->registers[$m]->value)->extend32());
                 return;
 
             // MOV.W @<REG_M>,<REG_N>
             case 0x6001:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->readUInt16($this->registers[$m]->value)->extend32());
                 $this->disasm("MOV.W", ["@R$m","R$n"]);
+                $this->setRegister($n, $this->readUInt16($this->registers[$m]->value)->extend32());
                 return;
 
             // MOV @Rm,Rn
             case 0x6002:
                 [$n, $m] = getNM($instruction);
-
-                $this->setRegister($n, $this->readUInt32($this->registers[$m]->value));
                 $this->disasm("MOV", ["@R$m","R$n"]);
+                $this->setRegister($n, $this->readUInt32($this->registers[$m]->value));
                 return;
 
             // MOV Rm,Rn
             case 0x6003:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->registers[$m]);
                 $this->disasm("MOV", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$m]);
                 return;
 
             // MOV @<REG_M>+,<REG_N>
             case 0x6006:
                 [$n, $m] = getNM($instruction);
                 $this->setRegister($n, $this->readUInt32($this->registers[$m]->value));
-                
+                $this->disasm("MOV", ["@R$m+","R$n"]);
                 if ($n != $m) {
                     $this->registers[$m] = $this->registers[$m]->add(4);
                 }
-                
-                $this->disasm("MOV", ["@R$m+","R$n"]);
                 return;
 
             // NEG <REG_M>,<REG_N>
             case 0x600b:
                 [$n, $m] = getNM($instruction);
-                
-                $this->setRegister($n, $this->registers[$m]->invert());
                 $this->disasm("NEG", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$m]->invert());
                 return;
 
             // EXTU.B <REG_M>,<REG_N>
             case 0x600c:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->registers[$m]->trunc8()->u32());
                 $this->disasm("EXTU.B", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$m]->trunc8()->u32());
                 return;
 
             // EXTS.B <REG_M>,<REG_N>
             case 0x600e:
                 [$n, $m] = getNM($instruction);
-                $this->setRegister($n, $this->registers[$m]->trunc8()->extend32());
                 $this->disasm("EXTS.B", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$m]->trunc8()->extend32());
                 return;
 
             // FADD <FREG_M>,<FREG_N>
@@ -711,8 +699,8 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->setFloatRegister($n, $this->fregisters[$n] + $this->fregisters[$m]);
                     $this->disasm("FADD", ["FR$m", "FR$n"]);
+                    $this->setFloatRegister($n, $this->fregisters[$n] + $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -729,8 +717,8 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->setFloatRegister($n, $this->fregisters[$n] - $this->fregisters[$m]);
                     $this->disasm("FSUB", ["FR$m", "FR$n"]);
+                    $this->setFloatRegister($n, $this->fregisters[$n] - $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -747,8 +735,8 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->setFloatRegister($n, $this->fregisters[$n] * $this->fregisters[$m]);
                     $this->disasm("FMUL", ["FR$m", "FR$n"]);
+                    $this->setFloatRegister($n, $this->fregisters[$n] * $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -765,8 +753,8 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->setFloatRegister($n, $this->fregisters[$n] / $this->fregisters[$m]);
                     $this->disasm("FDIV", ["FR$m", "FR$n"]);
+                    $this->setFloatRegister($n, $this->fregisters[$n] / $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -780,14 +768,14 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = getNM($instruction);
-                    
+                    $this->disasm("FCMP/GT", ["FR$m", "FR$n"]);
+
                     if ($this->fregisters[$n] > $this->fregisters[$m]) {
                         $this->srT = 1;
                     } else {
                         $this->srT = 0;
                     }
 
-                    $this->disasm("FCMP/GT", ["FR$m", "FR$n"]);
                 // }
                 // else
                 // {
@@ -799,10 +787,9 @@ class Simulator
             case 0xf006:
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
-                    
+                    $this->disasm("FMOV.S", ["@(R0, R$m)", "FR$n"]);
                     $value = $this->readUInt32($this->registers[$m]->value, $this->registers[0]->value)->value;
                     $this->setFloatRegister($n, unpack('f', pack('L', $value))[1]);
-                    $this->disasm("FMOV.S", ["@(R0, R$m)", "FR$n"]);
                 // } else {
                     // ...
                 // }
@@ -812,10 +799,9 @@ class Simulator
             case 0xf007:
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
-                    
+                    $this->disasm("FMOV.S", ["FR$m", "@(R0,R$n)"]);
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
                     $this->writeUInt32($this->registers[$n]->value, $this->registers[0]->value, U32::of($value));
-                    $this->disasm("FMOV.S", ["FR$m", "@(R0,R$n)"]);
                 // } else {
                     // ...
                 // }
@@ -825,10 +811,9 @@ class Simulator
             case 0xf008:
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
-                    
+                    $this->disasm("FMOV.S", ["@R$m", "FR$n"]);
                     $value = $this->readUInt32($this->registers[$m]->value)->value;
                     $this->setFloatRegister($n, unpack('f', pack('L', $value))[1]);
-                    $this->disasm("FMOV.S", ["@R$m", "FR$n"]);
                 // } else {
                     // ...
                 // }
@@ -838,12 +823,11 @@ class Simulator
             case 0xf009:
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
-                    
+                    $this->disasm("FMOV.S", ["@R$m+", "FR$n"]);
                     // TODO: Use read proxy?
                     $value = $this->readUInt32($this->registers[$m]->value)->value;
                     $this->setFloatRegister($n, unpack('f', pack('L', $value))[1]);
                     $this->registers[$m] = $this->registers[$m]->add(4);
-                    $this->disasm("FMOV.S", ["@R$m+", "FR$n"]);
                 // } else {
                     // ...
                 // }
@@ -853,9 +837,9 @@ class Simulator
             case 0xf00a:
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
+                    $this->disasm("FMOV.S", ["FR$m", "@R$n"]);
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
                     $this->writeUInt32($this->registers[$n]->value, 0, U32::of($value));
-                    $this->disasm("FMOV.S", ["FR$m", "@R$n"]);
                 // } else {
                     // ...
                 // }
@@ -865,13 +849,11 @@ class Simulator
             case 0xf00b:
                 // if (fpscr.SZ == 0) {
                     [$n, $m] = getNM($instruction);
-                    
+                    $this->disasm("FMOV.S", ["FR$m", "@-R$n"]);
                     $addr = $this->registers[$n]->sub(4);
-                    
                     $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
                     $this->memory->writeUInt32($addr->value, U32::of($value));
                     $this->setRegister($n, $addr);
-                    $this->disasm("FMOV.S", ["FR$m", "@-R$n"]);
                 // } else {
                     // ...
                 // }
@@ -882,8 +864,8 @@ class Simulator
                 // if (fpscr.SZ == 0)
                 // {
                     [$n, $m] = getNM($instruction);
-                    $this->setFloatRegister($n, $this->fregisters[$m]);
                     $this->disasm("FMOV", ["FR$m", "FR$n"]);
+                    $this->setFloatRegister($n, $this->fregisters[$m]);
                 // }
                 // else
                 // {
@@ -896,8 +878,8 @@ class Simulator
                 // if (fpscr.PR == 0)
                 // {
                     [$n, $m] = GetNM($instruction);
-                    $this->setFloatRegister($n, $this->fregisters[$n] + $this->fregisters[0] * $this->fregisters[$m]);
                     $this->disasm("FMAC", ["FR0,FR$m,FR$n"]);
+                    $this->setFloatRegister($n, $this->fregisters[$n] + $this->fregisters[0] * $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
                 // }
@@ -915,46 +897,45 @@ class Simulator
             case 0x8100:
                 $m = getN($instruction);
                 $disp = getImm4($instruction)->u32()->shiftLeft()->value;
-                $this->writeUInt16($this->registers[$m]->value, $disp, $this->registers[0]->trunc16());
                 $this->disasm("MOV.W", ["R0", "@($disp, R$m)"]);
+                $this->writeUInt16($this->registers[$m]->value, $disp, $this->registers[0]->trunc16());
                 return;
 
             // MOV.B @(<disp>, <REG_M>),R0
             case 0x8400:
                 $m = getM($instruction);
                 $disp = getImm4($instruction);
-                $this->setRegister(0, $this->readUInt8($this->registers[$m]->value, $disp->value)->extend32());
                 $this->disasm("MOV.B", ["@($disp, R$m)", "R0"]);
+                $this->setRegister(0, $this->readUInt8($this->registers[$m]->value, $disp->value)->extend32());
                 return;
 
             // CMP/EQ #<imm>,R0
             case 0x8800:
                 $imm = getSImm8($instruction) & 0xffffffff;
+                $this->disasm("CMP/EQ", ["#$imm", "R0"]);
                 if ($this->registers[0]->equals($imm)) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
                 }
-
-                $this->disasm("CMP/EQ", ["#$imm", "R0"]);
                 return;
 
             // BT <bdisp8>
             case 0x8900:
                 $target = branchTargetS8($instruction, $this->pc);
+                $this->disasm("BT", ["H'" . dechex($target)]);
                 if ($this->srT !== 0) {
                     $this->pc = $target;
                 }
-                $this->disasm("BT", ["H'" . dechex($target)]);
                 return;
 
             // BF <bdisp8>
             case 0x8b00:
                 $target = branchTargetS8($instruction, $this->pc);
+                $this->disasm("BF", ["H'" . dechex($target)]);
                 if ($this->srT === 0) {
                     $this->pc = $target;
                 }
-                $this->disasm("BF", ["H'" . dechex($target)]);
                 return;
 
             // BT/S        <bdisp8>
@@ -981,37 +962,36 @@ class Simulator
             case 0xc700:
                 /* TODO: Check other for u32 after shift */
                 $disp = getImm8($instruction)->u32()->shiftLeft(2)->value;
+                $this->disasm("MOVA", ["@($disp,PC)", "R0"]);
                 $this->setRegister(
                     0,
                     U32::of(($this->pc + 2) & 0xfffffffc)->add($disp)
                 );
-                $this->disasm("MOVA", ["@($disp,PC)", "R0"]);
                 return;
 
             // TST #imm,R0
             case 0xc800:
                 $imm = getImm8($instruction)->u32();
+                $this->disasm("TST", ["#$imm", "R0"]);
                 if ($this->registers[0]->band($imm)->equals(0)) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
                 }
-
-                $this->disasm("TST", ["#$imm", "R0"]);
                 return;
 
             // AND #imm,R0
             case 0xc900:
                 $imm = getImm8($instruction)->u32();
-                $this->setRegister(0, $this->registers[0]->band($imm));
                 $this->disasm("AND", ["#$imm", "R0"]);
+                $this->setRegister(0, $this->registers[0]->band($imm));
                 return;
 
             // OR #imm,R0
             case 0xcb00:
                 $imm = getImm8($instruction)->u32();
-                $this->setRegister(0, $this->registers[0]->bor($imm));
                 $this->disasm("OR", ["#$imm", "R0"]);
+                $this->setRegister(0, $this->registers[0]->bor($imm));
                 return;
         }
 
@@ -1020,15 +1000,15 @@ class Simulator
             // STS MACL,<REG_N>
             case 0x001a:
                 $n = getN($instruction);
-                $this->setRegister($n, U32::of($this->macl));
                 $this->disasm("STS", ["MACL", "R$n"]);
+                $this->setRegister($n, U32::of($this->macl));
                 return;
 
             // BRAF <REG_N>
             case 0x0023:
                 $n = getN($instruction);
-                $newpc = $this->registers[$n]->value + $this->pc + 2;
                 $this->disasm("BRAF", ["R$n"]);
+                $newpc = $this->registers[$n]->value + $this->pc + 2;
 
                 //WARN : r[n] can change here
                 $this->executeDelaySlot();
@@ -1039,54 +1019,53 @@ class Simulator
             // MOVT <REG_N>
             case 0x0029:
                 $n = getN($instruction);
-                $this->setRegister($n, U32::of($this->srT));
                 $this->disasm("MOVT", ["R$n"]);
+                $this->setRegister($n, U32::of($this->srT));
                 return;
 
             // STS FPUL,<REG_N>
             case 0x005a:
                 $n = getN($instruction);
-                $this->setRegister($n, U32::of($this->fpul));
                 $this->disasm("STS", ["FPUL","R$n"]);
+                $this->setRegister($n, U32::of($this->fpul));
                 return;
 
             case 0x002a:
                 $n = getN($instruction);
-                $this->setRegister($n, U32::of($this->pr));
                 $this->disasm("STS", ["PR","R$n"]);
+                $this->setRegister($n, U32::of($this->pr));
                 return;
 
             // SHLL <REG_N>
             case 0x4000:
                 $n = getN($instruction);
+                $this->disasm("SHLL", ["R$n"]);
                 $this->srT = $this->registers[$n]->shiftRight(31)->value;
                 $this->setRegister($n, $this->registers[$n]->shiftLeft());
-                $this->disasm("SHLL", ["R$n"]);
                 return;
 
             // SHLR <REG_N>
             case 0x4001:
                 $n = getN($instruction);
+                $this->disasm("SHLR", ["R$n"]);
                 $this->srT = $this->registers[$n]->band(0x1)->value;
                 $this->setRegister($n, $this->registers[$n]->shiftRight());
-                $this->disasm("SHLR", ["R$n"]);
                 return;
 
             // SHLL2  Rn;
             case 0x4008:
                 $n = getN($instruction);
-                $this->setRegister($n, $this->registers[$n]->shiftLeft(2));
                 $this->disasm("SHLL2", ["R$n"]);
+                $this->setRegister($n, $this->registers[$n]->shiftLeft(2));
                 return;
 
             // JSR
             case 0x400b:
                 $n = getN($instruction);
-                
+                $this->disasm("JSR", ["@R$n"]);
+
                 $newpr = $this->pc + 2;   //return after delayslot
                 $newpc = $this->registers[$n]->value;
-
-                $this->disasm("JSR", ["@R$n"]);
 
                 $this->executeDelaySlot(); //r[n]/pr can change here
 
@@ -1113,74 +1092,72 @@ class Simulator
             // CMP/PZ <REG_N>
             case 0x4011:
                 $n = getN($instruction);
+                $this->disasm("CMP/PZ", ["R$n"]);
                 if ($this->registers[$n]->signedValue() >= 0) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
                 }
-
-                $this->disasm("CMP/PZ", ["R$n"]);
                 return;
 
             // CMP/PL <REG_N>
             case 0x4015:
                 $n = getN($instruction);
+                $this->disasm("CMP/PL", ["R$n"]);
 
                 if ($this->registers[$n]->signedValue() > 0) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
                 }
-
-                $this->disasm("CMP/PL", ["R$n"]);
                 return;
 
             // SHLL8  Rn;
             case 0x4018:
                 $n = getN($instruction);
-                $this->setRegister($n, $this->registers[$n]->shiftLeft(8));
                 $this->disasm("SHLL8", ["R$n"]);
+                $this->setRegister($n, $this->registers[$n]->shiftLeft(8));
                 return;
 
             // SHAR  Rn;
             case 0x4021:
                 $n = getN($instruction);
+                $this->disasm("SHAR", ["R$n"]);
                 $this->srT = $this->registers[$n]->band(0x1)->value;
                 $sign = $this->registers[$n]->band(0x80000000);
                 $this->setRegister($n, $this->registers[$n]->shiftRight()->bor($sign));
-                $this->disasm("SHAR", ["R$n"]);
                 return;
 
             // STS.L PR,@-<REG_N>
             case 0x4022:
                 $n = getN($instruction);
+                $this->disasm("STS.L", ["PR", "@-R$n"]);
                 $address = $this->registers[$n]->sub(4);
                 $this->memory->writeUInt32($address->value, U32::of($this->pr));
                 $this->setRegister($n, $address);
-                $this->disasm("STS.L", ["PR", "@-R$n"]);
                 return;
 
             // LDS.L @<REG_N>+,PR
             case 0x4026:
                 $n = getN($instruction);
+                $this->disasm("LDS.L", ["@R$n+", "PR"]);
                 // TODO: Use read proxy?
                 $this->pr = $this->memory->readUInt32($this->registers[$n]->value)->value;
                 $this->registers[$n] = $this->registers[$n]->add(4);
-                $this->disasm("LDS.L", ["@R$n+", "PR"]);
                 return;
 
             // SHLL16 Rn;
             case 0x4028:
                 $n = getN($instruction);
-                $this->setRegister($n, $this->registers[$n]->shiftLeft(16));
                 $this->disasm("SHLL16", ["R$n"]);
+                $this->setRegister($n, $this->registers[$n]->shiftLeft(16));
                 return;
 
             // JMP
             case 0x402b:
                 $n = getN($instruction);
-                $newpc = $this->registers[$n]->value;
                 $this->disasm("JMP", ["R$n"]);
+                $newpc = $this->registers[$n]->value;
                 $this->executeDelaySlot();
 
                 if ($this->getResolutionAt($newpc)) {
@@ -1212,39 +1189,39 @@ class Simulator
             // LDS <REG_M>,FPUL
             case 0x405a:
                 $n = getN($instruction);
+                $this->disasm("LDS", ["R$n", "FPUL"]);
                 $this->fpul = $this->registers[$n]->value;
                 $hex = dechex($this->fpul);
                 $this->addRegisterLog("FPUL=H'$hex");
-                $this->disasm("LDS", ["R$n", "FPUL"]);
                 return;
 
             // FSTS        FPUL,<FREG_N>
             case 0xf00d:
                 $n = getN($instruction);
-                $this->setFloatRegister($n, unpack('f', pack('L', $this->fpul))[1]);
                 $this->disasm("FSTS", ["FPUL", "FR$n"]);
+                $this->setFloatRegister($n, unpack('f', pack('L', $this->fpul))[1]);
                 return;
 
             // FLOAT       FPUL,<FREG_N>
             case 0xf02d:
                 $n = getN($instruction);
-                $this->setFloatRegister($n, (float) $this->fpul);
                 $this->disasm("FLOAT", ["FPUL", "FR$n"]);
+                $this->setFloatRegister($n, (float) $this->fpul);
                 return;
 
             // FTRC <FREG_N>,FPUL
             case 0xf03d:
                 $n = getN($instruction);
-                $this->fpul = ((int) $this->fregisters[$n]) & 0xffffffff;
                 $this->disasm("FTRC", ["FR$n", "FPUL"]);
+                $this->fpul = ((int) $this->fregisters[$n]) & 0xffffffff;
                 return;
 
             // FNEG <FREG_N>
             case 0xf04d:
                 $n = getN($instruction);
                 // if (fpscr.PR ==0)
-                $this->setFloatRegister($n, -$this->fregisters[$n]);
                 $this->disasm("FNEG", ["FR$n"]);
+                $this->setFloatRegister($n, -$this->fregisters[$n]);
                 // else
                 return;
 
@@ -1256,8 +1233,8 @@ class Simulator
                 // }
                     
                 $n = getN($instruction);
-                $this->setFloatRegister($n, 0.0);
                 $this->disasm("FLDI0", ["FR$n"]);
+                $this->setFloatRegister($n, 0.0);
                 return;
 
             // FLDI1
@@ -1268,8 +1245,8 @@ class Simulator
                 // }
                     
                 $n = getN($instruction);
-                $this->setFloatRegister($n, 1.0);
                 $this->disasm("FLDI1", ["FR$n"]);
+                $this->setFloatRegister($n, 1.0);
                 return;
         }
 
@@ -1320,20 +1297,17 @@ class Simulator
             case 0xd000:
                 $n = getN($instruction);
                 $disp = getImm8($instruction)->u32()->mul(4);
+                $this->disasm("MOV.L", ["@($disp,PC)","R$n"]);
 
                 $addr = (($this->pc + 2) & 0xFFFFFFFC);
-
                 $data = $this->readUInt32($addr, $disp->value);
-                
                 // TODO: Should this be done to every read or just disp + PC (Literal Pool)
                 if ($relocation = $this->getRelocationAt($addr + $disp->value)) {
                     // TODO: If rellocation has been initialized in test, set
                     // rellocation address instead.
                     $data = $relocation;
                 }
-
                 $this->setRegister($n, $data);
-                $this->disasm("MOV.L", ["@($disp,PC)","R$n"]);
                 return;
         }
 
