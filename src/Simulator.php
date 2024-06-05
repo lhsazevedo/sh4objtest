@@ -432,17 +432,17 @@ class Simulator
             case 0x1000:
                 [$n, $m] = getNM($instruction);
                 // TODO: Extract to Instruction Value Object
-                $disp = getImm4($instruction)->u32()->shiftLeft(2);
+                $disp = getImm4($instruction)->u32()->shiftLeft(2)->value;
                 $this->disasm("MOV.L", ["R$m", "@($disp,R$n)"]);
-                $this->writeUInt32($this->registers[$n]->value, $disp->value, $this->registers[$m]);
+                $this->writeUInt32($this->registers[$n]->value, $disp, $this->registers[$m]);
                 return;
 
-            // MOV.L @(<disp>,<REG_M>),<REG_N>
+            // MOV.L  @(<disp>,<REG_M>),<REG_N>
             case 0x5000:
                 [$n, $m] = getNM($instruction);
-                $disp = getImm4($instruction)->u32()->shiftLeft(2);
+                $disp = getImm4($instruction)->u32()->shiftLeft(2)->value;
                 $this->disasm("MOV.L", ["@($disp,R$m)","R$n"]);
-                $this->setRegister($n, $this->readUInt32($this->registers[$m]->value, $disp->value));
+                $this->setRegister($n, $this->readUInt32($this->registers[$m]->value, $disp));
                 return;
 
             // ADD #imm,Rn
@@ -458,9 +458,9 @@ class Simulator
             // MOV.W @(<disp>,PC),<REG_N>
             case 0x9000:
                 $n = getN($instruction);
-                $disp = getImm8($instruction)->u32()->shiftLeft();
+                $disp = getImm8($instruction)->u32()->shiftLeft()->value;
                 $this->disasm("MOV.W", ["@($disp,PC)","R$n"]);
-                $this->setRegister($n, $this->readUInt16($this->pc + 2, $disp->value)->extend32());
+                $this->setRegister($n, $this->readUInt16($this->pc + 2, $disp)->extend32());
                 return;
 
             // MOV #imm,Rn
@@ -904,9 +904,17 @@ class Simulator
             // MOV.B @(<disp>, <REG_M>),R0
             case 0x8400:
                 $m = getM($instruction);
-                $disp = getImm4($instruction);
+                $disp = getImm4($instruction)->value;
                 $this->disasm("MOV.B", ["@($disp, R$m)", "R0"]);
-                $this->setRegister(0, $this->readUInt8($this->registers[$m]->value, $disp->value)->extend32());
+                $this->setRegister(0, $this->readUInt8($this->registers[$m]->value, $disp)->extend32());
+                return;
+
+            // MOV.W @(<disp>, <REG_M>),R0
+            case 0x8500:
+                $m = getM($instruction);
+                $disp = getImm4($instruction)->u32()->shiftLeft()->value;
+                $this->disasm("MOV.W", ["@($disp, R$m)", "R0"]);
+                $this->setRegister(0, $this->readUInt16($this->registers[$m]->value, $disp)->extend32());
                 return;
 
             // CMP/EQ #<imm>,R0
@@ -1296,13 +1304,13 @@ class Simulator
             // MOV.L @(<disp>,PC),<REG_N>
             case 0xd000:
                 $n = getN($instruction);
-                $disp = getImm8($instruction)->u32()->mul(4);
+                $disp = getImm8($instruction)->u32()->shiftLeft(2)->value;
                 $this->disasm("MOV.L", ["@($disp,PC)","R$n"]);
 
                 $addr = (($this->pc + 2) & 0xFFFFFFFC);
-                $data = $this->readUInt32($addr, $disp->value);
+                $data = $this->readUInt32($addr, $disp);
                 // TODO: Should this be done to every read or just disp + PC (Literal Pool)
-                if ($relocation = $this->getRelocationAt($addr + $disp->value)) {
+                if ($relocation = $this->getRelocationAt($addr + $disp)) {
                     // TODO: If rellocation has been initialized in test, set
                     // rellocation address instead.
                     $data = $relocation;
