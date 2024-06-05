@@ -320,14 +320,23 @@ class Simulator
             foreach ($section->relocations as $relocation) {
                 $found = false;
 
+                // FIXME: This is confusing:
+                // - Object relocation address is the address of the literal pool data item
+                // - Test relocation address is the value of the literal pool item
                 foreach ($this->testRelocations as $userResolution) {
                     if ($relocation->name === $userResolution->name) {
-                        // FIXME: This is confusing:
-                        // - Object relocation address is the address of the literal pool data item
-                        // - Test relocation address is the value of the literal pool item
+                        $offset = $this->memory->readUInt32($relocation->linkedAddress)->value;
+
+                        if ($relocation->offset && $offset) {
+                            throw new \Exception("Relocation $relocation->name has both built-in and code offset", 1);
+                            // $this->output->writeln("WARN: Relocation $relocation->name has both built-in and code offset");
+                            // $this->output->writeln("Built-in offset: $offset");
+                            // $this->output->writeln("Code offset: $relocation->offset");
+                        }
+
                         $this->memory->writeUInt32(
                             $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->offset)
+                            U32::of($userResolution->address + $relocation->offset + $offset)
                         );
                         $found = true;
                         break;
