@@ -687,6 +687,13 @@ class Simulator
                 $this->setRegister($n, $this->registers[$m]->trunc8()->u32());
                 return;
 
+            // EXTU.W <REG_M>,<REG_N>
+            case 0x600d:
+                [$n, $m] = getNM($instruction);
+                $this->disasm("EXTU.W", ["R$m","R$n"]);
+                $this->setRegister($n, $this->registers[$m]->trunc16()->u32());
+                return;
+
             // EXTS.B <REG_M>,<REG_N>
             case 0x600e:
                 [$n, $m] = getNM($instruction);
