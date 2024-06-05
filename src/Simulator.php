@@ -926,9 +926,10 @@ class Simulator
 
             // CMP/EQ #<imm>,R0
             case 0x8800:
-                $imm = getSImm8($instruction) & 0xffffffff;
-                $this->disasm("CMP/EQ", ["#$imm", "R0"]);
-                if ($this->registers[0]->equals($imm)) {
+                $imm = getImm8($instruction);
+                // Display the signed value to make it clear that it is extended
+                $this->disasm("CMP/EQ", ["#{$imm->signedValue()}", "R0"]);
+                if ($this->registers[0]->equals($imm->extend32())) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
@@ -1647,7 +1648,7 @@ class Simulator
                 if (in_array($operand, ['PR', 'PC', 'MACL', 'FPUL'])) {
                     $fg = 'magenta';
                 }
-            } else if (preg_match('/^#(:?H\')?[0-9A-Za-z]+$/', $operand, $matches)) {
+            } else if (preg_match('/^#(:?H\')?-?[0-9A-Za-z]+$/', $operand, $matches)) {
                 $fg = 'bright-green';
             }
 
