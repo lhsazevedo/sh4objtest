@@ -1458,7 +1458,7 @@ class Simulator
                         $actualHex = dechex($actual->value);
                         $expectedHex = dechex($expected);
                         if (!$actual->equals($expected)) {
-                            throw new ExpectationException("Unexpected parameter for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
+                            throw new ExpectationException("Unexpected argument for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
                         }
 
                         continue;
@@ -1471,7 +1471,7 @@ class Simulator
                         $actual = $this->memory->readUInt32($address);
 
                         if (!$actual->equals($expected)) {
-                            throw new ExpectationException("Unexpected parameter for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
+                            throw new ExpectationException("Unexpected argument for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
                         }
 
                         continue;
@@ -1489,7 +1489,7 @@ class Simulator
                         $actualDecRepresentation = unpack('L', pack('f', $actual))[1];
                         $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
                         if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                            throw new ExpectationException("Unexpected float parameter for $readableName in fr$register. Expected $expected, got $actual");
+                            throw new ExpectationException("Unexpected float argument for $readableName in fr$register. Expected $expected, got $actual");
                         }
     
                         continue;
@@ -1504,7 +1504,7 @@ class Simulator
                         $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
 
                         if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                            throw new ExpectationException("Unexpected float parameter for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
+                            throw new ExpectationException("Unexpected float argument for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
                         }
     
                         continue;
