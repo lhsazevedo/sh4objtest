@@ -1863,31 +1863,27 @@ class Simulator
         $readableAddress = '0x' . dechex($address);
         $readableValue = $value->readable();
 
-        // Stack writes are allowed
-        // TODO: Allow user to define allowed writes
-        if ($address >= $this->registers[15]->value) {
-            $this->logInfo("Allowed stack write of $readableValue to $readableAddress");
+        // TODO: I really don't like how we need to keep checking for the expectation type here.
 
-            // TODO: Fix code flow
-            // Should stack writes be disallowed?
-            if ($expectation instanceof WriteExpectation && $expectation->address === $address) {
-                //array_shift($this->pendingExpectations);
-                //$this->fulfilled("WriteExpectation fulfilled: Wrote $readableValue to $readableAddress");
-                throw new \Exception("Unimplemented stack write expectation handling", 1);
+        // Stack write
+        if ($address >= $this->registers[15]->value) {
+            // Unexpected stack writes are allowed
+            if (!($expectation instanceof WriteExpectation
+                    || $expectation instanceof StringWriteExpectation)
+                || $expectation->address !== $address
+            ) {
+                $this->logInfo("Allowed stack write of $readableValue to $readableAddress");
+                return;
             }
-            return;
+        } else if (!($expectation instanceof WriteExpectation || $expectation instanceof StringWriteExpectation)) {
+            throw new ExpectationException("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n");
         }
 
         if ($symbol = $this->getSymbolNameAt($address)) {
             $readableAddress = "$symbol($readableAddress)";
         }
 
-        if (!($expectation instanceof WriteExpectation || $expectation instanceof StringWriteExpectation)) {
-            throw new ExpectationException("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n");
-        }
-
         $readableExpectedAddress = '0x' . dechex($expectation->address);
-
         if ($symbol = $this->getSymbolNameAt($expectation->address)) {
             $readableExpectedAddress = "$symbol($readableExpectedAddress)";
         }
