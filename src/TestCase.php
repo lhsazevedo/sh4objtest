@@ -251,6 +251,14 @@ class TestCase
         return $expectation;
     }
 
+    protected function shouldWriteFloat(int $address, float $value): WriteExpectation
+    {
+        $expectation = new WriteExpectation($address, unpack('L', pack('f', $value))[1], 32);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
     protected function shouldReadFrom(string $name, int $value): ReadExpectation
     {
         $address = $this->addressOf($name);
