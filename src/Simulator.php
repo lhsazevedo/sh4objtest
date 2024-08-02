@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
-use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
-use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
+use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\ArgumentType;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
+use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U4;
+use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\UInt;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 
 function getN(int $instr): int
 {
@@ -245,24 +250,27 @@ class Simulator
         // Stack pointer
         $this->registers[15] = U32::of(1024 * 1024 * 16 - 4);
 
-        // TODO: Handle other calling convetions
-        foreach ($this->entry->parameters as $i => $parameter) {
+        $convention = new DefaultCallingConvention();
+        // TODO: Rename to arguments
+        foreach ($this->entry->parameters as $parameter) {
             /** @var int|float $parameter */
 
-            if (!is_int($parameter)) {
-                throw new \Exception("Only integer parameters are supported", 1);
-            }
+            $storage = $convention->getNextArgumentStorageForValue($parameter);
 
-            if ($i < 4) {
-                $this->registers[4 + $i] = U32::of($parameter);
+            if ($storage instanceof GeneralRegister) {
+                $this->registers[$storage->index()] = U32::of($parameter);
                 continue;
             }
 
+            if ($storage instanceof FloatingPointRegister) {
+                $this->fregisters[$storage->index()] = $parameter;
+                continue;
+            }
+
+            // Stack argument
+            // FIXME: Stack offset must be controlled by the calling convention
             $this->registers[15] = $this->registers[15]->sub(4);
-
             $this->memory->writeUInt32($this->registers[15]->value, U32::of($parameter));
-
-            // TODO: Handle float parameters
         }
 
         $this->memory->writeBytes(0, $this->linkedCode);
@@ -378,7 +386,7 @@ class Simulator
         $expectedReturn = $this->entry->return;
         $actualReturn = $this->registers[0];
         if ($expectedReturn !== null && !$actualReturn->equals($expectedReturn)) {
-            throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn", 1);
+            throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn");
         }
 
         // TODO: returns and float returns are mutually exclusive
@@ -389,7 +397,7 @@ class Simulator
             $actualDecRepresentation = unpack('L', pack('f', $actualFloatReturn))[1];
 
             if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                throw new ExpectationException("Unexpected return value $actualFloatReturn, expecting $expectedFloatReturn", 1);
+                throw new ExpectationException("Unexpected return value $actualFloatReturn, expecting $expectedFloatReturn");
             }
         }
 
@@ -1407,103 +1415,116 @@ class Simulator
         }
 
         if ($name !== $expectation->name) {
-            throw new ExpectationException("Unexpected call to $readableName at " . dechex($this->pc) . ", expecting $expectation->name", 1);
+            throw new ExpectationException("Unexpected call to $readableName at " . dechex($this->pc) . ", expecting $expectation->name");
         }
 
         if ($expectation->parameters) {
             // TODO: Handle other calling convetions?
-            $args = 0;
-            $floatArgs = 0;
-            $stackOffset = 0;
+            $convention = new DefaultCallingConvention();
+
             foreach ($expectation->parameters as $expected) {
                 if ($expected instanceof WildcardArgument) {
-                    $args++;
+                    // FIXME: Allow wildcard float arguments?
+                    $convention->getNextArgumentStorage(ArgumentType::General);
                     continue;
                 }
 
-                if ($expected instanceof LocalArgument) {
-                    // FIXME: Why increment here!?
-                    $args++;
+                // TODO: No tests are using this
+                // if ($expected instanceof LocalArgument) {
+                //     // FIXME: Why increment here!?
+                //     $args++;
 
-                    if ($args <= 4) {
-                        $register = $args + 4 - 1;
-                        $actual = $this->registers[$register];
+                //     if ($args <= 4) {
+                //         $register = $args + 4 - 1;
+                //         $actual = $this->registers[$register];
 
-                        if ($actual < $this->registers[15]) {
-                            throw new ExpectationException("Unexpected local argument for $readableName in r$register. $actual is not in the stack", 1);
-                        }
+                //         if ($actual < $this->registers[15]) {
+                //             throw new ExpectationException("Unexpected local argument for $readableName in r$register. $actual is not in the stack");
+                //         }
 
-                        continue;
-                    }
+                //         continue;
+                //     }
 
-                    throw new \Exception("Stack arguments stored in stack are not supported at the moment", 1);
-                }
+                //     throw new \Exception("Stack arguments stored in stack are not supported at the moment", 1);
+                // }
 
                 if (is_int($expected)) {
+                    $storage = $convention->getNextArgumentStorage(ArgumentType::General);
                     $expected &= 0xffffffff;
 
-                    // FIXME: Why increment here!?
-                    $args++;
-
-                    if ($args <= 4) {
-                        $register = $args + 4 - 1;
+                    if ($storage instanceof GeneralRegister) {
+                        $register = $storage->index();
                         $actual = $this->registers[$register];
                         $actualHex = dechex($actual->value);
                         $expectedHex = dechex($expected);
                         if (!$actual->equals($expected)) {
-                            throw new ExpectationException("Unexpected parameter for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
+                            throw new ExpectationException("Unexpected parameter for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
                         }
 
                         continue;
                     }
 
-                    $offset = $stackOffset * 4;
+                    if ($storage instanceof StackOffset) { 
+                        $offset = $storage->offset;
 
-                    $address = $this->registers[15]->value + $offset;
-                    $actual = $this->memory->readUInt32($address);
+                        $address = $this->registers[15]->value + $offset;
+                        $actual = $this->memory->readUInt32($address);
 
-                    if (!$actual->equals($expected)) {
-                        throw new ExpectationException("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
+                        if (!$actual->equals($expected)) {
+                            throw new ExpectationException("Unexpected parameter for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
+                        }
+
+                        continue;
                     }
 
-                    $stackOffset++;
-                } elseif (is_float($expected)) {
-                    $floatArgs++;
+                    throw new \Exception("Unexpected argument storage type", 1);
+                }
 
-                    if ($floatArgs <= 4) {
-                        $register = $floatArgs + 4 - 1;
+                if (is_float($expected)) {
+                    $storage = $convention->getNextArgumentStorage(ArgumentType::FloatingPoint);
+
+                    if ($storage instanceof FloatingPointRegister) {
+                        $register = $storage->index();
                         $actual = $this->fregisters[$register];
                         $actualDecRepresentation = unpack('L', pack('f', $actual))[1];
                         $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
                         if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                            throw new ExpectationException("Unexpected float parameter for $readableName in fr$register. Expected $expected, got $actual", 1);
+                            throw new ExpectationException("Unexpected float parameter for $readableName in fr$register. Expected $expected, got $actual");
                         }
     
                         continue;
                     }
 
-                    throw new \Exception("Float stack parameters are not supported at the moment", 1);
-                    // $offset = ($stackOffset - 4) * 4;
-                    // $address = $this->registers[15] + $offset;
-                    // $actual = $this->memory->readUInt32($address);
+                    if ($storage instanceof StackOffset) {
+                        $offset = $storage->offset;
 
-                    // if ($actual !== $expected) {
-                    //     throw new \Exception("Unexpected parameter in stack offset $offset ($address). Expected $expected, got $actual", 1);
-                    // }
-                    //
-                    // $stackOffset++;
-                } else if (is_string($expected)) {
-                    $args++;
+                        $address = $this->registers[15]->value + $offset;
+                        $actualDecRepresentation = $this->memory->readUInt32($address);
+                        $actual = unpack('f', pack('L', $actualDecRepresentation))[1];
+                        $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
 
-                    if ($args <= 4) {
-                        $register = $args + 4 - 1;
+                        if ($actualDecRepresentation !== $expectedDecRepresentation) {
+                            throw new ExpectationException("Unexpected float parameter for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
+                        }
+    
+                        continue;
+                    }
+
+                    throw new \Exception("Unexpected argument storage type", 1);
+                }
+
+                if (is_string($expected)) {
+                    $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+
+                    if ($storage instanceof GeneralRegister) {
+                        $register = $storage->index();
                         $address = $this->registers[$register];
 
                         $actual = $this->memory->readString($address->value);
                         if ($actual !== $expected) {
                             $actualHex = bin2hex($actual);
                             $expectedHex = bin2hex($expected);
-                            throw new ExpectationException("Unexpected char* argument for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)", 1);
+                            throw new ExpectationException("Unexpected char* argument for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
                         }
 
                         continue;
@@ -1511,6 +1532,8 @@ class Simulator
 
                     throw new \Exception("String literal stack arguments are not supported at the moment", 1);
                 }
+
+                throw new \Exception("Unexpected argument type", 1);
             }
         }
 
@@ -1791,11 +1814,11 @@ class Simulator
             $readableExpected = $expectation->value . ' (0x' . dechex($expectation->value) . ')';
 
             if ($size !== $expectation->size) {
-                throw new ExpectationException("Unexpected read size $size from $readableAddress. Expecting size $expectation->size", 1);
+                throw new ExpectationException("Unexpected read size $size from $readableAddress. Expecting size $expectation->size");
             }
 
             if (!$value->equals($expectation->value)) {
-                throw new ExpectationException("Unexpected read of $readableValue from $readableAddress. Expecting value $readableExpected", 1);
+                throw new ExpectationException("Unexpected read of $readableValue from $readableAddress. Expecting value $readableExpected");
             }
 
             $this->fulfilled("Read $readableExpected from $readableAddress");
@@ -1860,7 +1883,7 @@ class Simulator
         }
 
         if (!($expectation instanceof WriteExpectation || $expectation instanceof StringWriteExpectation)) {
-            throw new ExpectationException("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n", 1);
+            throw new ExpectationException("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n");
         }
 
         $readableExpectedAddress = '0x' . dechex($expectation->address);
@@ -1872,11 +1895,11 @@ class Simulator
         // Handle char* writes
         if (is_string($expectation->value)) {
             if (!($expectation instanceof StringWriteExpectation)) {
-                throw new ExpectationException("Unexpected char* write of $readableValue to $readableAddress, expecting int write of $readableExpectedAddress", 1);
+                throw new ExpectationException("Unexpected char* write of $readableValue to $readableAddress, expecting int write of $readableExpectedAddress");
             }
 
             if ($value::BIT_COUNT !== 32) {
-                throw new ExpectationException("Unexpected non 32bit char* write of $readableValue to $readableAddress", 1);
+                throw new ExpectationException("Unexpected non 32bit char* write of $readableValue to $readableAddress");
             }
 
             $actual = $this->memory->readString($value->value);
@@ -1884,11 +1907,11 @@ class Simulator
             $readableExpectedValue = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
 
             if ($expectation->address !== $address) {
-                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
+                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress");
             }
             
             if ($actual !== $expectation->value) {
-                throw new ExpectationException("Unexpected char* write value $readableValue to $readableAddress, expecting $readableExpectedValue", 1);
+                throw new ExpectationException("Unexpected char* write value $readableValue to $readableAddress, expecting $readableExpectedValue");
             }
 
             $this->fulfilled("Wrote string $readableValue to $readableAddress");
@@ -1896,24 +1919,24 @@ class Simulator
         // Hanlde int writes
         else {
             if (!($expectation instanceof WriteExpectation)) {
-                throw new ExpectationException("Unexpected int write of $readableValue to $readableAddress, expecting char* write of $readableExpectedAddress", 1);
+                throw new ExpectationException("Unexpected int write of $readableValue to $readableAddress, expecting char* write of $readableExpectedAddress");
             }
 
             if ($value::BIT_COUNT !== $expectation->size) {
-                throw new ExpectationException("Unexpected " . $value::BIT_COUNT . " bit write of $readableValue to $readableAddress, expecting $expectation->size bit write", 1);
+                throw new ExpectationException("Unexpected " . $value::BIT_COUNT . " bit write of $readableValue to $readableAddress, expecting $expectation->size bit write");
             }
 
             $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
             if ($expectation->address !== $address) {
-                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress", 1);
+                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress");
             }
 
             if ($value->lessThan(0)) {
-                throw new ExpectationException("Unexpected negative write value $readableValue to $readableAddress", 1);
+                throw new ExpectationException("Unexpected negative write value $readableValue to $readableAddress");
             }
 
             if (!$value->equals($expectation->value)) {
-                throw new ExpectationException("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue", 1);
+                throw new ExpectationException("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue");
             }
 
             $this->fulfilled("Wrote $readableValue to $readableAddress");
