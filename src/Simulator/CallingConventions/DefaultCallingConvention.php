@@ -15,7 +15,6 @@ class DefaultCallingConvention implements CallingConvention
         GeneralRegister::R5,
         GeneralRegister::R6,
         GeneralRegister::R7,
-        GeneralRegister::R8,
     ];
 
     /** @var FloatingPointRegister[] */
