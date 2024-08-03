@@ -1160,6 +1160,13 @@ class Simulator
                 $this->setRegister($n, $this->registers[$n]->shiftLeft(8));
                 return;
 
+            // SHLR8  Rn;
+            case 0x4019:
+                $n = getN($instruction);
+                $this->disasm("SHLR8", ["R$n"]);
+                $this->setRegister($n, $this->registers[$n]->shiftRight(8));
+                return;
+
             // SHAR  Rn;
             case 0x4021:
                 $n = getN($instruction);
