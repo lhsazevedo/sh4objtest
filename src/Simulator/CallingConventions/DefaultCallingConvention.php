@@ -23,6 +23,10 @@ class DefaultCallingConvention implements CallingConvention
         FloatingPointRegister::FR5,
         FloatingPointRegister::FR6,
         FloatingPointRegister::FR7,
+        FloatingPointRegister::FR8,
+        FloatingPointRegister::FR9,
+        FloatingPointRegister::FR10,
+        FloatingPointRegister::FR11,
     ];
 
     private int $generalIndex = 0;
