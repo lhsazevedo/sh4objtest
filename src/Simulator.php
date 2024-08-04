@@ -402,6 +402,9 @@ class Simulator
         }
 
         $count = count($this->expectations);
+        if ($expectedReturn || $this->entry->floatReturn !== null) {
+            $count++;
+        }
         $this->output->writeln("\n<bg=bright-green;options=bold> PASS </> <fg=green>$count expectations fulfilled</>\n");
     }
 
