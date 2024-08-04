@@ -255,6 +255,32 @@ abstract readonly class UInt
         return str_pad(dechex($this->value), static::BIT_COUNT / 4, '0', STR_PAD_LEFT);
     }
 
+    public function signedHex(): string
+    {
+        $mask = 1 << (static::BIT_COUNT - 1);
+        $isNegative = ($this->value & $mask) !== 0;
+        $absolute = $isNegative
+            ? (~$this->value & static::MAX_VALUE) + 1
+            : $this->value;
+
+        $hex = str_pad(dechex($absolute), static::BIT_COUNT / 4, '0', STR_PAD_LEFT);
+
+        return $isNegative ? "-$hex" : $hex;
+    }
+
+    public function hitachiSignedHex(): string
+    {
+        $mask = 1 << (static::BIT_COUNT - 1);
+        $isNegative = ($this->value & $mask) !== 0;
+        $absolute = $isNegative
+            ? (~$this->value & static::MAX_VALUE) + 1
+            : $this->value;
+
+        $hex = "H'" . str_pad(dechex($absolute), static::BIT_COUNT / 4, '0', STR_PAD_LEFT);
+
+        return $isNegative ? "-$hex" : $hex;
+    }
+
     public function shortHex(): string
     {
         return dechex($this->value);

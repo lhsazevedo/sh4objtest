@@ -469,7 +469,7 @@ class Simulator
             case 0x7000:
                 $n = getN($instruction);
                 $imm = getImm8($instruction);
-                $this->disasm("ADD", ["#$imm","R$n"]);
+                $this->disasm("ADD", ["#{$imm->hitachiSignedHex()}","R$n"]);
 
                 // TODO: Use SInt value object
                 $this->setRegister($n, $this->registers[$n]->add($imm->extend32(), allowOverflow: true));
@@ -487,7 +487,7 @@ class Simulator
             case 0xe000:
                 $imm = getImm8($instruction);
                 $n = getN($instruction);
-                $this->disasm("MOV", ["#$imm","R$n"]);
+                $this->disasm("MOV", ["#{$imm->hitachiSignedHex()}","R$n"]);
                 $this->setRegister($n, $imm->extend32());
                 return;
         }
@@ -955,8 +955,7 @@ class Simulator
             // CMP/EQ #<imm>,R0
             case 0x8800:
                 $imm = getImm8($instruction);
-                // Display the signed value to make it clear that it is extended
-                $this->disasm("CMP/EQ", ["#{$imm->signedValue()}", "R0"]);
+                $this->disasm("CMP/EQ", ["#{$imm->hitachiSignedHex()}", "R0"]);
                 if ($this->registers[0]->equals($imm->extend32())) {
                     $this->srT = 1;
                 } else {
@@ -1016,7 +1015,7 @@ class Simulator
             // TST #imm,R0
             case 0xc800:
                 $imm = getImm8($instruction)->u32();
-                $this->disasm("TST", ["#$imm", "R0"]);
+                $this->disasm("TST", ["#H'{$imm->hex()}", "R0"]);
                 if ($this->registers[0]->band($imm)->equals(0)) {
                     $this->srT = 1;
                 } else {
@@ -1027,14 +1026,14 @@ class Simulator
             // AND #imm,R0
             case 0xc900:
                 $imm = getImm8($instruction)->u32();
-                $this->disasm("AND", ["#$imm", "R0"]);
+                $this->disasm("AND", ["#H'{$imm->hex()}", "R0"]);
                 $this->setRegister(0, $this->registers[0]->band($imm));
                 return;
 
             // OR #imm,R0
             case 0xcb00:
                 $imm = getImm8($instruction)->u32();
-                $this->disasm("OR", ["#$imm", "R0"]);
+                $this->disasm("OR", ["#H'{$imm->hex()}", "R0"]);
                 $this->setRegister(0, $this->registers[0]->bor($imm));
                 return;
         }
@@ -1698,7 +1697,7 @@ class Simulator
                 if (in_array($operand, ['PR', 'PC', 'MACL', 'FPUL'])) {
                     $fg = 'magenta';
                 }
-            } else if (preg_match('/^#(:?H\')?-?[0-9A-Za-z]+$/', $operand, $matches)) {
+            } else if (preg_match('/^#-?(:?H\')?[0-9A-Za-z]+$/', $operand, $matches)) {
                 $fg = 'bright-green';
             }
 
