@@ -136,6 +136,8 @@ class TestCase
 
     private bool $forceStop = false;
 
+    private bool $randomizeMemory = true;
+
     private int $currentAlloc = 1024 * 1024 * 8;
 
     /** @var TestRelocation[] */
@@ -362,6 +364,11 @@ class TestCase
         $this->forceStop = true;
     }
 
+    protected function doNotRandomizeMemory(): void
+    {
+        $this->randomizeMemory = false;
+    }
+
     protected function rellocate(string $name, int $address): void
     {
         $this->testRelocations[] = new TestRelocation($name, $address);
@@ -376,6 +383,7 @@ class TestCase
             $this->expectations,
             $this->entry,
             $this->forceStop,
+            $this->randomizeMemory,
             $this->testRelocations,
             $this->initializations,
             $this->linkedCode,
@@ -390,6 +398,7 @@ class TestCase
         // Cleanup
         // TODO: Better to instance the TestCase every time
         $this->forceStop = false;
+        $this->randomizeMemory = true;
         $this->entry = new Entry();
         $this->expectations = [];
         $this->testRelocations = [];

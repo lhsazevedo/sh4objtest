@@ -12,8 +12,13 @@ class BinaryMemory {
 
     private string $memory;
 
-    public function __construct(int $size)
+    public function __construct(int $size, $randomize = true)
     {
+        if ($randomize) {
+            $this->memory = random_bytes($size);
+            return;
+        }
+
         $this->memory = str_repeat("\x0", $size);
     }
 

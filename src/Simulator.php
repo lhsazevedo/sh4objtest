@@ -213,9 +213,11 @@ class Simulator
         private array $expectations,
 
         private Entry $entry,
-        
+
         private bool $forceStop,
-        
+
+        private bool $randomizeMemory,
+
         /** @var TestRelocation[] */
         private array $testRelocations,
         
@@ -241,7 +243,7 @@ class Simulator
     {
         $this->running = true;
         $this->pc = $this->entryAddress;
-        $this->memory = new BinaryMemory(1024 * 1024 * 16);
+        $this->memory = new BinaryMemory(1024 * 1024 * 16, randomize: $this->randomizeMemory);
 
         for ($i = 0; $i < 16; $i++) {
             $this->registers[$i] = U32::of(0);
