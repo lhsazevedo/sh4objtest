@@ -513,7 +513,7 @@ class Simulator
                 $this->disasm("MUL.L", ["R$m","R$n"]);
                 $result = $this->registers[$n]->mul($this->registers[$m]);
                 $this->macl = $result->value;
-                $this->addRegisterLog("MACL={$result->readable()}");
+                $this->addLog("MACL={$result->readable()}");
                 return;
 
             // MOV.B @(R0,<REG_M>),<REG_N>
@@ -577,7 +577,7 @@ class Simulator
             case 0x2008:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("TST", ["R$m","R$n"]);
-
+                $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->band($this->registers[$m])->value !== 0) {
                     $this->srT = 0;
                 } else {
@@ -603,6 +603,7 @@ class Simulator
             case 0x3000:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("CMP/EQ", ["R$m","R$n"]);
+                $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->equals($this->registers[$m])) {
                     $this->srT = 1;
                 } else {
@@ -614,6 +615,7 @@ class Simulator
             case 0x3002:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("CMP/HS", ["R$m","R$n"]);
+                $this->logRegisters([$m, $n]);
                 // TODO: Double check signed to unsigned convertion
                 if ($this->registers[$n]->greaterThanOrEqual($this->registers[$m])) {
                     $this->srT = 1;
@@ -627,6 +629,7 @@ class Simulator
             case 0x3003:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("CMP/GE", ["R$m","R$n"]);
+                $this->logRegisters([$m, $n]);
                 // TODO: Create SInt value object
                 if ($this->registers[$n]->signedValue() >= $this->registers[$m]->signedValue()) {
                     $this->srT = 1;
@@ -640,6 +643,7 @@ class Simulator
             case 0x3007:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("CMP/GT", ["R$m","R$n"]);
+                $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->greaterThan($this->registers[$m])) {
                     $this->srT = 1;
                 } else {
@@ -958,6 +962,7 @@ class Simulator
             case 0x8800:
                 $imm = getImm8($instruction);
                 $this->disasm("CMP/EQ", ["#{$imm->hitachiSignedHex()}", "R0"]);
+                $this->logRegister(0);
                 if ($this->registers[0]->equals($imm->extend32())) {
                     $this->srT = 1;
                 } else {
@@ -1018,6 +1023,7 @@ class Simulator
             case 0xc800:
                 $imm = getImm8($instruction)->u32();
                 $this->disasm("TST", ["#H'{$imm->hex()}", "R0"]);
+                $this->logRegister(0);
                 if ($this->registers[0]->band($imm)->equals(0)) {
                     $this->srT = 1;
                 } else {
@@ -1138,6 +1144,7 @@ class Simulator
             case 0x4011:
                 $n = getN($instruction);
                 $this->disasm("CMP/PZ", ["R$n"]);
+                $this->logRegister($n);
                 if ($this->registers[$n]->signedValue() >= 0) {
                     $this->srT = 1;
                 } else {
@@ -1149,7 +1156,7 @@ class Simulator
             case 0x4015:
                 $n = getN($instruction);
                 $this->disasm("CMP/PL", ["R$n"]);
-
+                $this->logRegister($n);
                 if ($this->registers[$n]->signedValue() > 0) {
                     $this->srT = 1;
                 } else {
@@ -1244,7 +1251,7 @@ class Simulator
                 $this->disasm("LDS", ["R$n", "FPUL"]);
                 $this->fpul = $this->registers[$n]->value;
                 $hex = dechex($this->fpul);
-                $this->addRegisterLog("FPUL=H'$hex");
+                $this->addLog("FPUL=H'$hex");
                 return;
 
             // FSTS        FPUL,<FREG_N>
@@ -1374,7 +1381,7 @@ class Simulator
 
         $this->registers[$n] = $value;
 
-        $this->addRegisterLog("R$n=H'{$value->shortHex()}");
+        $this->addLog("R$n=H'{$value->shortHex()}");
     }
 
     // private function getRegister(int $n): U32
@@ -1393,7 +1400,7 @@ class Simulator
     {
         $this->fregisters[$n] = $value;
 
-        $this->addRegisterLog("FR$n=$value");
+        $this->addLog("FR$n=$value");
     }
 
     private function assertCall(int $target): void
@@ -1733,13 +1740,39 @@ class Simulator
         $this->handleMessage("<fg=blue>$str</>");
     }
 
-    private function addRegisterLog(string $str): void {
+    private function addLog(string $str): void {
         if ($this->inDelaySlot) {
             $this->delaySlotRegisterLog[] = $str;
             return;
         }
 
         $this->registerLog[] = $str;
+    }
+
+    private function logRegister(int $index): void
+    {
+        $value = $this->registers[$index];
+        $this->addLog("R$index:H'{$value->shortHex()}");
+    }
+
+    private function logRegisters(array $registers): void
+    {
+        foreach ($registers as $index) {
+            $this->logRegister($index);
+        }
+    }
+
+    private function logFloatRegister(int $index): void
+    {
+        $value = $this->fregisters[$index];
+        $this->addLog("FR$index:$value");
+    }
+
+    private function logFloatRegisters(array $registers): void
+    {
+        foreach ($registers as $index) {
+            $this->logFloatRegister($index);
+        }
     }
 
     /**
