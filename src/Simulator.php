@@ -499,11 +499,19 @@ class Simulator
         }
 
         switch ($instruction & 0xf00f) {
+            // MOV.W <REG_M>, @(R0, <REG_N>)
+            case 0x0005:
+                [$n, $m] = getNM($instruction);
+                $this->disasm("MOV.W", ["R$m", "@(R0,R$n)"]);
+                $this->writeUInt16($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]->trunc16());
+                return;
+
             // MOV.L <REG_M>, @(R0,<REG_N>)
             case 0x0006:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("MOV.L", ["R$m", "@(R0,R$n)"]);
                 // TODO: Is R0 always the offset?
+                // TODO2: Why this matters?
                 $this->writeUInt32($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]);
                 return;
 
