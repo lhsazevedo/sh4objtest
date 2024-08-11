@@ -113,8 +113,7 @@ abstract readonly class UInt
 
     public function invert(): static
     {
-        $result = static::of(0)->sub($this->value)->value;
-        return new static($result & static::MAX_VALUE);
+        return new static((~$this->value + 1) & static::MAX_VALUE);
     }
 
     public function mod(self|int $other): static
@@ -185,6 +184,21 @@ abstract readonly class UInt
     {
         $other = $this->other($other);
         return $this->value <= $other->value;
+    }
+
+    public function notEquals(self|int $other): bool
+    {
+        return !$this->equals($other);
+    }
+
+    public function isZero(): bool
+    {
+        return $this->value === 0;
+    }
+
+    public function isNotZero(): bool
+    {
+        return !$this->isZero();
     }
 
     public function u32(): U32

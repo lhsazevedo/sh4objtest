@@ -677,6 +677,29 @@ class Simulator
                 $this->setRegister($n, $result);
                 return;
 
+            // SHAD <REG_M>,<REG_N>
+            case 0x400c:
+                [$n, $m] = getNM($instruction);
+                $this->disasm("SHAD", ["R$m","R$n"]);
+                $shiftRegister = $this->registers[$m];
+                $valueRegister = $this->registers[$n];
+                $hasSign = $shiftRegister->band(1 << 31)->isNotZero();
+                // Left shift (sign bit is not set)
+                if (!$hasSign) {
+                    $this->setRegister($n, $valueRegister->shiftLeft($shiftRegister->band(0x1f)->value));
+                }
+                // Full right shift (sign bit is set, shift is 0)
+                elseif ($shiftRegister->band(0x1f)->isNotZero()) {
+                    $this->setRegister($n, $valueRegister->shiftRight(31));
+                }
+                // Right shift (sign bit is set, shift is not 0)
+                else {
+                    $shift = (~$shiftRegister->value & 0x1f) + 1;
+                    $this->setRegister($n, $valueRegister->shiftRight($shift));
+                }
+                return;
+
+
             // MOV.B @Rm,Rn
             case 0x6000:
                 [$n, $m] = getNM($instruction);
