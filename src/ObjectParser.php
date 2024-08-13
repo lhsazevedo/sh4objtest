@@ -116,8 +116,6 @@ final class ObjectParser
         while (!$reader->feof()) {
             $chunkBase = $reader->tell();
 
-            // var_dump("We are at " . $chunkBase . " (" . dechex($chunkBase) . ")\n");
-
             $ukn = $reader->readUInt8();
             $type = $reader->readUInt8();
             $len = $reader->readUInt8();
