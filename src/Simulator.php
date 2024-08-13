@@ -998,6 +998,14 @@ class Simulator
         }
 
         switch ($instruction & 0xff00) {
+            // MOV.B R0,@(<disp>,<REG_M>)
+            case 0x8000:
+                $m = getM($instruction);
+                $disp = getImm4($instruction)->value;
+                $this->disasm("MOV.B", ["R0", "@($disp, R$m)"]);
+                $this->writeUInt8($this->registers[$m]->value, $disp, $this->registers[0]->trunc8());
+                return;
+
             // MOV.W R0,@(<disp>,<REG_M>)
             case 0x8100:
                 $m = getM($instruction);
