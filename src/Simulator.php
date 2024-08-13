@@ -750,6 +750,17 @@ class Simulator
                 $this->setRegister($n, $this->registers[$m]);
                 return;
 
+            // MOV.B @<REG_M>+, <REG_N>
+            case 0x6004:
+                [$n, $m] = getNM($instruction);
+                $this->disasm("MOV.B", ["@R$m+","R$n"]);
+                $value = $this->readUInt8($this->registers[$m]->value);
+                $this->setRegister($n, $value->extend32());
+                if ($n != $m) {
+                    $this->registers[$m] = $this->registers[$m]->add(1);
+                }
+                return;
+
             // MOV @<REG_M>+,<REG_N>
             case 0x6006:
                 [$n, $m] = getNM($instruction);
