@@ -1175,11 +1175,18 @@ class Simulator
                 $this->setRegister($n, $this->registers[$n]->shiftRight());
                 return;
 
-            // SHLL2  Rn;
+            // SHLL2 Rn
             case 0x4008:
                 $n = getN($instruction);
                 $this->disasm("SHLL2", ["R$n"]);
                 $this->setRegister($n, $this->registers[$n]->shiftLeft(2));
+                return;
+
+            // SHLR2 Rn
+            case 0x4009:
+                $n = getN($instruction);
+                $this->disasm("SHLR2", ["R$n"]);
+                $this->setRegister($n, $this->registers[$n]->shiftRight(2));
                 return;
 
             // JSR
