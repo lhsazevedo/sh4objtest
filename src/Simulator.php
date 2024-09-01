@@ -672,9 +672,25 @@ class Simulator
             case 0x300c:
                 [$n, $m] = getNM($instruction);
                 $this->disasm("ADD", ["R$m","R$n"]);
-                // TODO: Use SInt value object
                 $result = $this->registers[$n]->add($this->registers[$m], allowOverflow: true);
                 $this->setRegister($n, $result);
+                return;
+
+            // ADDC Rm,Rn
+            case 0x300e:
+                [$n, $m] = getNM($instruction);
+                $this->disasm("ADDC", ["R$m","R$n"]);
+                $tmp1 = $this->registers[$n]->add($this->registers[$m], allowOverflow: true);
+                $tmp0 = U32::of($this->registers[$n]->value);
+                $this->setRegister($n, $tmp1->add($this->srT, allowOverflow: true));
+                if ($tmp0->greaterThan($tmp1)) {
+                    $this->srT = 1;
+                } else {
+                    $this->srT = 0;
+                }
+                if ($tmp1->greaterThan($this->registers[$n])) {
+                    $this->srT = 1;
+                }
                 return;
 
             // SHAD <REG_M>,<REG_N>
