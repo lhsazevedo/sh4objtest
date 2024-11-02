@@ -33,7 +33,9 @@ jobs:
 
       - name: Download static PHP micro binary
         run: |
-          curl https://dl.static-php.dev/static-php-cli/common/php-8.3.6-micro-linux-x86_64.tar.gz -o micro.sfx.tar.gz
+          wget \
+            -O micro.sfx.tar.gz \
+            https://dl.static-php.dev/static-php-cli/common/php-8.3.6-micro-linux-x86_64.tar.gz
           tar -zxvf micro.sfx.tar.gz
 
       - name: Concat phpmicro
