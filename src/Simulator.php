@@ -315,7 +315,7 @@ class Simulator
         // TODO: Consolidate section loop above?
         foreach ($this->object->unit->sections as $section) {
             foreach ($section->localRelocationsShort as $lr) {
-                $offset = $this->memory->readUInt32($lr->address);
+                $offset = $this->memory->readUInt32($section->linkedAddress + $lr->address);
                 $targetSection = $this->object->unit->sections[$lr->sectionIndex];
 
                 $this->memory->writeUInt32(
@@ -1668,10 +1668,10 @@ class Simulator
         echo "PC: " . dechex($this->pc) . "\n";
         // print_r($this->registers);
 
-        return;
+        // return;
 
         // TODO: Unhardcode memory size
-        for ($i=0x0; $i < 0x400; $i++) {
+        for ($i=0x1660; $i < 0x1660 + 0x400; $i++) {
             if ($i % 16 === 0) {
                 echo "\n";
                 echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
