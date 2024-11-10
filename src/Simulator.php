@@ -652,7 +652,7 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $this->disasm("CMP/GT", ["R$m","R$n"]);
                 $this->logRegisters([$m, $n]);
-                if ($this->registers[$n]->greaterThan($this->registers[$m])) {
+                if ($this->registers[$n]->signedValue() > $this->registers[$m]->signedValue()) {
                     $this->srT = 1;
                 } else {
                     $this->srT = 0;
