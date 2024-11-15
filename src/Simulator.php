@@ -6,7 +6,6 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
-use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\ArgumentType;
