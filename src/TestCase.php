@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
+use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
+use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 
 class Entry {
     public function __construct(
@@ -298,6 +303,11 @@ class TestCase
 
     protected function run(): void
     {
+        $memory = new BinaryMemory(
+            1024 * 1024 * 16,
+            randomize: $this->randomizeMemory
+        );
+
         $simulator = new Simulator(
             $this->input,
             $this->output,
@@ -305,11 +315,35 @@ class TestCase
             $this->expectations,
             $this->entry,
             $this->forceStop,
-            $this->randomizeMemory,
             $this->testRelocations,
             $this->initializations,
             $this->linkedCode,
+            $memory,
         );
+
+        $convention = new DefaultCallingConvention();
+        $stackPointer = U32::of(1024 * 1024 * 16 - 4);
+        // TODO: Rename to arguments
+        foreach ($this->entry->parameters as $argument) {
+            /** @var int|float $argument */
+
+            $storage = $convention->getNextArgumentStorageForValue($argument);
+
+            if ($storage instanceof GeneralRegister) {
+                $simulator->setRegister($storage->index(), U32::of($argument));
+                continue;
+            }
+
+            if ($storage instanceof FloatingPointRegister) {
+                $simulator->setFloatRegister($storage->index(), $argument);
+                continue;
+            }
+
+            // FIXME: Stack offset must be controlled by the calling convention.
+            $stackPointer = $stackPointer->sub(4);
+            $memory->writeUInt32($stackPointer->value, U32::of($argument));
+        }
+        $simulator->setRegister(15, $stackPointer);
 
         if ($this->disasm) {
             $simulator->enableDisasm();
