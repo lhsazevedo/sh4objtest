@@ -135,8 +135,6 @@ function s16tos32(int $value): int
 
 class Simulator
 {
-    private int $entryAddress;
-
     private bool $running = false;
 
     private int $pc;
@@ -232,14 +230,6 @@ class Simulator
     {
         $this->pendingExpectations = $expectations;
 
-        // Search entry in exports
-        /** @var ?ExportSymbol */
-        $entrySymbol = $object->unit->findExportedSymbol($entry->symbol);
-
-        if (!$entrySymbol) throw new \Exception("Entry symbol $entry->symbol not found.", 1);
-
-        $this->entryAddress = $entrySymbol->offset;
-
         $this->memory = $memory;
 
         // Default state
@@ -255,7 +245,6 @@ class Simulator
     public function run(): void
     {
         $this->running = true;
-        $this->pc = $this->entryAddress;
 
         $this->memory->writeBytes(0, $this->linkedCode);
 
@@ -1458,6 +1447,11 @@ class Simulator
     public function getRegister(int $n): U32
     {
         return $this->registers[$n];
+    }
+
+    public function setPc(int $pc): void
+    {
+        $this->pc = $pc;
     }
 
     private function writeRegister(int $n, U32|Relocation $value): void

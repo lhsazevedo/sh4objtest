@@ -321,6 +321,11 @@ class TestCase
             $memory,
         );
 
+        $entrySymbol = $this->parsedObject->unit->findExportedSymbol($this->entry->symbol);
+        if (!$entrySymbol) throw new \Exception("Entry symbol {$this->entry->symbol} not found.", 1);
+
+        $simulator->setPc($entrySymbol->offset);
+
         $convention = new DefaultCallingConvention();
         $stackPointer = U32::of(1024 * 1024 * 16 - 4);
         // TODO: Rename to arguments
