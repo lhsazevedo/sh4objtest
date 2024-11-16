@@ -403,8 +403,26 @@ class TestCase
             $this->entry,
             $this->forceStop,
             $this->testRelocations,
-            $unresolvedRelocations,
             $memory,
+        );
+
+        // TODO: We shouldn't be checking for relocations on each read...
+        // There should be a more performant way of handling this.
+        $simulator->onReadUInt(
+            function (
+                Simulator $sim, int $address, int $offset, int $size
+            ) use ($unresolvedRelocations) {
+                foreach ($unresolvedRelocations as $relocation) {
+                    if ($relocation->linkedAddress !== $address + $offset) {
+                        continue;
+                    }
+
+                    throw new \Exception(
+                        "Trying to read from unresolved relocation $relocation->name",
+                        1
+                    );
+                }
+            }
         );
 
         $entrySymbol = $this->parsedObject->unit->findExportedSymbol($this->entry->symbol);

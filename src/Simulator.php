@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
+use Closure;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
@@ -199,6 +199,9 @@ class Simulator
     private int $disasmPc;
 
     private bool $inDelaySlot = false;
+
+    private ?Closure $readUIntCallback;
+
     /**
      * @param AbstractExpectation[] $expectations
      * */ 
@@ -216,9 +219,6 @@ class Simulator
 
         /** @var TestRelocation[] */
         private array $testRelocations,
-
-        /** @var Relocation[] */
-        private array $unresolvedRelocations,
 
         BinaryMemory $memory,
     )
@@ -1336,12 +1336,6 @@ class Simulator
 
                 $addr = (($this->pc + 2) & 0xFFFFFFFC);
                 $data = $this->readUInt32($addr, $disp);
-                // TODO: Should this be done to every read or just disp + PC (Literal Pool)
-                if ($relocation = $this->getRelocationAt($addr + $disp)) {
-                    // TODO: If rellocation has been initialized in test, set
-                    // rellocation address instead.
-                    $data = $relocation;
-                }
                 $this->writeRegister($n, $data);
                 return;
         }
@@ -1552,60 +1546,48 @@ class Simulator
         $this->fulfilled("Called " . $readableName . '(0x'. dechex($target) . ")");
     }
 
-    public function hexdump(): void
-    {
-        echo "PC: " . dechex($this->pc) . "\n";
-        // print_r($this->registers);
+    // public function hexdump(): void
+    // {
+    //     echo "PC: " . dechex($this->pc) . "\n";
+    //     // print_r($this->registers);
 
-        // return;
+    //     // return;
 
-        // TODO: Unhardcode memory size
-        for ($i=0x1660; $i < 0x1660 + 0x400; $i++) {
-            if ($i % 16 === 0) {
-                echo "\n";
-                echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
-            } else if ($i !== 0 && $i % 4 === 0) {
-                echo " ";
-            }
+    //     // TODO: Unhardcode memory size
+    //     for ($i=0x1660; $i < 0x1660 + 0x400; $i++) {
+    //         if ($i % 16 === 0) {
+    //             echo "\n";
+    //             echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
+    //         } else if ($i !== 0 && $i % 4 === 0) {
+    //             echo " ";
+    //         }
 
-            if ($this->getRelocationAt($i)) {
-                echo "RR RR RR RR ";
-                $i += 3;
-                continue;
-            }
+    //         if ($this->getRelocationAt($i)) {
+    //             echo "RR RR RR RR ";
+    //             $i += 3;
+    //             continue;
+    //         }
 
-            echo str_pad(dechex($this->memory->readUInt8($i)->value), 2, '0', STR_PAD_LEFT) . ' ';
-        }
+    //         echo str_pad(dechex($this->memory->readUInt8($i)->value), 2, '0', STR_PAD_LEFT) . ' ';
+    //     }
 
-        for ($i=0x800000; $i < 0x800000 + 0x40; $i++) {
-            if ($i % 16 === 0) {
-                echo "\n";
-                echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
-            } else if ($i !== 0 && $i % 4 === 0) {
-                echo " ";
-            }
+    //     for ($i=0x800000; $i < 0x800000 + 0x40; $i++) {
+    //         if ($i % 16 === 0) {
+    //             echo "\n";
+    //             echo str_pad(dechex($i), 4, '0', STR_PAD_LEFT) . ': ';
+    //         } else if ($i !== 0 && $i % 4 === 0) {
+    //             echo " ";
+    //         }
 
-            if ($this->getRelocationAt($i)) {
-                echo "RR RR RR RR ";
-                $i += 3;
-                continue;
-            }
+    //         if ($this->getRelocationAt($i)) {
+    //             echo "RR RR RR RR ";
+    //             $i += 3;
+    //             continue;
+    //         }
 
-            echo str_pad(dechex($this->memory->readUInt8($i)->value), 2, '0', STR_PAD_LEFT) . ' ';
-        }
-    }
-
-    // TODO: Move to Unit
-    public function getRelocationAt(int $address): ?Relocation
-    {
-        foreach ($this->unresolvedRelocations as $relocation) {
-            if ($relocation->linkedAddress === $address) {
-                return $relocation;
-            }
-        }
-
-        return null;
-    }
+    //         echo str_pad(dechex($this->memory->readUInt8($i)->value), 2, '0', STR_PAD_LEFT) . ' ';
+    //     }
+    // }
 
     public function getResolutionAt(int $address): ?TestRelocation
     {
@@ -1813,8 +1795,17 @@ class Simulator
         $this->delaySlotRegisterLog = [];
     }
 
+    public function onReadUInt(Closure $callback): void
+    {
+        $this->readUIntCallback = $callback;
+    }
+
     protected function readUInt(int $addr, int $offset, int $size): U8|U16|U32
     {
+        if ($this->readUIntCallback) {
+            ($this->readUIntCallback)($this, $addr, $offset, $size);
+        }
+
         $displacedAddr = $addr + $offset;
 
         $readableAddress = '0x' . dechex($displacedAddr);
