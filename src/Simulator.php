@@ -240,6 +240,15 @@ class Simulator
         if (!$entrySymbol) throw new \Exception("Entry symbol $entry->symbol not found.", 1);
 
         $this->entryAddress = $entrySymbol->offset;
+
+        // Default state
+        $this->pc = 0;
+        for ($i = 0; $i < 16; $i++) {
+            $this->registers[$i] = U32::of(0);
+        }
+
+        // Stack pointer
+        $this->registers[15] = U32::of(1024 * 1024 * 16 - 4);
     }
 
     public function run(): void
@@ -248,13 +257,7 @@ class Simulator
         $this->pc = $this->entryAddress;
         $this->memory = new BinaryMemory(1024 * 1024 * 16, randomize: $this->randomizeMemory);
 
-        for ($i = 0; $i < 16; $i++) {
-            $this->registers[$i] = U32::of(0);
-        }
-
-        // Stack pointer
-        $this->registers[15] = U32::of(1024 * 1024 * 16 - 4);
-
+        // TODO(refactor): Move out
         $convention = new DefaultCallingConvention();
         // TODO: Rename to arguments
         foreach ($this->entry->parameters as $parameter) {
