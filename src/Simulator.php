@@ -180,9 +180,6 @@ class Simulator
 
     private bool $shouldDisasm = false;
 
-    /** @var Relocation[] */
-    private array $unresolvedRelocations = [];
-
     private ?string $disasm = null;
 
     private ?string $delaySlotDisasm = null;
@@ -219,9 +216,9 @@ class Simulator
 
         /** @var TestRelocation[] */
         private array $testRelocations,
-        
-        /** @var MemoryInitialization[] */
-        private array $initializations,
+
+        /** @var Relocation[] */
+        private array $unresolvedRelocations,
 
         BinaryMemory $memory,
     )
@@ -243,89 +240,6 @@ class Simulator
     public function run(): void
     {
         $this->running = true;
-
-        foreach ($this->initializations as $initialization) {
-            switch ($initialization->size) {
-                case U8::BIT_COUNT:
-                    // TODO: Use SInt value object
-                    $this->memory->writeUInt8($initialization->address, U8::of($initialization->value & U8::MAX_VALUE));
-                    break;
-
-                case U16::BIT_COUNT:
-                    // TODO: Use SInt value object
-                    $this->memory->writeUInt16($initialization->address, U16::of($initialization->value & U16::MAX_VALUE));
-                    break;
-
-                case U32::BIT_COUNT:
-                    // TODO: Use SInt value object
-                    $this->memory->writeUInt32($initialization->address, U32::of($initialization->value & U32::MAX_VALUE));
-                    break;
-
-                default:
-                    throw new \Exception("Unsupported initialization size $initialization->size", 1);
-            }
-        }
-
-        // TODO: Does not need to happen every run.
-        foreach ($this->object->unit->sections as $section) {
-            foreach ($section->localRelocationsLong as $lr) {
-                $targetSection = $this->object->unit->sections[$lr->sectionIndex];
-
-                $this->memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress + $lr->target),
-                );
-            }
-        }
-
-        // TODO: Does not need to happen every run.
-        // TODO: Consolidate section loop above?
-        foreach ($this->object->unit->sections as $section) {
-            foreach ($section->localRelocationsShort as $lr) {
-                $offset = $this->memory->readUInt32($section->linkedAddress + $lr->address);
-                $targetSection = $this->object->unit->sections[$lr->sectionIndex];
-
-                $this->memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress)->add($offset),
-                );
-            }
-        }
-
-        $unresolvedRelocations = [];
-        foreach ($this->object->unit->sections as $section) {
-            foreach ($section->relocations as $relocation) {
-                $found = false;
-
-                // FIXME: This is confusing:
-                // - Object relocation address is the address of the literal pool data item
-                // - Test relocation address is the value of the literal pool item
-                foreach ($this->testRelocations as $userResolution) {
-                    if ($relocation->name === $userResolution->name) {
-                        $offset = $this->memory->readUInt32($relocation->linkedAddress)->value;
-
-                        if ($relocation->offset && $offset) {
-                            throw new \Exception("Relocation $relocation->name has both built-in and code offset", 1);
-                            // $this->output->writeln("WARN: Relocation $relocation->name has both built-in and code offset");
-                            // $this->output->writeln("Built-in offset: $offset");
-                            // $this->output->writeln("Code offset: $relocation->offset");
-                        }
-
-                        $this->memory->writeUInt32(
-                            $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->offset + $offset)
-                        );
-                        $found = true;
-                        break;
-                    }
-                }
-
-                if (!$found) {
-                    $unresolvedRelocations[] = $relocation;
-                }
-            }
-        }
-        $this->unresolvedRelocations = $unresolvedRelocations;
 
         while ($this->running) {
             $instruction = $this->readInstruction($this->pc);
