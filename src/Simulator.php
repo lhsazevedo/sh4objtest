@@ -223,8 +223,6 @@ class Simulator
         /** @var MemoryInitialization[] */
         private array $initializations,
 
-        private string $linkedCode,
-
         BinaryMemory $memory,
     )
     {
@@ -245,8 +243,6 @@ class Simulator
     public function run(): void
     {
         $this->running = true;
-
-        $this->memory->writeBytes(0, $this->linkedCode);
 
         foreach ($this->initializations as $initialization) {
             switch ($initialization->size) {

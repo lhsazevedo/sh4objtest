@@ -308,6 +308,8 @@ class TestCase
             randomize: $this->randomizeMemory
         );
 
+        $memory->writeBytes(0, $this->linkedCode);
+
         $simulator = new Simulator(
             $this->input,
             $this->output,
@@ -317,7 +319,6 @@ class TestCase
             $this->forceStop,
             $this->testRelocations,
             $this->initializations,
-            $this->linkedCode,
             $memory,
         );
 
