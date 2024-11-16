@@ -4,91 +4,14 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
-use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
-use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
-
-abstract class AbstractExpectation {}
-
-class CallExpectation extends AbstractExpectation
-{
-    /** @var array<int|float|string|WildcardArgument|LocalArgument> */
-    public array $parameters = [];
-
-    public ?int $return = null;
-
-    public ?\Closure $callback = null;
-
-    public function __construct(
-        public ?string $name,
-        public int $address,
-    ) {}
-
-    public function with(int|float|string|WildcardArgument|LocalArgument ...$parameters): self
-    {
-        $this->parameters = $parameters;
-        return $this;
-    }
-
-    public function andReturn(int|float $value): self
-    {
-        $this->return = $value;
-        return $this;
-    }
-
-    public function do(\Closure $callback): self
-    {
-        $this->callback = $callback;
-        return $this;
-    }
-}
-
-class ReadExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public int $address,
-        public int $value,
-        public int $size,
-    ) {
-        /* TODO: Move this to value object? */
-        if ($value < -(2 ** $size - 1)) {
-            throw new \RuntimeException("Value $value is too small for $size bits");
-        } elseif ($value >= 2 ** $size) {
-            throw new \RuntimeException("Value $value is too big for $size bits");
-        }
-
-        $this->value &= (2**$size) - 1;
-    }
-}
-
-class WriteExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public int $address,
-        public int $value,
-        public int $size,
-    ) {
-        /* TODO: Move this to value object? */
-        if ($value < -(2**$size)) {
-            throw new \RuntimeException("Value $value is too small for $size bits");
-        } elseif ($value >= 2**$size) {
-            throw new \RuntimeException("Value $value is too big for $size bits");
-        }
-
-        $this->value &= (2**$size) - 1;
-    }
-}
-
-class StringWriteExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public int $address,
-        public string $value,
-    ) {}
-}
 
 class Entry {
     public function __construct(
