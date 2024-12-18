@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Console;
 
-use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
-use ReflectionClass;
+use Lhsazevedo\Sh4ObjTest\Test\Runner;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -22,44 +21,33 @@ class TestCommand extends Command
     public function  configure(): void
     {
         $this->addArgument('test', InputArgument::REQUIRED, 'The test case to run')
-            ->addArgument('object', InputArgument::OPTIONAL, 'The object file to test against')
+            ->addArgument('object', InputArgument::REQUIRED, 'The object file to test against')
             ->addOption('disasm', 'd', InputOption::VALUE_NONE, 'Print asm instructions during test execution');
     }
 
     public function execute (InputInterface $input, OutputInterface $output): int
     {
         $testFile = $input->getArgument('test');
-        $test = require $testFile;
-        $test->_inject($input, $output);
 
-        if ($objectFile = $input->getArgument('object')) {
-            $test->setObjectFile($objectFile);
-        }
-
-        $test->parseObject();
+        // $testCase->_inject($input, $output);
+        // $testCase->parseObject();
 
         if ($input->getOption('disasm')) {
-            $test->enableDisasm();
+            // $testCase->enableDisasm();
         }
-
-        $reflectionClass = new ReflectionClass($test);
 
         // TODO: Setup and teardown.
 
-        echo "# $testFile against $objectFile\n";
+        // echo "# $testFile against $objectFile\n";
 
-        try {
-            foreach ($reflectionClass->getMethods() as $reflectionMethod) {
-                if ($reflectionMethod->isPublic() && str_starts_with($reflectionMethod->name, 'test')) {
-                    echo $reflectionMethod->name . "...\n";
-                    call_user_func([$test, $reflectionMethod->name]);
-                }
-            }
-        } catch (ExpectationException $e) {
-            $output->writeln("\n<bg=red> FAILED EXPECTATION </> <fg=red>{$e->getMessage()}</>\n");
-            return Command::FAILURE;
-        }
+        $runner = new Runner(
+            input: $input,
+            output: $output,
+            shouldOutputDisasm: $input->getOption('disasm'),
+        );
 
-        return Command::SUCCESS;
+        return $runner->runFile($testFile, $input->getArgument('object'))
+            ? Command::SUCCESS
+            : Command::FAILURE;
     }
 }

@@ -5,52 +5,15 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
-use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
-use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
+use Lhsazevedo\Sh4ObjTest\Test\Entry;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\MemoryInitialization;
+use Lhsazevedo\Sh4ObjTest\Test\TestRelocation;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
-use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
-use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
-use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
-
-class Entry {
-    public function __construct(
-        public ?string $symbol = null,
-
-        /** @var int[]|float[] */
-        public array $parameters = [],
-
-        // TODO: functions can return pointers
-        public ?int $return = null,
-
-        public ?float $floatReturn = null,
-    ) {}
-}
-
-class TestRelocation
-{
-    public function __construct(
-        public string $name,
-        public int $address,
-    )
-    {}
-}
-
-readonly class MemoryInitialization
-{
-    public function __construct(
-        public int $size,
-        public int $address,
-        public int $value
-    )
-    {}
-}
 
 class TestCase
 {
@@ -305,169 +268,7 @@ class TestCase
 
     protected function run(): void
     {
-        $memory = new BinaryMemory(
-            1024 * 1024 * 16,
-            randomize: $this->randomizeMemory
-        );
-
-        $memory->writeBytes(0, $this->linkedCode);
-
-        // Initializations (FIXME: bad name)
-        foreach ($this->initializations as $initialization) {
-            switch ($initialization->size) {
-                case U8::BIT_COUNT:
-                    // TODO: Use SInt value object
-                    $memory->writeUInt8($initialization->address, U8::of($initialization->value & U8::MAX_VALUE));
-                    break;
-
-                case U16::BIT_COUNT:
-                    // TODO: Use SInt value object
-                    $memory->writeUInt16($initialization->address, U16::of($initialization->value & U16::MAX_VALUE));
-                    break;
-
-                case U32::BIT_COUNT:
-                    // TODO: Use SInt value object
-                    $memory->writeUInt32($initialization->address, U32::of($initialization->value & U32::MAX_VALUE));
-                    break;
-
-                default:
-                    throw new \Exception("Unsupported initialization size $initialization->size", 1);
-            }
-        }
-
-        // TODO: Does not need to happen every run.
-        foreach ($this->parsedObject->unit->sections as $section) {
-            foreach ($section->localRelocationsLong as $lr) {
-                $targetSection = $this->parsedObject->unit->sections[$lr->sectionIndex];
-
-                $memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress + $lr->target),
-                );
-            }
-        }
-
-        // TODO: Does not need to happen every run.
-        // TODO: Consolidate section loop above?
-        foreach ($this->parsedObject->unit->sections as $section) {
-            foreach ($section->localRelocationsShort as $lr) {
-                $offset = $memory->readUInt32($section->linkedAddress + $lr->address);
-                $targetSection = $this->parsedObject->unit->sections[$lr->sectionIndex];
-
-                $memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress)->add($offset),
-                );
-            }
-        }
-
-        $unresolvedRelocations = [];
-        foreach ($this->parsedObject->unit->sections as $section) {
-            foreach ($section->relocations as $relocation) {
-                $found = false;
-
-                // FIXME: This is confusing:
-                // - Object relocation address is the address of the literal pool data item
-                // - Test relocation address is the value of the literal pool item
-                foreach ($this->testRelocations as $userResolution) {
-                    if ($relocation->name === $userResolution->name) {
-                        $offset = $memory->readUInt32($relocation->linkedAddress)->value;
-
-                        if ($relocation->offset && $offset) {
-                            throw new \Exception("Relocation $relocation->name has both built-in and code offset", 1);
-                            // $this->output->writeln("WARN: Relocation $relocation->name has both built-in and code offset");
-                            // $this->output->writeln("Built-in offset: $offset");
-                            // $this->output->writeln("Code offset: $relocation->offset");
-                        }
-
-                        $memory->writeUInt32(
-                            $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->offset + $offset)
-                        );
-                        $found = true;
-                        break;
-                    }
-                }
-
-                if (!$found) {
-                    $unresolvedRelocations[] = $relocation;
-                }
-            }
-        }
-
-        $simulator = new Simulator(
-            $this->input,
-            $this->output,
-            $this->parsedObject,
-            $this->expectations,
-            $this->entry,
-            $this->forceStop,
-            $this->testRelocations,
-            $memory,
-        );
-
-        // TODO: We shouldn't be checking for relocations on each read...
-        // There should be a more performant way of handling this.
-        $simulator->onReadUInt(
-            function (
-                Simulator $sim, int $address, int $offset, int $size
-            ) use ($unresolvedRelocations) {
-                foreach ($unresolvedRelocations as $relocation) {
-                    if ($relocation->linkedAddress !== $address + $offset) {
-                        continue;
-                    }
-
-                    throw new \Exception(
-                        "Trying to read from unresolved relocation $relocation->name",
-                        1
-                    );
-                }
-            }
-        );
-
-        $entrySymbol = $this->parsedObject->unit->findExportedSymbol($this->entry->symbol);
-        if (!$entrySymbol) throw new \Exception("Entry symbol {$this->entry->symbol} not found.", 1);
-        $simulator->setPc($entrySymbol->offset);
-
-        $convention = new DefaultCallingConvention();
-        $stackPointer = U32::of(1024 * 1024 * 16 - 4);
-        // TODO: Rename to arguments
-        foreach ($this->entry->parameters as $argument) {
-            /** @var int|float $argument */
-
-            $storage = $convention->getNextArgumentStorageForValue($argument);
-
-            if ($storage instanceof GeneralRegister) {
-                $simulator->setRegister($storage->index(), U32::of($argument));
-                continue;
-            }
-
-            if ($storage instanceof FloatingPointRegister) {
-                $simulator->setFloatRegister($storage->index(), $argument);
-                continue;
-            }
-
-            // FIXME: Stack offset must be controlled by the calling convention.
-            $stackPointer = $stackPointer->sub(4);
-            $memory->writeUInt32($stackPointer->value, U32::of($argument));
-        }
-        $simulator->setRegister(15, $stackPointer);
-
-        if ($this->disasm) {
-            $simulator->enableDisasm();
-        }
-
-        $simulator->run();
-
-        // Cleanup
-        // TODO: Better to instance the TestCase every time
-        $this->forceStop = false;
-        $this->randomizeMemory = true;
-        $this->entry = new Entry();
-        $this->expectations = [];
-        $this->testRelocations = [];
-        $this->currentAlloc = 1024 * 1024 * 8;
-        $this->initializations = [];
+        // This was moved to the runner.
     }
 
     protected function initUint(int $address, int $value, int $size): void
@@ -495,25 +296,9 @@ class TestCase
         $this->objectFile = $path;
     }
 
-    public function parseObject(): void
+    public function setParsedObject(ParsedObject $parsedObject): void
     {
-        $this->parsedObject = ObjectParser::parse($this->objectFile);
-
-        $linkedCode = '';
-        // TODO: Handle multiple units?
-        foreach ($this->parsedObject->unit->sections as $section) {
-            // Align
-            $remainder = strlen($linkedCode) % $section->alignment;
-            if ($remainder) {
-                $linkedCode .= str_repeat("\0", $section->alignment - $remainder);
-            }
-
-            $section->rellocate(strlen($linkedCode));
-
-            $linkedCode .= $section->assembleObjectData();
-        }
-
-        $this->linkedCode = $linkedCode;
+        $this->parsedObject = $parsedObject;
     }
 
     public function enableDisasm(): void
