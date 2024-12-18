@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Lhsazevedo\Sh4ObjTest;
+namespace Lhsazevedo\Sh4ObjTest\Simulator;
 
 use Closure;
+use Lhsazevedo\Sh4ObjTest\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;

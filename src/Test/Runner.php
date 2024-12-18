@@ -6,7 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest\Test;
 
 use Lhsazevedo\Sh4ObjTest\ObjectParser;
 use Lhsazevedo\Sh4ObjTest\ParsedObject;
-use Lhsazevedo\Sh4ObjTest\Simulator;
+use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
