@@ -12,7 +12,7 @@ class BinaryMemory {
 
     private string $memory;
 
-    public function __construct(int $size, $randomize = true)
+    public function __construct(int $size, bool $randomize = true)
     {
         if ($randomize) {
             $this->memory = random_bytes($size);

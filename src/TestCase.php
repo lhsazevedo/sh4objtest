@@ -24,7 +24,7 @@ class TestCase
 
     private Entry $entry;
 
-    /** @var AbstractExpectation[] */
+    /** @var \Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation[] */
     private $expectations = [];
 
     private bool $forceStop = false;
