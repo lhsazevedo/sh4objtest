@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Simulator;
 
 use Closure;
-use Lhsazevedo\Sh4ObjTest\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
@@ -212,7 +211,7 @@ class Simulator
         private InputInterface $input,
         private OutputInterface $output,
 
-        private ParsedObject $object,
+        private SymbolTable $symbols,
 
         private array $expectations,
 
@@ -1322,7 +1321,7 @@ class Simulator
                 $this->disasm("BSR", ["H'$newpcHex"]);
                 $this->executeDelaySlot();
 
-                if ($this->object->unit->findExportedAddress($newpc)) {
+                if ($this->symbols->getSymbolAtAddress(U32::of($newpc))) {
                     $this->assertCall($newpc);
                     return;
                 }
@@ -1389,7 +1388,7 @@ class Simulator
         $name = null;
         $readableName = "<NO_SYMBOL>";
 
-        if ($export = $this->object->unit->findExportedAddress($target)) {
+        if ($export = $this->symbols->getSymbolAtAddress(U32::of($target))) {
             $name = $readableName = $export->name;
         } elseif ($resolution = $this->getResolutionAt($target)) {
             $name = $readableName = $resolution->name;
@@ -1609,7 +1608,7 @@ class Simulator
             return $relocation->name;
         }
 
-        if ($export = $this->object->unit->findExportedAddress($address)) {
+        if ($export = $this->symbols->getSymbolAtAddress(U32::of($address))) {
             return $export->name;
         }
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
 use Lhsazevedo\Sh4ObjTest\ObjectParser;
-use Lhsazevedo\Sh4ObjTest\ParsedObject;
+use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
@@ -17,6 +17,8 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
+use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
+use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\TestCase;
 use ReflectionClass;
 
@@ -94,6 +96,8 @@ class Runner
         // TODO: Linking should be done here
         $memory->writeBytes(0, $linkedCode);
 
+        $symbols = new SymbolTable();
+
         // Initializations (FIXME: bad name)
         foreach ($testCaseDto->initializations as $initialization) {
             switch ($initialization->size) {
@@ -118,7 +122,7 @@ class Runner
         }
 
         // TODO: Does not need to happen every run.
-        // TODO: TestCase shouldn't have access to the pared object
+        // TODO: TestCase shouldn't have access to the parsed object
         foreach ($parsedObject->unit->sections as $section) {
             foreach ($section->localRelocationsLong as $lr) {
                 $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
@@ -165,7 +169,7 @@ class Runner
 
                         $memory->writeUInt32(
                             $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->offset + $offset)
+                            U32::of($userResolution->address + $relocation->offset + $offset),
                         );
                         $found = true;
                         break;
@@ -178,10 +182,19 @@ class Runner
             }
         }
 
+        foreach ($parsedObject->unit->sections as $section) {
+            foreach ($section->exports as $export) {
+                $symbols->addSymbol(new Symbol(
+                    $export->name,
+                    U32::of($export->linkedAddress),
+                ));
+            }
+        }
+
         $simulator = new Simulator(
             input: $this->input,
             output: $this->output,
-            object: $parsedObject,
+            symbols: $symbols,
             expectations: $testCaseDto->expectations,
             entry: $testCaseDto->entry,
             forceStop: $testCaseDto->shouldStopWhenFulfilled,

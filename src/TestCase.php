@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
+use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Test\Entry;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;

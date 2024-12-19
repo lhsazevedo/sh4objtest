@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
-use Lhsazevedo\Sh4ObjTest\ParsedObject;
+use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 
 readonly class TestCaseDTO
 {

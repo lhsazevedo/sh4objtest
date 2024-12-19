@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
+use Lhsazevedo\Sh4ObjTest\Parser\Chunk;
 use Lhsazevedo\Sh4ObjTest\Parser\ChunkType;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ModuleHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
@@ -13,6 +14,8 @@ use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
+use Lhsazevedo\Sh4ObjTest\Parser\ImportSymbol;
+use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 
 function hexpad(string $hex, int $len): string
 {
@@ -32,51 +35,6 @@ function xdump(string $data): void
         }
         echo '0x' . hexpad(dechex($i * 16), 4) . ': ' . str_pad(join(' ', $v), 47) . ' | ' . join('', $ascii) . "\n";
     }
-}
-
-
-class Chunk {
-    public ChunkType $type;
-    public bool $continuation;
-
-    public function __construct(
-        public int $ukn,
-        int $type,
-        public int $len
-    ) {
-        $this->continuation = ($type & 0x80) === 1;
-
-        // TODO: Use chunk classes
-
-        $this->type = match ($type & 0x7f) {
-            0x04 => ChunkType::ModuleHeader,
-            0x06 => ChunkType::UnitHeader,
-            0x07 => ChunkType::UnitDebug,
-            0x08 => ChunkType::SectionHeader,
-            0x0c => ChunkType::Imports,
-            0x14 => ChunkType::Exports,
-            0x1a => ChunkType::SectionSelection,
-            0x1c => ChunkType::ObjectData,
-            0x20 => ChunkType::Relocation,
-            0x7f => ChunkType::Termination,
-            default => ChunkType::Unknown,
-        };
-    }
-}
-
-readonly class ImportSymbol
-{
-    public function __construct(
-        public string $name,
-        public int $type,
-    ) {}
-}
-
-class ParsedObject {
-    public function __construct(
-        public UnitHeader $unit,
-    )
-    {}
 }
 
 final class ObjectParser
