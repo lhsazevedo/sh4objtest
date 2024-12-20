@@ -24,6 +24,25 @@ use ReflectionClass;
 
 class Runner
 {
+    private ?string $disasm = null;
+
+    private ?string $delaySlotDisasm = null;
+
+    private bool $shouldDisasm = false;
+
+    /** @var string[] */
+    private array $registerLog = [];
+
+    /** @var string[] */
+    private array $delaySlotRegisterLog = [];
+
+    /** @var string[] */
+    private array $messages = [];
+
+    /** @var string[] */
+    private array $delaySlotMessages = [];
+
+
     public function __construct(
         private InputInterface $input,
         private OutputInterface $output,
@@ -221,6 +240,13 @@ class Runner
             }
         );
 
+        $simulator->onDisasm($this->disasm(...));
+        $simulator->onInstruction(fn () => $this->outputMessages());
+        $simulator->onPhpException(fn () => $this->outputMessages());
+        $simulator->onFullfilled($this->fulfilled(...));
+        $simulator->onAddLog($this->addLog(...));
+        $simulator->onInfo($this->logInfo(...));
+
         $entrySymbol = $parsedObject->unit->findExportedSymbol($testCaseDto->entry->symbol);
         if (!$entrySymbol) throw new \Exception("Entry symbol {$testCaseDto->entry->symbol} not found.", 1);
         $simulator->setPc($entrySymbol->offset);
@@ -249,9 +275,8 @@ class Runner
         }
         $simulator->setRegister(15, $stackPointer);
 
-        // TODO: Simulator should not deal with disasm printing
         if ($this->shouldOutputDisasm) {
-            $simulator->enableDisasm();
+            $this->enableDisasm();
         }
 
         $simulator->run();
@@ -273,5 +298,161 @@ class Runner
         }
 
         return $linkedCode;
+    }
+
+        /**
+     * @param string $instruction
+     * @param string[] $opcode
+     */
+    private function disasm($simulator, string $instruction, array $operands = []): void
+    {
+        // if (!$this->shouldDisasm) {
+        //     return;
+        // }
+
+        $fg = 'default';
+
+        if (preg_match('/^(B.*|J.*|RTS)/', $instruction)) {
+            $fg = 'red';
+        } elseif (preg_match('/^(TST|CMP.*|FCMP.*)$/', $instruction)) {
+            $fg = 'yellow';
+        } elseif (preg_match('/^(.*\.(L|W|B|S)|MOVA)$/', $instruction, $matches)) {
+            $fg = 'white';
+        } elseif ($instruction === 'NOP') {
+            $fg = 'gray';
+        }
+
+        $addr = str_pad(dechex($simulator->getDisasmPc()), 6, '0', STR_PAD_LEFT);
+
+        $line = "<fg=gray>0x$addr " . $simulator->getMemory()->readUInt16($simulator->getDisasmPc())->hex() . "</> ";
+        $line .= $simulator->getInDelaySlot() ? '_' : ' ';
+
+        $instruction = str_pad($instruction, 8, ' ', STR_PAD_RIGHT);
+        $line .= "<fg=$fg>$instruction</>";
+
+        $styleOperand = function ($operand) {
+            $fg = 'default';
+
+            // FIXME
+            $operand = trim($operand);
+
+            $prefix = '';
+            $suffix = '';
+            if (preg_match('/^([@+-]*)(F?R\d+|PR|PC|MACL|FPUL)([+-]*)$/', $operand, $matches)) {
+                $prefix = $matches[1];
+                $operand = $matches[2];
+                $suffix = $matches[3];
+                $fg = 'bright-magenta';
+
+                if (in_array($operand, ['PR', 'PC', 'MACL', 'FPUL'])) {
+                    $fg = 'magenta';
+                }
+            } else if (preg_match('/^#-?(:?H\')?[0-9A-Za-z]+$/', $operand, $matches)) {
+                $fg = 'bright-green';
+            }
+
+            return "$prefix<fg=$fg>$operand</>$suffix";
+        };
+
+        $operands = array_map(function ($operand) use ($styleOperand) {
+            if (str_starts_with($operand, '@(')) {
+                $operands = explode(',', substr($operand, 2, -1));
+                $operands = join('<fg=default>,</>', array_map($styleOperand, $operands));
+                return "@<fg=default>(</>$operands<fg=default>)</>";
+            }
+
+            return $styleOperand($operand);
+        }, $operands);
+
+        $line .= ' ' . implode('<fg=default>,</>', $operands);
+
+        if ($simulator->getInDelaySlot()) {
+            $this->delaySlotDisasm = $line;
+        } else {
+            $this->disasm = $line;
+        }
+    }
+
+    private function outputMessages(): void
+    {
+        $addLog = function ($line, $log) {
+            $len = strlen(strip_tags($line));
+            $padn = 40 - $len;
+
+            if ($padn > 0) {
+                $line .= str_repeat(' ', $padn);
+            }
+
+            $line .= '<fg=gray>' . implode(' ', $log) . '</>';
+
+            return $line;
+        };
+
+        if ($this->disasm) {
+            $disasm = $addLog($this->disasm, $this->registerLog);
+            $this->output->writeln($disasm);
+        }
+
+        if ($this->delaySlotDisasm) {
+            $disasm = $addLog($this->delaySlotDisasm, $this->delaySlotRegisterLog);
+            $this->output->writeln($disasm);
+        }
+
+        foreach ($this->delaySlotMessages as $message) {
+            $this->output->writeln($message);
+        }
+
+        foreach ($this->messages as $message) {
+            $this->output->writeln($message);
+        }
+
+        $this->disasm = null;
+        $this->delaySlotDisasm = null;
+        $this->messages = [];
+        $this->delaySlotMessages = [];
+        $this->registerLog = [];
+        $this->delaySlotRegisterLog = [];
+    }
+
+    public function enableDisasm(): void
+    {
+        $this->shouldDisasm = true;
+    }
+
+    private function log(mixed $str): void
+    {
+        if ($this->shouldDisasm) {
+            echo $str;
+        }
+    }
+
+    private function fulfilled(Simulator $simulator, string $message): void {
+        $this->handleMessage($simulator, "<fg=green>✔ Fulfilled: $message</>");
+    }
+
+    private function logInfo(Simulator $simulator, string $str): void {
+        $this->handleMessage($simulator, "<fg=blue>$str</>");
+    }
+
+    private function addLog(Simulator $simulator, string $str): void {
+        if ($simulator->getInDelaySlot()) {
+            $this->delaySlotRegisterLog[] = $str;
+            return;
+        }
+
+        $this->registerLog[] = $str;
+    }
+
+    /**
+     * Either output message or store it for later when in disasm mode
+     */
+    private function handleMessage(Simulator $simulator, string $message): void
+    {
+        if ($simulator->getInDelaySlot()) {
+            $this->delaySlotMessages[] = $message;
+            return;
+        }
+
+        $this->messages[] = $message;
     }
 }
