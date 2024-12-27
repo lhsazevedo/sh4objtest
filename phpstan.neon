@@ -1,4 +1,10 @@
 parameters:
-	level: 6
+	level: 4
 	paths:
 		- src
+
+services:
+	-
+		class: Lhsazevedo\PHPStan\Sh4ObjTestReadWritePropertiesExtension
+		tags:
+			- phpstan.properties.readWriteExtension

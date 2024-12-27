@@ -172,9 +172,9 @@ class Simulator
 
     private int $disasmPc;
 
-    private ?Closure $disasmCallback;
-    private ?Closure $phpExceptionCallback;
-    private ?Closure $addLogCallback;
+    private Closure $disasmCallback;
+    private Closure $phpExceptionCallback;
+    private Closure $addLogCallback;
 
     public function __construct(
         private BinaryMemory $memory,
@@ -188,15 +188,6 @@ class Simulator
 
         // Stack pointer
         $this->registers[15] = U32::of(1024 * 1024 * 16 - 4);
-    }
-
-    public function run(): void
-    {
-        $this->running = true;
-
-        while ($this->running) {
-            $this->step();
-        }
     }
 
     public function step(): AbstractOperation

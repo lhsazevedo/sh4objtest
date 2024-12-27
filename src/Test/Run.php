@@ -52,9 +52,9 @@ class Run
     private ?BranchOperation $delayedBranch = null;
 
     public function __construct(
-        private InputInterface $input,
         private OutputInterface $output,
         private TestCaseDTO $testCase,
+        private bool $shouldOutputDisasm,
     )
     {
         $this->expectations = $testCase->expectations;
@@ -207,10 +207,6 @@ class Run
         }
         $simulator->setRegister(15, $stackPointer);
 
-        // if ($this->shouldOutputDisasm) {
-        //     $this->enableDisasm();
-        // }
-
         $simulator->setRunning(true);
         while ($simulator->isRunning()) {
             $delayedBranch = $this->delayedBranch;
@@ -230,7 +226,7 @@ class Run
             }
 
             // Only BT and BF are not delayed branches
-            if ($delayedBranch && $delayedBranch instanceof BranchOperation) {
+            if ($delayedBranch) {
                 $this->onBranch($simulator, $delayedBranch);
                 $this->delayedBranch = null;
             }
@@ -276,9 +272,9 @@ class Run
 
     private function disasm(Simulator $simulator, string $instruction, array $operands = []): void
     {
-        // if (!$this->shouldDisasm) {
-        //     return;
-        // }
+        if (!$this->shouldOutputDisasm) {
+            return;
+        }
 
         $fg = 'default';
 

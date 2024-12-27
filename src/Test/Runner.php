@@ -14,7 +14,6 @@ use Lhsazevedo\Sh4ObjTest\TestCase;
 class Runner
 {
     public function __construct(
-        private InputInterface $input,
         private OutputInterface $output,
         private bool $shouldOutputDisasm = false,
     )
@@ -63,9 +62,9 @@ class Runner
                 );
 
                 $run = new Run(
-                    $this->input,
                     $this->output,
                     $testCaseDto,
+                    $this->shouldOutputDisasm,
                 );
 
                 $run->run();

@@ -41,7 +41,6 @@ class TestCommand extends Command
         // echo "# $testFile against $objectFile\n";
 
         $runner = new Runner(
-            input: $input,
             output: $output,
             shouldOutputDisasm: $input->getOption('disasm'),
         );

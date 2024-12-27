@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3e3831e60ab7bc5f2955b46c4ce67a57",
+    "content-hash": "a03f82d34d42ab7615e1cb4797db63d2",
     "packages": [
         {
             "name": "psr/container",
@@ -641,72 +641,73 @@
     ],
     "packages-dev": [
         {
-            "name": "bamarni/composer-bin-plugin",
-            "version": "1.8.2",
+            "name": "phpstan/phpstan",
+            "version": "2.0.4",
             "source": {
                 "type": "git",
-                "url": "https://github.com/bamarni/composer-bin-plugin.git",
-                "reference": "92fd7b1e6e9cdae19b0d57369d8ad31a37b6a880"
+                "url": "https://github.com/phpstan/phpstan.git",
+                "reference": "50d276fc3bf1430ec315f2f109bbde2769821524"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/bamarni/composer-bin-plugin/zipball/92fd7b1e6e9cdae19b0d57369d8ad31a37b6a880",
-                "reference": "92fd7b1e6e9cdae19b0d57369d8ad31a37b6a880",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/50d276fc3bf1430ec315f2f109bbde2769821524",
+                "reference": "50d276fc3bf1430ec315f2f109bbde2769821524",
                 "shasum": ""
             },
             "require": {
-                "composer-plugin-api": "^2.0",
-                "php": "^7.2.5 || ^8.0"
+                "php": "^7.4|^8.0"
             },
-            "require-dev": {
-                "composer/composer": "^2.0",
-                "ext-json": "*",
-                "phpstan/extension-installer": "^1.1",
-                "phpstan/phpstan": "^1.8",
-                "phpstan/phpstan-phpunit": "^1.1",
-                "phpunit/phpunit": "^8.5 || ^9.5",
-                "symfony/console": "^2.8.52 || ^3.4.35 || ^4.4 || ^5.0 || ^6.0",
-                "symfony/finder": "^2.8.52 || ^3.4.35 || ^4.4 || ^5.0 || ^6.0",
-                "symfony/process": "^2.8.52 || ^3.4.35 || ^4.4 || ^5.0 || ^6.0"
+            "conflict": {
+                "phpstan/phpstan-shim": "*"
             },
-            "type": "composer-plugin",
-            "extra": {
-                "class": "Bamarni\\Composer\\Bin\\BamarniBinPlugin"
-            },
+            "bin": [
+                "phpstan",
+                "phpstan.phar"
+            ],
+            "type": "library",
             "autoload": {
-                "psr-4": {
-                    "Bamarni\\Composer\\Bin\\": "src"
-                }
+                "files": [
+                    "bootstrap.php"
+                ]
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
-            "description": "No conflicts for your bin dependencies",
+            "description": "PHPStan - PHP Static Analysis Tool",
             "keywords": [
-                "composer",
-                "conflict",
-                "dependency",
-                "executable",
-                "isolation",
-                "tool"
+                "dev",
+                "static analysis"
             ],
             "support": {
-                "issues": "https://github.com/bamarni/composer-bin-plugin/issues",
-                "source": "https://github.com/bamarni/composer-bin-plugin/tree/1.8.2"
+                "docs": "https://phpstan.org/user-guide/getting-started",
+                "forum": "https://github.com/phpstan/phpstan/discussions",
+                "issues": "https://github.com/phpstan/phpstan/issues",
+                "security": "https://github.com/phpstan/phpstan/security/policy",
+                "source": "https://github.com/phpstan/phpstan-src"
             },
-            "time": "2022-10-31T08:38:03+00:00"
+            "funding": [
+                {
+                    "url": "https://github.com/ondrejmirtes",
+                    "type": "github"
+                },
+                {
+                    "url": "https://github.com/phpstan",
+                    "type": "github"
+                }
+            ],
+            "time": "2024-12-17T17:14:01+00:00"
         }
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.3",
         "composer-runtime-api": "^2.2"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "plugin-api-version": "2.6.0"
 }

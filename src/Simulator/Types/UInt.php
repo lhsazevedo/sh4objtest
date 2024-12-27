@@ -310,9 +310,6 @@ abstract readonly class UInt
         return "$this->value (0x{$this->hex()})";
     }
 
-    /**
-     * @param static|int $other
-     */
     protected function other(self|int $other): static
     {
         if (is_int($other)) {

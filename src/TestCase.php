@@ -39,25 +39,9 @@ class TestCase
     /** @var MemoryInitialization[] */
     private array $initializations = [];
 
-    private bool $disasm = false;
-
-    private string $linkedCode;
-
-    private InputInterface $input;
-    
-    private OutputInterface $output;
-
     public function __construct()
     {
         $this->entry = new Entry();
-    }
-
-    public function _inject(
-        InputInterface $input,
-        OutputInterface $output,
-    ) {
-        $this->input = $input;
-        $this->output = $output;
     }
 
     protected function shouldCall(string|int $target): CallExpectation
@@ -300,11 +284,6 @@ class TestCase
     public function setParsedObject(ParsedObject $parsedObject): void
     {
         $this->parsedObject = $parsedObject;
-    }
-
-    public function enableDisasm(): void
-    {
-        $this->disasm = true;
     }
 
     protected function findTestRelocation(string $name): ?TestRelocation
