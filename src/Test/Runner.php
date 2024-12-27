@@ -20,7 +20,7 @@ class Runner
     {
     }
 
-    public function runFile($testFile, $objectFile)
+    public function runFile(string $testFile, string $objectFile): bool
     {
         $testCase = require $testFile;
         $reflectedBaseTestCase = new \ReflectionClass(TestCase::class);

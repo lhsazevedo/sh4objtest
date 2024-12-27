@@ -173,7 +173,6 @@ class Simulator
     private int $disasmPc;
 
     private Closure $disasmCallback;
-    private Closure $phpExceptionCallback;
     private Closure $addLogCallback;
 
     public function __construct(
@@ -209,12 +208,7 @@ class Simulator
             $this->delayedPc = null;
         }
 
-        try {
-            $instruction = $this->executeInstruction($code);
-        } catch (\Throwable $e) {
-            $this->emitPhpException();
-            throw $e;
-        }
+        $instruction = $this->executeInstruction($code);
 
         return $instruction;
     }
@@ -1320,16 +1314,14 @@ class Simulator
         $this->emitAddLog("R$index:H'{$value->shortHex()}");
     }
 
+    /**
+     * @param int[] $registers
+     */
     private function logRegisters(array $registers): void
     {
         foreach ($registers as $index) {
             $this->logRegister($index);
         }
-    }
-
-    public function onPhpException(Closure $callback): void
-    {
-        $this->phpExceptionCallback = $callback;
     }
 
     public function onDisasm(Closure $callback): void
@@ -1342,24 +1334,20 @@ class Simulator
         $this->addLogCallback = $callback;
     }
 
-    public function emitDisasm(...$args): void
+    /**
+     * @param string[] $operands
+     */
+    public function emitDisasm(string $mnemonic, array $operands = []): void
     {
         if (isset($this->disasmCallback)) {
-            ($this->disasmCallback)($this, ...$args);
+            ($this->disasmCallback)($this, $mnemonic, $operands);
         }
     }
 
-    public function emitPhpException(...$args): void
-    {
-        if (isset($this->phpExceptionCallback)) {
-            ($this->phpExceptionCallback)($this, ...$args);
-        }
-    }
-
-    public function emitAddLog(...$args): void
+    public function emitAddLog(string $message): void
     {
         if (isset($this->addLogCallback)) {
-            ($this->addLogCallback)($this, ...$args);
+            ($this->addLogCallback)($this, $message);
         }
     }
 

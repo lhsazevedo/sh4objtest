@@ -14,17 +14,17 @@ readonly class BranchOperation extends ControlFlowOperation
         parent::__construct($code, $opcode);
     }
 
-    public function isRelative()
+    public function isRelative(): bool
     {
         return in_array($this->opcode, [0xA000, 0xB000]);
     }
 
-    public function isAbsolute()
+    public function isAbsolute(): bool
     {
         return !$this->isRelative();
     }
 
-    public function isCall()
+    public function isCall(): bool
     {
         return in_array($this->opcode, [0xB000, 0x400B]);
     }

@@ -47,6 +47,7 @@ class Run
 
     private SymbolTable $symbols;
 
+    /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation[] */
     private array $unresolvedRelocations = [];
 
     private ?BranchOperation $delayedBranch = null;
@@ -176,7 +177,6 @@ class Run
         $simulator = new Simulator($memory);
 
         $simulator->onDisasm($this->disasm(...));
-        $simulator->onPhpException(fn () => $this->outputMessages());
         $simulator->onAddLog($this->addLog(...));
 
         $entrySymbol = $parsedObject->unit->findExportedSymbol($this->testCase->entry->symbol);
@@ -211,7 +211,12 @@ class Run
         while ($simulator->isRunning()) {
             $delayedBranch = $this->delayedBranch;
 
-            $instruction = $simulator->step();
+            try {
+                $instruction = $simulator->step();
+            } catch (\Exception $e) {
+                $this->outputMessages();
+                throw $e;
+            }
             // TODO: Refator duplicated calls to outputMessages
             // (one is for disasm and other for messages?)
             $this->outputMessages();
@@ -270,6 +275,9 @@ class Run
         $this->output->writeln("\n<bg=bright-green;options=bold> PASS </> <fg=green>$count expectations fulfilled</>\n");
     }
 
+    /**
+     * @param string[] $operands
+     */
     private function disasm(Simulator $simulator, string $instruction, array $operands = []): void
     {
         if (!$this->shouldOutputDisasm) {

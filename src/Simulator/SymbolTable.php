@@ -6,6 +6,9 @@ namespace Lhsazevedo\Sh4ObjTest\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 
 class SymbolTable {
+    /**
+     * @var Symbol[]
+     */
     private array $symbols = [];
 
     /**
@@ -39,6 +42,9 @@ class SymbolTable {
         return $this->symbols[$address->value] ?? null;
     }
 
+    /**
+     * @return Symbol[]
+     */
     public function getSymbols(): array {
         return $this->symbols;
     }
