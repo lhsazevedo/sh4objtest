@@ -15,13 +15,13 @@ readonly class TestCaseDTO
 
         public ParsedObject $parsedObject,
 
-        /** @var Lhsazevedo\Sh4ObjTest\Test\MemoryInitialization[] */
+        /** @var MemoryInitialization[] */
         public array $initializations,
 
-        /** @var Lhsazevedo\Sh4ObjTest\Test\TestRelocation[] */
+        /** @var TestRelocation[] */
         public array $testRelocations,
 
-        /** @var Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation[] */
+        /** @var Expectations\AbstractExpectation[] */
         public array $expectations,
 
         public Entry $entry,

@@ -68,7 +68,7 @@ class Runner
                     $testCaseDto,
                 );
 
-                $run->run($testCaseDto);
+                $run->run();
             }
         } catch (ExpectationException $e) {
             $this->output->writeln("\n<bg=red> FAILED EXPECTATION </> <fg=red>{$e->getMessage()}</>\n");

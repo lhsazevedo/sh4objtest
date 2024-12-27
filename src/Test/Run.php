@@ -274,11 +274,7 @@ class Run
         $this->output->writeln("\n<bg=bright-green;options=bold> PASS </> <fg=green>$count expectations fulfilled</>\n");
     }
 
-    /**
-     * @param string $instruction
-     * @param string[] $opcode
-     */
-    private function disasm($simulator, string $instruction, array $operands = []): void
+    private function disasm(Simulator $simulator, string $instruction, array $operands = []): void
     {
         // if (!$this->shouldDisasm) {
         //     return;
@@ -569,7 +565,7 @@ class Run
             return;
         }
 
-        /** @var AbstractExpectation */
+        /** @var Expectations\AbstractExpectation */
         $expectation = array_shift($this->pendingExpectations);
 
         if (!($expectation instanceof CallExpectation)) {
