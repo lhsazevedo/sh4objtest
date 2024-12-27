@@ -367,7 +367,7 @@ class Simulator
                 $this->emitDisasm("MOV.L", ["@(R0,R$m)","R$n"]);
                 $value = $this->readUInt32($this->registers[0]->value, $this->registers[$m]->value);
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[0]->add($this->registers[$m]), $this->registers[$m], $value);
+                return new ReadOperation($instruction, $opcode, $this->registers[0]->add($this->registers[$m]), $value);
 
             // MOV.B Rm,@Rn
             case 0x2000:

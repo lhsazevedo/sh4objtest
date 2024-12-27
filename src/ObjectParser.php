@@ -181,6 +181,10 @@ final class ObjectParser
                         $relLen = $reader->readUInt8();
                         $raw .= $reader->peekBytes($relLen);
                         //xdump($raw);
+                        $importIndex = null;
+                        $name = null;
+                        $offset = null;
+
                         if ($relLen === 4) {
                             $maybeRelType = $reader->readUInt8();
                             if ($maybeRelType === 2) {
