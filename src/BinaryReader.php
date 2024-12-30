@@ -11,7 +11,12 @@ class BinaryReader
 
     public function __construct(string $file)
     {
-        $this->handle = fopen($file, "r+");
+        $fh = @fopen($file, "r+");
+        if ($fh === false) {
+            throw new \RuntimeException("Could not open file: $file");
+        }
+
+        $this->handle = $fh;
     }
 
     public function readUInt8(): int

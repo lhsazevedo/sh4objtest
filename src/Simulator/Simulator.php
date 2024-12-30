@@ -128,8 +128,6 @@ function s16tos32(int $value): int
 
 class Simulator
 {
-    private bool $running = false;
-
     private int $pc;
 
     private ?int $delayedPc = null;
@@ -191,18 +189,12 @@ class Simulator
 
     public function step(): AbstractOperation
     {
-        if (!$this->running) {
-            throw new \Exception("Simulator is not running");
-        }
-
         $code = $this->readInstruction($this->pc);
 
         $this->disasmPc = $this->pc;
         $this->pc += 2;
 
-        if ($this->inDelaySlot) {
-            $this->inDelaySlot = false;
-        } else if ($this->delayedPc) {
+        if ($this->delayedPc !== null) {
             $this->inDelaySlot = true;
             $this->pc = $this->delayedPc;
             $this->delayedPc = null;
@@ -210,23 +202,9 @@ class Simulator
 
         $instruction = $this->executeInstruction($code);
 
+        $this->inDelaySlot = false;
+
         return $instruction;
-    }
-
-    public function stop(): void
-    {
-        $this->running = false;
-    }
-
-    public function isRunning(): bool
-    {
-        return $this->running;
-    }
-
-    // Actually we should have an halt flag to avoid this setter
-    public function setRunning(bool $running): void
-    {
-        $this->running = $running;
     }
 
     public function readInstruction(int $address): U16
@@ -249,8 +227,8 @@ class Simulator
             // RTS
             case 0x000b:
                 $this->emitDisasm("RTS");
-                $this->running = false;
-                return new ControlFlowOperation($instruction, $instruction);
+                $this->delayedPc = $this->pr;
+                return new BranchOperation($instruction, $instruction, U32::of($this->pr));
         }
 
         switch ($opcode = $instruction & 0xf000) {
@@ -268,9 +246,10 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $disp = getImm4($instruction)->u32()->shiftLeft(2)->value;
                 $this->emitDisasm("MOV.L", ["@($disp,R$m)","R$n"]);
+                $source = $this->registers[$m]->add($disp);
                 $value = $this->readUInt32($this->registers[$m]->value, $disp);
                 $this->writeRegister($n, $this->readUInt32($this->registers[$m]->value, $disp));
-                return new ReadOperation($instruction, $opcode, $this->registers[$m]->add($disp), $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // ADD #imm,Rn
             case 0x7000:
@@ -334,25 +313,28 @@ class Simulator
             case 0x000c:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.B", ["@(R0, R$m)","R$n"]);
+                $source = $this->registers[0]->add(($this->registers[$m]));
                 $value = $this->readUInt8($this->registers[0]->value, $this->registers[$m]->value)->extend32();
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[0]->add(($this->registers[$m])), $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV.W @(R0,<REG_M>),<REG_N>
             case 0x000d:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.W", ["@(R0,R$m)","R$n"]);
+                $source = $this->registers[0]->add($this->registers[$m]);
                 $value = $this->readUInt16($this->registers[0]->value, $this->registers[$m]->value)->extend32();
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[0]->add($this->registers[$m]), $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV.L @(R0,<REG_M>),<REG_N>
             case 0x000e:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.L", ["@(R0,R$m)","R$n"]);
+                $source = $this->registers[0]->add($this->registers[$m]);
                 $value = $this->readUInt32($this->registers[0]->value, $this->registers[$m]->value);
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[0]->add($this->registers[$m]), $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV.B Rm,@Rn
             case 0x2000:
@@ -549,25 +531,28 @@ class Simulator
             case 0x6000:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.B", ["@R$m","R$n"]);
+                $source = $this->registers[$m];
                 $value = $this->readUInt8($this->registers[$m]->value)->extend32();
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[$m], $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV.W @<REG_M>,<REG_N>
             case 0x6001:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.W", ["@R$m","R$n"]);
+                $source = $this->registers[$m];
                 $value = $this->readUInt16($this->registers[$m]->value)->extend32();
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[$m], $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV @Rm,Rn
             case 0x6002:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV", ["@R$m","R$n"]);
+                $source = $this->registers[$m];
                 $value = $this->readUInt32($this->registers[$m]->value);
                 $this->writeRegister($n, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[$m], $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV Rm,Rn
             case 0x6003:
@@ -739,7 +724,7 @@ class Simulator
                 // } else {
                     // ...
                 // }
-                return new GenericOperation($instruction, $opcode);
+                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0]), U32::of($value));
 
             // FMOV.S @<REG_M>,<FREG_N>
             case 0xf008:
@@ -778,7 +763,7 @@ class Simulator
                 // } else {
                     // ...
                 // }
-                return new GenericOperation($instruction, $opcode);
+                return new WriteOperation($instruction, $opcode, $this->registers[$n], U32::of($value));
 
             // FMOV.S <FREG_M>,@-<REG_N>
             case 0xf00b:
@@ -834,7 +819,7 @@ class Simulator
                 $disp = getImm4($instruction)->value;
                 $this->emitDisasm("MOV.B", ["R0", "@($disp, R$m)"]);
                 $this->writeUInt8($this->registers[$m]->value, $disp, $this->registers[0]->trunc8());
-                return new GenericOperation($instruction, $opcode);
+                return new WriteOperation($instruction, $opcode, $this->registers[$m]->add($disp), $this->registers[0]->trunc8());
 
             // MOV.W R0,@(<disp>,<REG_M>)
             case 0x8100:
@@ -842,25 +827,27 @@ class Simulator
                 $disp = getImm4($instruction)->u32()->shiftLeft()->value;
                 $this->emitDisasm("MOV.W", ["R0", "@($disp, R$m)"]);
                 $this->writeUInt16($this->registers[$m]->value, $disp, $this->registers[0]->trunc16());
-                return new GenericOperation($instruction, $opcode);
+                return new WriteOperation($instruction, $opcode, $this->registers[$m]->add($disp), $this->registers[0]->trunc16());
 
             // MOV.B @(<disp>, <REG_M>),R0
             case 0x8400:
                 $m = getM($instruction);
                 $disp = getImm4($instruction)->value;
                 $this->emitDisasm("MOV.B", ["@($disp, R$m)", "R0"]);
+                $source = $this->registers[$m]->add($disp);
                 $value = $this->readUInt8($this->registers[$m]->value, $disp)->extend32();
                 $this->writeRegister(0, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[$m]->add($disp), $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // MOV.W @(<disp>, <REG_M>),R0
             case 0x8500:
                 $m = getM($instruction);
                 $disp = getImm4($instruction)->u32()->shiftLeft()->value;
                 $this->emitDisasm("MOV.W", ["@($disp, R$m)", "R0"]);
+                $source = $this->registers[$m]->add($disp);
                 $value = $this->readUInt16($this->registers[$m]->value, $disp)->extend32();
                 $this->writeRegister(0, $value);
-                return new ReadOperation($instruction, $opcode, $this->registers[$m]->add($disp), $value);
+                return new ReadOperation($instruction, $opcode, $source, $value);
 
             // CMP/EQ #<imm>,R0
             case 0x8800:
@@ -1425,5 +1412,10 @@ class Simulator
     public function cancelDelayedBranch(): void
     {
         $this->delayedPc = null;
+    }
+
+    public function nextIsDelaySlot(): bool
+    {
+        return $this->delayedPc !== null;
     }
 }

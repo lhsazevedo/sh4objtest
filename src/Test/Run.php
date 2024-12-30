@@ -52,6 +52,8 @@ class Run
 
     private ?BranchOperation $delayedBranch = null;
 
+    private $running = true;
+
     public function __construct(
         private OutputInterface $output,
         private TestCaseDTO $testCase,
@@ -207,19 +209,22 @@ class Run
         }
         $simulator->setRegister(15, $stackPointer);
 
-        $simulator->setRunning(true);
-        while ($simulator->isRunning()) {
+        while ($this->running || $simulator->nextIsDelaySlot()) {
+            // By hadling the returned instruction instead of the actual
+            // operation that was done, this code is doomed to be messy.
+            // We should have a intermediary class, or even make the simulator
+            // emit an event when the actual operation is done.
+
             $delayedBranch = $this->delayedBranch;
 
             try {
                 $instruction = $simulator->step();
             } catch (\Exception $e) {
-                $this->outputMessages();
                 throw $e;
+            } finally {
+                // TODO: Refator duplicated calls to outputMessages
+                $this->outputMessages();
             }
-            // TODO: Refator duplicated calls to outputMessages
-            // (one is for disasm and other for messages?)
-            $this->outputMessages();
 
             // TODO: Refactor to match expression
             if ($instruction instanceof BranchOperation) {
@@ -230,9 +235,21 @@ class Run
                 $this->onRead($simulator, $instruction);
             }
 
-            // Only BT and BF are not delayed branches
+            $this->outputMessages();
+
+            // Stop on RTS
+            if ($instruction->opcode === 0x000B) {
+                $this->logInfo($simulator, "Program returned");
+                $this->stop();
+                // TODO: Add return expectation check here,
+                // but we'll need to wait for the delayed return.
+            }
+
             if ($delayedBranch) {
-                $this->onBranch($simulator, $delayedBranch);
+                // Call onBranch only if the delayed branch is not an RTS
+                if ($delayedBranch->opcode !== 0x000B) {
+                    $this->onBranch($simulator, $delayedBranch);
+                }
                 $this->delayedBranch = null;
             }
 
@@ -243,8 +260,6 @@ class Run
             }
         }
 
-        // $simulator->run();
-
         if ($this->pendingExpectations) {
             var_dump($this->pendingExpectations);
             throw new \Exception("Pending expectations", 1);
@@ -252,8 +267,12 @@ class Run
 
         $expectedReturn = $this->testCase->entry->return;
         $actualReturn = $simulator->getRegister(0);
-        if ($expectedReturn !== null && !$actualReturn->equals($expectedReturn)) {
-            throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn");
+        if ($expectedReturn !== null) {
+            if (!$actualReturn->equals($expectedReturn)) {
+                throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn");
+            }
+
+            $this->fulfilled($simulator, "Returned $expectedReturn");
         }
 
         // TODO: returns and float returns are mutually exclusive
@@ -266,7 +285,11 @@ class Run
             if ($actualDecRepresentation !== $expectedDecRepresentation) {
                 throw new ExpectationException("Unexpected return value $actualFloatReturn, expecting $expectedFloatReturn");
             }
+
+            $this->fulfilled($simulator, "Returned float $expectedFloatReturn");
         }
+
+        $this->outputMessages();
 
         $count = count($this->expectations);
         if ($expectedReturn || $this->testCase->entry->floatReturn !== null) {
@@ -392,7 +415,7 @@ class Run
         $this->messages[] = $message;
     }
 
-    public function onBranch(Simulator $simulator, BranchOperation $instruction): void
+    private function onBranch(Simulator $simulator, BranchOperation $instruction): void
     {
         // Branch to symbols are calls and must be expected
         if ($this->symbols->getSymbolAtAddress($instruction->target)) {
@@ -404,15 +427,30 @@ class Run
             } else {
                 // Program jumped to another symbol.
                 $this->logInfo($simulator, "Program jumped to symbol at " . $instruction->target->hex());
-                $simulator->stop();
+                $this->stop();
             }
             return;
         }
 
-        // Branch to non-symbol are not checked.
+        // Branch to non-symbol are checked only
+        // if the address matches the expectation
+        $expectation = reset($this->pendingExpectations);
+        if ($expectation instanceof CallExpectation && $instruction->target->equals($expectation->address)) {
+            $this->assertCall($simulator, $instruction->target->value);
+
+            if ($instruction->isCall()) {
+                $simulator->setPc($simulator->getPr());
+                $simulator->cancelDelayedBranch();
+            }
+            // Stop execution on dynamic tail calls
+            else {
+                $this->logInfo($simulator, "Program jumped to address " . $instruction->target->hex());
+                $this->stop();
+            }
+        }
     }
 
-    public function onWrite(Simulator $simulator, WriteOperation $instruction): void
+    private function onWrite(Simulator $simulator, WriteOperation $instruction): void
     {
         $address = $instruction->target->value;
         $value = $instruction->value;
@@ -499,7 +537,7 @@ class Run
         array_shift($this->pendingExpectations);
     }
 
-    public function onRead(Simulator $simulator, ReadOperation $instruction): void
+    private function onRead(Simulator $simulator, ReadOperation $instruction): void
     {
         foreach ($this->unresolvedRelocations as $relocation) {
             if ($relocation->linkedAddress !== $instruction->source->value) {
@@ -553,9 +591,11 @@ class Run
         $readableName = "<NO_SYMBOL>";
 
         if ($export = $this->symbols->getSymbolAtAddress(U32::of($target))) {
-            $name = $readableName = $export->name;
+            $name = $export->name;
+            $readableName = "$name (" . U32::of($target)->hex() . ")";
         } elseif ($resolution = $this->getResolutionAt($target)) {
-            $name = $readableName = $resolution->name;
+            $name = $resolution->name;
+            $readableName = "$name (" . U32::of($target)->hex() . ")";
         }
 
         // FIXME: modls and modlu probrably behave differently
@@ -712,7 +752,7 @@ class Run
         $this->fulfilled($simulator, "Called " . $readableName . '(0x'. dechex($target) . ")");
     }
 
-    public function getResolutionAt(int $address): ?TestRelocation
+    private function getResolutionAt(int $address): ?TestRelocation
     {
         foreach ($this->testCase->testRelocations as $relocation) {
             if ($relocation->address === $address) {
@@ -723,7 +763,7 @@ class Run
         return null;
     }
 
-    public function getSymbolNameAt(int $address): ?string
+    private function getSymbolNameAt(int $address): ?string
     {
         if ($relocation = $this->getResolutionAt($address)) {
             return $relocation->name;
@@ -734,5 +774,10 @@ class Run
         }
 
         return null;
+    }
+
+    private function stop(): void
+    {
+        $this->running = false;
     }
 }

@@ -7,7 +7,6 @@ namespace Lhsazevedo\Sh4ObjTest\Test;
 use Lhsazevedo\Sh4ObjTest\ObjectParser;
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
-use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\TestCase;
 
@@ -41,6 +40,7 @@ class Runner
                     continue;
                 }
 
+                $this->output->writeln("{$testFile}...");
                 $this->output->writeln("{$reflectionMethod->name}...");
                 /** @var TestCase */
                 $currentTestCase = require $testFile;
@@ -60,6 +60,10 @@ class Runner
                     shouldRandomizeMemory: $reflectedBaseTestCase->getProperty('randomizeMemory')->getValue($currentTestCase),
                     shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),
                 );
+
+                if (!$testCaseDto->expectations && $testCaseDto->entry->floatReturn == null && $testCaseDto->entry->return === null) {
+                    $this->output->writeln("<bg=yellow>No expectations</>");
+                }
 
                 $run = new Run(
                     $this->output,
