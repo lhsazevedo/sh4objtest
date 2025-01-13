@@ -9,17 +9,38 @@ use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\TestCase;
+use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Helper\TableCell;
+use Symfony\Component\Console\Helper\TableCellStyle;
+
+readonly class ObjectResult {
+    private CoverageTracker $coverage;
+
+    public function __construct(
+        public string $objectFile,
+    ) {
+        $this->coverage = new CoverageTracker();
+    }
+
+    public function mergeCoverage(CoverageTracker $coverage): void {
+        $this->coverage->merge($coverage);
+    }
+
+    public function getCoverage(ParsedObject $object): float {
+        return $this->coverage->getCoverage($object);
+    }
+}
 
 class Runner
 {
     public function __construct(
         private OutputInterface $output,
         private bool $shouldOutputDisasm = false,
+        private bool $shouldTrackCoverage = false,
     )
-    {
-    }
+    {}
 
-    public function runFile(string $testFile, string $objectFile): bool
+    public function runFile(string $testFile, string $objectFile): FileResult
     {
         $testCase = require $testFile;
         $reflectedBaseTestCase = new \ReflectionClass(TestCase::class);
@@ -29,6 +50,9 @@ class Runner
         // pass the parsed object to the test case.
         $parsedObject = ObjectParser::parse($objectFile);
         $linkedCode = $this->linkObject($parsedObject);
+        $result = new FileResult();
+
+        $this->output->writeln("◯ {$testFile}");
 
         try {
             foreach ($reflectedTestCase->getMethods() as $reflectionMethod) {
@@ -40,8 +64,8 @@ class Runner
                     continue;
                 }
 
-                $this->output->writeln("{$testFile}...");
-                $this->output->writeln("{$reflectionMethod->name}...");
+                //$this->output->writeln("{$testFile}...");
+                // $this->output->writeln("{$reflectionMethod->name}...");
                 /** @var TestCase */
                 $currentTestCase = require $testFile;
                 $currentTestCase->setParsedObject($parsedObject);
@@ -61,23 +85,96 @@ class Runner
                     shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),
                 );
 
-                if (!$testCaseDto->expectations && $testCaseDto->entry->floatReturn == null && $testCaseDto->entry->return === null) {
-                    $this->output->writeln("<bg=yellow>No expectations</>");
-                }
-
                 $run = new Run(
                     $this->output,
                     $testCaseDto,
                     $this->shouldOutputDisasm,
                 );
 
-                $run->run();
+                $result->addRun($run->run());
             }
         } catch (ExpectationException $e) {
             $this->output->writeln("\n<bg=red> FAILED EXPECTATION </> <fg=red>{$e->getMessage()}</>\n");
-            return false;
+            // TODO: Add failed expectation to result
+            exit;
         }
 
+        foreach ($result->getRuns() as $run) {
+            $result->coverage->merge($run->coverage);
+        }
+
+        return $result;
+    }
+
+    public function runSuite(string $suiteFile, ?string $testCaseFilter): bool
+    {
+        $suite = require $suiteFile;
+        $suiteDir = dirname($suiteFile);
+
+        /** @var array<string, FileResult[]> */
+        $fileResults = [];
+
+        /** @var ObjectResult[] */
+        $objectResults = [];
+
+        $success = true;
+        foreach ($suite['groups'] as $group) {
+            foreach ($group['objects'] as $object) {
+                foreach($group['tests'] as $test) {
+                    $filePath = realpath("$suiteDir/$test");
+                    // TODO: Filter files before running tests, and error if no files are found.
+                    if ($testCaseFilter && !str_starts_with($filePath, $testCaseFilter)) {
+                        continue;
+                    }
+
+                    $objectPath = realpath("$suiteDir/$object");
+                    $fileResult = $this->runFile($filePath, $objectPath);
+                    $fileResults[$objectPath] = $fileResult;
+                    $objectResults[$objectPath] ??= new ObjectResult($objectPath);
+                    $objectResults[$objectPath]->mergeCoverage($fileResult->coverage);
+                }
+            }
+        }
+
+        if ($this->shouldTrackCoverage) {
+            $this->output->writeln("Processing coverage:");
+            $table = new Table($this->output);
+            $table->setHeaders(['Object', 'Coverage']);
+            foreach ($objectResults as $objectPath => $objectResults) {
+                // $coverage = new CoverageTracker();
+                // $coverage->merge($objectResults->coverage);
+                // CONTINUE: Need to pass object here but object is only available inside runFile...
+                $parsedObject = ObjectParser::parse($objectPath);
+                $table->addRow([
+                    $objectPath,
+                    new TableCell(
+                        sprintf("%.2f%%", $objectResults->getCoverage($parsedObject) * 100),
+                        [
+                            'style' => new TableCellStyle(['align' => 'right']),
+                        ]
+                    ),
+                ]);
+            }
+            $table->render();
+
+            // foreach ($fileResults as $object => $testCaseResult) {
+            //     $this->output->writeln("{$object}:");
+            //     $table2 = new Table($this->output);
+            //     $table2->setHeaders(['Address', 'R', 'W', 'X']);
+            //     $report = $testCaseResult->coverage->getReport($parsedObject);
+            //     foreach ($report as $address => $accesses) {
+            //         $table2->addRow([
+            //             sprintf("0x%08x", $address),
+            //             $accesses[0] ? 'X' : ' ',
+            //             $accesses[1] ? 'X' : ' ',
+            //             $accesses[2] ? 'X' : ' ',
+            //         ]);
+            //     }
+            //     $table2->render();
+            // }
+        }
+
+        // TODO: Return failure as well
         return true;
     }
 

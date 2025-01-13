@@ -21,7 +21,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
@@ -47,12 +46,14 @@ class Run
 
     private SymbolTable $symbols;
 
+    private CoverageTracker $coverage;
+
     /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation[] */
     private array $unresolvedRelocations = [];
 
     private ?BranchOperation $delayedBranch = null;
 
-    private $running = true;
+    private bool $running = true;
 
     public function __construct(
         private OutputInterface $output,
@@ -62,9 +63,10 @@ class Run
     {
         $this->expectations = $testCase->expectations;
         $this->pendingExpectations = $testCase->expectations;
+        $this->coverage = new CoverageTracker();
     }
 
-    public function run(): void
+    public function run(): RunResult
     {
         $memory = new BinaryMemory(
             1024 * 1024 * 16,
@@ -218,6 +220,7 @@ class Run
             $delayedBranch = $this->delayedBranch;
 
             try {
+                $this->coverage->logExecute($simulator->getPc(), 2);
                 $instruction = $simulator->step();
             } catch (\Exception $e) {
                 throw $e;
@@ -295,7 +298,20 @@ class Run
         if ($expectedReturn || $this->testCase->entry->floatReturn !== null) {
             $count++;
         }
-        $this->output->writeln("\n<bg=bright-green;options=bold> PASS </> <fg=green>$count expectations fulfilled</>\n");
+        $name = $this->testCase->name;
+        $name = preg_replace('/^test_?/', '', $name, 1);
+
+        $expectationsMessage = $count === 0
+            ? "<fg=yellow>no expectations</>"
+            : "$count expectations";
+
+        $this->output->writeln("    <fg=bright-green;options=bold>✔</> $name ($expectationsMessage)");
+        // $this->output->writeln("\n<bg=bright-green;options=bold> PASS </> <fg=green>$count expectations fulfilled</>\n");
+
+        return new RunResult(
+            success: true,
+            coverage: $this->coverage,
+        );
     }
 
     /**
@@ -412,7 +428,7 @@ class Run
      */
     private function handleMessage(Simulator $simulator, string $message): void
     {
-        $this->messages[] = $message;
+        //$this->messages[] = $message;
     }
 
     private function onBranch(Simulator $simulator, BranchOperation $instruction): void
@@ -454,6 +470,9 @@ class Run
     {
         $address = $instruction->target->value;
         $value = $instruction->value;
+        $this->coverage->logWrite(
+            $address, (int) $instruction->value::BIT_COUNT / 8
+        );
 
         $expectation = reset($this->pendingExpectations);
         $readableAddress = '0x' . dechex($address);
@@ -539,6 +558,10 @@ class Run
 
     private function onRead(Simulator $simulator, ReadOperation $instruction): void
     {
+        $this->coverage->logRead(
+            $instruction->source->value, $instruction->value::BIT_COUNT / 8
+        );
+
         foreach ($this->unresolvedRelocations as $relocation) {
             if ($relocation->linkedAddress !== $instruction->source->value) {
                 continue;

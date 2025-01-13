@@ -45,8 +45,8 @@ class TestCommand extends Command
             shouldOutputDisasm: $input->getOption('disasm'),
         );
 
-        return $runner->runFile($testFile, $input->getArgument('object'))
-            ? Command::SUCCESS
-            : Command::FAILURE;
+        $runner->runFile($testFile, $input->getArgument('object'));
+
+        return Command::SUCCESS;
     }
 }
