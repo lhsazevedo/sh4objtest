@@ -1,15 +1,34 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
+$limit = ini_get('memory_limit');
+$unit = strtolower(substr($limit, -1));
+$value = (int)$limit;
+
+/** @var ?int */
+$limit = match ($unit) {
+    'k' => $value * 1024,
+    'm' => $value * 1024 ** 2,
+    'g' => $value * 1024 ** 3,
+    default => null
+};
+
+// 2G
+$desired = 2 * 1024 ** 3;
+if ($limit && $limit < $desired) {
+    ini_set('memory_limit', '2G');
+}
+
 require $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 
+use Lhsazevedo\Sh4ObjTest\Console\SuiteCommand;
 use Lhsazevedo\Sh4ObjTest\Console\TestCommand;
 
 $app = new Symfony\Component\Console\Application();
-$command = new TestCommand();
 
-$app->add($command);
+$app->add(new SuiteCommand());
+$app->add(new TestCommand());
 
-$app->setDefaultCommand($command->getName(), isSingleCommand: true);
+$app->setDefaultCommand('suite');
 
 $app->run();

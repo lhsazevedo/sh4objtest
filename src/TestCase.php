@@ -4,124 +4,15 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest;
 
-use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
+use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
-use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-use Throwable;
-
-abstract class AbstractExpectation {}
-
-class CallExpectation extends AbstractExpectation
-{
-    /** @var array<int|float|string|WildcardArgument|LocalArgument> */
-    public array $parameters = [];
-
-    public ?int $return = null;
-
-    public ?\Closure $callback = null;
-
-    public function __construct(
-        public ?string $name,
-        public int $address,
-    ) {}
-
-    public function with(int|float|string|WildcardArgument|LocalArgument ...$parameters): self
-    {
-        $this->parameters = $parameters;
-        return $this;
-    }
-
-    public function andReturn(int|float $value): self
-    {
-        $this->return = $value;
-        return $this;
-    }
-
-    public function do(\Closure $callback): self
-    {
-        $this->callback = $callback;
-        return $this;
-    }
-}
-
-class ReadExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public int $address,
-        public int $value,
-        public int $size,
-    ) {
-        /* TODO: Move this to value object? */
-        if ($value < -(2 ** $size - 1)) {
-            throw new \RuntimeException("Value $value is too small for $size bits");
-        } elseif ($value >= 2 ** $size) {
-            throw new \RuntimeException("Value $value is too big for $size bits");
-        }
-
-        $this->value &= (2**$size) - 1;
-    }
-}
-
-class WriteExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public int $address,
-        public int $value,
-        public int $size,
-    ) {
-        /* TODO: Move this to value object? */
-        if ($value < -(2**$size)) {
-            throw new \RuntimeException("Value $value is too small for $size bits");
-        } elseif ($value >= 2**$size) {
-            throw new \RuntimeException("Value $value is too big for $size bits");
-        }
-
-        $this->value &= (2**$size) - 1;
-    }
-}
-
-class StringWriteExpectation extends AbstractExpectation
-{
-    public function __construct(
-        public int $address,
-        public string $value,
-    ) {}
-}
-
-class Entry {
-    public function __construct(
-        public ?string $symbol = null,
-
-        /** @var int[]|float[] */
-        public array $parameters = [],
-
-        // TODO: functions can return pointers
-        public ?int $return = null,
-
-        public ?float $floatReturn = null,
-    ) {}
-}
-
-class TestRelocation
-{
-    public function __construct(
-        public string $name,
-        public int $address,
-    )
-    {}
-}
-
-readonly class MemoryInitialization
-{
-    public function __construct(
-        public int $size,
-        public int $address,
-        public int $value
-    )
-    {}
-}
+use Lhsazevedo\Sh4ObjTest\Test\Entry;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\MemoryInitialization;
+use Lhsazevedo\Sh4ObjTest\Test\TestRelocation;
 
 class TestCase
 {
@@ -131,7 +22,7 @@ class TestCase
 
     private Entry $entry;
 
-    /** @var AbstractExpectation[] */
+    /** @var \Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation[] */
     private $expectations = [];
 
     private bool $forceStop = false;
@@ -146,25 +37,9 @@ class TestCase
     /** @var MemoryInitialization[] */
     private array $initializations = [];
 
-    private bool $disasm = false;
-
-    private string $linkedCode;
-
-    private InputInterface $input;
-    
-    private OutputInterface $output;
-
     public function __construct()
     {
         $this->entry = new Entry();
-    }
-
-    public function _inject(
-        InputInterface $input,
-        OutputInterface $output,
-    ) {
-        $this->input = $input;
-        $this->output = $output;
     }
 
     protected function shouldCall(string|int $target): CallExpectation
@@ -376,34 +251,7 @@ class TestCase
 
     protected function run(): void
     {
-        $simulator = new Simulator(
-            $this->input,
-            $this->output,
-            $this->parsedObject,
-            $this->expectations,
-            $this->entry,
-            $this->forceStop,
-            $this->randomizeMemory,
-            $this->testRelocations,
-            $this->initializations,
-            $this->linkedCode,
-        );
-
-        if ($this->disasm) {
-            $simulator->enableDisasm();
-        }
-
-        $simulator->run();
-
-        // Cleanup
-        // TODO: Better to instance the TestCase every time
-        $this->forceStop = false;
-        $this->randomizeMemory = true;
-        $this->entry = new Entry();
-        $this->expectations = [];
-        $this->testRelocations = [];
-        $this->currentAlloc = 1024 * 1024 * 8;
-        $this->initializations = [];
+        // This was moved to the runner.
     }
 
     protected function initUint(int $address, int $value, int $size): void
@@ -431,30 +279,9 @@ class TestCase
         $this->objectFile = $path;
     }
 
-    public function parseObject(): void
+    public function setParsedObject(ParsedObject $parsedObject): void
     {
-        $this->parsedObject = ObjectParser::parse($this->objectFile);
-
-        $linkedCode = '';
-        // TODO: Handle multiple units?
-        foreach ($this->parsedObject->unit->sections as $section) {
-            // Align
-            $remainder = strlen($linkedCode) % $section->alignment;
-            if ($remainder) {
-                $linkedCode .= str_repeat("\0", $section->alignment - $remainder);
-            }
-
-            $section->rellocate(strlen($linkedCode));
-
-            $linkedCode .= $section->assembleObjectData();
-        }
-
-        $this->linkedCode = $linkedCode;
-    }
-
-    public function enableDisasm(): void
-    {
-        $this->disasm = true;
+        $this->parsedObject = $parsedObject;
     }
 
     protected function findTestRelocation(string $name): ?TestRelocation
