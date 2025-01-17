@@ -298,15 +298,20 @@ class Run
         if ($expectedReturn || $this->testCase->entry->floatReturn !== null) {
             $count++;
         }
+
         $name = $this->testCase->name;
         $name = preg_replace('/^test_?/', '', $name, 1);
+        $name = str_replace('_', ' ', $name);
+        $name = preg_replace('/([a-z])([A-Z])/', '$1 $2', $name);
+        $name = ucfirst(strtolower($name));
 
-        $expectationsMessage = $count === 0
-            ? "<fg=yellow>no expectations</>"
-            : "$count expectations";
+        $expectationsMessage = match (true) {
+            $count === 0 => "<fg=yellow>no expectations</>",
+            $count === 1 => "1 expectation",
+            default => "$count expectations",
+        };
 
         $this->output->writeln("    <fg=bright-green;options=bold>✔</> $name ($expectationsMessage)");
-        // $this->output->writeln("\n<bg=bright-green;options=bold> PASS </> <fg=green>$count expectations fulfilled</>\n");
 
         return new RunResult(
             success: true,
