@@ -433,7 +433,11 @@ class Run
      */
     private function handleMessage(Simulator $simulator, string $message): void
     {
-        //$this->messages[] = $message;
+        if (!$this->shouldOutputDisasm) {
+            return;
+        }
+
+        $this->messages[] = $message;
     }
 
     private function onBranch(Simulator $simulator, BranchOperation $instruction): void
