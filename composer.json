@@ -6,7 +6,9 @@
     "autoload": {
         "psr-4": {
             "Lhsazevedo\\Sh4ObjTest\\": "src/"
-        },
+        }
+    },
+    "autoload-dev": {
         "files": [
             "phpstan-extension.php"
         ]
