@@ -7,6 +7,7 @@ namespace Lhsazevedo\Sh4ObjTest\Test;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\ArgumentType;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
@@ -23,8 +24,10 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 
@@ -183,121 +186,118 @@ class Run
         $simulator->onDisasm($this->disasm(...));
         $simulator->onAddLog($this->addLog(...));
 
-        $entrySymbol = $parsedObject->unit->findExportedSymbol($this->testCase->entry->symbol);
-        if (!$entrySymbol) throw new \Exception("Entry symbol {$this->testCase->entry->symbol} not found.", 1);
+        $command = reset($this->pendingExpectations);
+        if (!$command instanceof CallCommand) {
+            throw new \Exception("First step must be a call command", 1);
+        }
+        $entrySymbolName = $command->symbol;
+
+        $entrySymbol = $parsedObject->unit->findExportedSymbol($entrySymbolName);
+        if (!$entrySymbol) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
         $simulator->setPc($entrySymbol->offset);
 
         $convention = new DefaultCallingConvention();
         $stackPointer = U32::of(1024 * 1024 * 16 - 4);
-        // TODO: Rename to arguments
-        foreach ($this->testCase->entry->parameters as $argument) {
-            /** @var int|float $argument */
-
-            $storage = $convention->getNextArgumentStorageForValue($argument);
-
-            if ($storage instanceof GeneralRegister) {
-                $simulator->setRegister($storage->index(), U32::of($argument));
-                continue;
-            }
-
-            if ($storage instanceof FloatingPointRegister) {
-                $simulator->setFloatRegister($storage->index(), $argument);
-                continue;
-            }
-
-            // FIXME: Stack offset must be controlled by the calling convention.
-            $stackPointer = $stackPointer->sub(4);
-            $memory->writeUInt32($stackPointer->value, U32::of($argument));
-        }
         $simulator->setRegister(15, $stackPointer);
 
-        while ($this->running || $simulator->nextIsDelaySlot()) {
-            // By hadling the returned instruction instead of the actual
-            // operation that was done, this code is doomed to be messy.
-            // We should have a intermediary class, or even make the simulator
-            // emit an event when the actual operation is done.
+        do {
+            $this->running = true;
 
-            $delayedBranch = $this->delayedBranch;
-
-            try {
-                $this->coverage->logExecute($simulator->getPc(), 2);
-                $instruction = $simulator->step();
-            } catch (\Exception $e) {
-                throw $e;
-            } finally {
-                // TODO: Refator duplicated calls to outputMessages
-                $this->outputMessages();
+            $command = reset($this->pendingExpectations);
+            if (!($command instanceof CallCommand)) {
+                throw new \Exception(
+                    "First or after return must be a call command", 1
+                );
             }
+            $this->setupArguments($simulator, $convention, $command->arguments);
+            array_shift($this->pendingExpectations);
 
-            // TODO: Refactor to match expression
-            if ($instruction instanceof BranchOperation) {
-                $this->delayedBranch = $instruction;
-            } else if ($instruction instanceof WriteOperation) {
-                $this->onWrite($simulator, $instruction);
-            } else if ($instruction instanceof ReadOperation) {
-                $this->onRead($simulator, $instruction);
-            }
+            while ($this->running || $simulator->nextIsDelaySlot()) {
+                // By hadling the returned instruction instead of the actual
+                // operation that was done, this code is doomed to be messy.
+                // We should have a intermediary class, or even make the simulator
+                // emit an event when the actual operation is done.
 
-            $this->outputMessages();
+                $delayedBranch = $this->delayedBranch;
 
-            // Stop on RTS
-            if ($instruction->opcode === 0x000B) {
-                $this->logInfo($simulator, "Program returned");
-                $this->stop();
-                // TODO: Add return expectation check here,
-                // but we'll need to wait for the delayed return.
-            }
-
-            if ($delayedBranch) {
-                // Call onBranch only if the delayed branch is not an RTS
-                if ($delayedBranch->opcode !== 0x000B) {
-                    $this->onBranch($simulator, $delayedBranch);
+                try {
+                    $this->coverage->logExecute($simulator->getPc(), 2);
+                    $instruction = $simulator->step();
+                } catch (\Exception $e) {
+                    throw $e;
+                } finally {
+                    // TODO: Refator duplicated calls to outputMessages
+                    $this->outputMessages();
                 }
-                $this->delayedBranch = null;
+
+                // TODO: Refactor to match expression
+                if ($instruction instanceof BranchOperation) {
+                    $this->delayedBranch = $instruction;
+                } else if ($instruction instanceof WriteOperation) {
+                    $this->onWrite($simulator, $instruction);
+                } else if ($instruction instanceof ReadOperation) {
+                    $this->onRead($simulator, $instruction);
+                }
+
+                $this->outputMessages();
+
+                // Stop on RTS
+                if ($instruction->opcode === 0x000B) {
+                    $this->logInfo($simulator, "Program returned");
+                    $this->stop();
+                    // TODO: Add return expectation check here,
+                    // but we'll need to wait for the delayed return.
+                }
+
+                if ($delayedBranch) {
+                    // Call onBranch only if the delayed branch is not an RTS
+                    if ($delayedBranch->opcode !== 0x000B) {
+                        $this->onBranch($simulator, $delayedBranch);
+                    }
+                    $this->delayedBranch = null;
+                }
+
+                $this->outputMessages();
+
+                if ($this->testCase->shouldStopWhenFulfilled && !$this->pendingExpectations) {
+                    break;
+                }
             }
 
-            $this->outputMessages();
+            $returnExpectation = reset($this->pendingExpectations);
+            if ($returnExpectation && ($returnExpectation instanceof ReturnExpectation)) {
+                array_shift($this->pendingExpectations);
 
-            if ($this->testCase->shouldStopWhenFulfilled && !$this->pendingExpectations) {
-                break;
+                $expectedReturn = $returnExpectation->value;
+                $actualReturn = $simulator->getRegister(0);
+                if (is_int($expectedReturn)) {
+                    if (!$actualReturn->equals($expectedReturn)) {
+                        throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn");
+                    }
+
+                    $this->fulfilled($simulator, "Returned $expectedReturn");
+                } else {
+                    $actualFloatReturn = $simulator->getFloatRegister(0);
+                    $expectedDecRepresentation = unpack('L', pack('f', $expectedReturn))[1];
+                    $actualDecRepresentation = unpack('L', pack('f', $actualFloatReturn))[1];
+
+                    if ($actualDecRepresentation !== $expectedDecRepresentation) {
+                        throw new ExpectationException("Unexpected return value $actualFloatReturn, expecting $expectedReturn");
+                    }
+
+                    $this->fulfilled($simulator, "Returned float $expectedReturn");
+                }
             }
-        }
+        } while (reset($this->pendingExpectations) instanceof CallCommand);
 
         if ($this->pendingExpectations) {
             var_dump($this->pendingExpectations);
             throw new \Exception("Pending expectations", 1);
         }
 
-        $expectedReturn = $this->testCase->entry->return;
-        $actualReturn = $simulator->getRegister(0);
-        if ($expectedReturn !== null) {
-            if (!$actualReturn->equals($expectedReturn)) {
-                throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn");
-            }
-
-            $this->fulfilled($simulator, "Returned $expectedReturn");
-        }
-
-        // TODO: returns and float returns are mutually exclusive
-        if ($this->testCase->entry->floatReturn !== null) {
-            $expectedFloatReturn = $this->testCase->entry->floatReturn;
-            $actualFloatReturn = $simulator->getFloatRegister(0);
-            $expectedDecRepresentation = unpack('L', pack('f', $expectedFloatReturn))[1];
-            $actualDecRepresentation = unpack('L', pack('f', $actualFloatReturn))[1];
-
-            if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                throw new ExpectationException("Unexpected return value $actualFloatReturn, expecting $expectedFloatReturn");
-            }
-
-            $this->fulfilled($simulator, "Returned float $expectedFloatReturn");
-        }
-
         $this->outputMessages();
 
         $count = count($this->expectations);
-        if ($expectedReturn || $this->testCase->entry->floatReturn !== null) {
-            $count++;
-        }
 
         $name = $this->testCase->name;
         $name = preg_replace('/^test_?/', '', $name, 1);
@@ -317,6 +317,37 @@ class Run
             success: true,
             coverage: $this->coverage,
         );
+    }
+
+    /**
+     * @param array<int|float> $arguments
+     */
+    private function setupArguments(
+        Simulator $simulator,
+        CallingConvention $convention,
+        array $arguments,
+    ): void
+    {
+        $stackPointer = $simulator->getRegister(15);
+        foreach ($arguments as $argument) {
+            $storage = $convention->getNextArgumentStorageForValue($argument);
+
+            if ($storage instanceof GeneralRegister) {
+                $simulator->setRegister($storage->index(), U32::of($argument));
+                continue;
+            }
+
+            if ($storage instanceof FloatingPointRegister) {
+                $simulator->setFloatRegister($storage->index(), $argument);
+                continue;
+            }
+
+            // FIXME: Stack offset must be controlled by the calling convention.
+            $stackPointer = $stackPointer->sub(4);
+            $simulator->getMemory()
+                ->writeUInt32($stackPointer->value, U32::of($argument));
+        }
+        $simulator->setRegister(15, $stackPointer);
     }
 
     /**

@@ -31,11 +31,7 @@ class TestCommand extends Command
 
         // $testCase->_inject($input, $output);
         // $testCase->parseObject();
-
-        if ($input->getOption('disasm')) {
-            // $testCase->enableDisasm();
-        }
-
+    
         // TODO: Setup and teardown.
 
         // echo "# $testFile against $objectFile\n";

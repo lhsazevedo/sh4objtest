@@ -7,6 +7,8 @@ namespace Lhsazevedo\Sh4ObjTest\Test;
 use Lhsazevedo\Sh4ObjTest\ObjectParser;
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
 use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\TestCase;
 use Symfony\Component\Console\Helper\Table;
@@ -72,14 +74,35 @@ class Runner
                 $currentTestCase->setObjectFile($objectFile);
                 call_user_func([$currentTestCase, $reflectionMethod->name]);
 
+                $expectations = $reflectedBaseTestCase
+                    ->getProperty('expectations')
+                    ->getValue($currentTestCase);
+
+                /** @var Entry */
+                $entry = $reflectedBaseTestCase->getProperty('entry')
+                    ->getValue($currentTestCase);
+
+                if ($entry->symbol) {
+                    $callCommand = new CallCommand($entry->symbol);
+                    // TODO: Rename to arguments
+                    $callCommand->arguments = $entry->parameters;
+                    array_unshift($expectations, $callCommand);
+
+                    if ($entry->return !== null || $entry->floatReturn !== null) {
+                        $expectations[] = new ReturnExpectation(
+                            $entry->return ?? $entry->floatReturn,
+                        );
+                    }
+                }
+
                 $testCaseDto = new TestCaseDTO(
                     name: $reflectionMethod->name,
                     objectFile: $objectFile,
                     parsedObject: $parsedObject,
                     initializations: $reflectedBaseTestCase->getProperty('initializations')->getValue($currentTestCase),
                     testRelocations: $reflectedBaseTestCase->getProperty('testRelocations')->getValue($currentTestCase),
-                    expectations: $reflectedBaseTestCase->getProperty('expectations')->getValue($currentTestCase),
-                    entry: $reflectedBaseTestCase->getProperty('entry')->getValue($currentTestCase),
+                    expectations: $expectations,
+                    // entry: $reflectedBaseTestCase->getProperty('entry')->getValue($currentTestCase),
                     linkedCode: $linkedCode,
                     shouldRandomizeMemory: $reflectedBaseTestCase->getProperty('randomizeMemory')->getValue($currentTestCase),
                     shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),

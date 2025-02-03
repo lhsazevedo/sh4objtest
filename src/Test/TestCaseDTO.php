@@ -24,7 +24,7 @@ readonly class TestCaseDTO
         /** @var Expectations\AbstractExpectation[] */
         public array $expectations,
 
-        public Entry $entry,
+        // public Entry $entry,
 
         public string $linkedCode,
 

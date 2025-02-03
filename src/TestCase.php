@@ -7,6 +7,7 @@ namespace Lhsazevedo\Sh4ObjTest;
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Test\Entry;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
@@ -211,20 +212,61 @@ class TestCase
         return $cur;
     }
 
-    protected function call(string $name): self
+    public function call(string $name): CallCommand
     {
+        if ($this->entry->symbol) {
+            throw new \RuntimeException(
+                "Cannot use new call() and old singleCall() commands in the same test"
+            );
+        }
+
+        $command = new CallCommand($name);
+        $this->expectations[] = $command;
+
+        return $command;
+    }
+
+    public function singleCall(string $name): self
+    {
+        if (array_filter(
+            $this->expectations,
+            fn($e) => $e instanceof CallCommand)
+        ) {
+            throw new \RuntimeException(
+                "Cannot use old singleCall() and new call() commands in the same test"
+            );
+        }
+
         $this->entry->symbol = $name;
         return $this;
     }
 
     protected function with(int|float|WildcardArgument ...$arguments): self
     {
+        if (array_filter(
+            $this->expectations,
+            fn($e) => $e instanceof CallCommand)
+        ) {
+            throw new \RuntimeException(
+                "Cannot use old with() and new call() commands in the same test"
+            );
+        }
+
         $this->entry->parameters = $arguments;
         return $this;
     }
 
     protected function shouldReturn(int|float $value): self
     {
+        if (array_filter(
+            $this->expectations,
+            fn($e) => $e instanceof CallCommand)
+        ) {
+            throw new \RuntimeException(
+                "Cannot use old shouldReturn() and new call() commands in the same test"
+            );
+        }
+
         if (is_float($value)) {
             $this->entry->floatReturn = $value;
         } else {
