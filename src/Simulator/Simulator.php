@@ -617,7 +617,7 @@ class Simulator
             case 0xf000:
                 // if (fpscr.PR == 0)
                 // {
-                    [$n, $m] = GetNM($instruction);
+                    [$n, $m] = getNM($instruction);
                     $this->emitDisasm("FADD", ["FR$m", "FR$n"]);
                     $this->writeFloatRegister($n, $this->fregisters[$n] + $this->fregisters[$m]);
                     // TODO: NaN signaling bit
@@ -635,7 +635,7 @@ class Simulator
             case 0xf001:
                 // if (fpscr.PR == 0)
                 // {
-                    [$n, $m] = GetNM($instruction);
+                    [$n, $m] = getNM($instruction);
                     $this->emitDisasm("FSUB", ["FR$m", "FR$n"]);
                     $this->writeFloatRegister($n, $this->fregisters[$n] - $this->fregisters[$m]);
                     // TODO: NaN signaling bit
@@ -653,7 +653,7 @@ class Simulator
             case 0xf002:
                 // if (fpscr.PR == 0)
                 // {
-                    [$n, $m] = GetNM($instruction);
+                    [$n, $m] = getNM($instruction);
                     $this->emitDisasm("FMUL", ["FR$m", "FR$n"]);
                     $this->writeFloatRegister($n, $this->fregisters[$n] * $this->fregisters[$m]);
                     // TODO: NaN signaling bit
@@ -671,11 +671,29 @@ class Simulator
             case 0xf003:
                 // if (fpscr.PR == 0)
                 // {
-                    [$n, $m] = GetNM($instruction);
+                    [$n, $m] = getNM($instruction);
                     $this->emitDisasm("FDIV", ["FR$m", "FR$n"]);
                     $this->writeFloatRegister($n, $this->fregisters[$n] / $this->fregisters[$m]);
                     // TODO: NaN signaling bit
                     // CHECK_FPU_32(fr[n]);
+                // }
+                // else
+                // {
+                // }
+                return new GenericOperation($instruction, $opcode);
+
+            // FCMP/EQ <FREG_M>,<FREG_N>
+            case 0xf004:
+                // if (PR == 0)
+                // {
+                    [$n, $m] = getNM($instruction);
+                    $this->emitDisasm("FCMP/EQ", ["FR$m", "FR$n"]);
+
+                    if ($this->fregisters[$n] === $this->fregisters[$m]) {
+                        $this->srT = 1;
+                    } else {
+                        $this->srT = 0;
+                    }
                 // }
                 // else
                 // {
@@ -797,7 +815,7 @@ class Simulator
             case 0xf00e:
                 // if (fpscr.PR == 0)
                 // {
-                    [$n, $m] = GetNM($instruction);
+                    [$n, $m] = getNM($instruction);
                     $this->emitDisasm("FMAC", ["FR0,FR$m,FR$n"]);
                     $this->writeFloatRegister($n, $this->fregisters[$n] + $this->fregisters[0] * $this->fregisters[$m]);
                     // TODO: NaN signaling bit
