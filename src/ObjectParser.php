@@ -260,8 +260,15 @@ final class ObjectParser
                                     $target
                                 ));
                                 continue;
+                            } else if ($maybeRelType === 2) {
+                                echo "WARN: Skipping unsupported relocation data type for relLen 11: $maybeRelType?\n";
+                                xdump($reader->readBytes(9));
+                                $terminator = $reader->readUInt8();
+                                if ($terminator !== 0xff) {
+                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
+                                }
+                                continue;
                             } else {
-                                echo "WARN: Wrong relocation data type for relLen 11: $maybeRelType?\n";
                             }
                         } elseif ($relLen === 18) {
                             $maybeRelType = $reader->readUInt8();
