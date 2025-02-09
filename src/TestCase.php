@@ -10,6 +10,7 @@ use Lhsazevedo\Sh4ObjTest\Test\Entry;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\MemoryInitialization;
@@ -256,14 +257,14 @@ class TestCase
         return $this;
     }
 
-    protected function shouldReturn(int|float $value): self
+    protected function singleShouldReturn(int|float $value): self
     {
         if (array_filter(
             $this->expectations,
             fn($e) => $e instanceof CallCommand)
         ) {
             throw new \RuntimeException(
-                "Cannot use old shouldReturn() and new call() commands in the same test"
+                "Cannot use old singleShouldReturn() and new call() commands in the same test"
             );
         }
 
@@ -274,6 +275,11 @@ class TestCase
         }
 
         return $this;
+    }
+
+    protected function shouldReturn(int|float $value): void
+    {
+        $this->expectations[] = new ReturnExpectation($value);
     }
 
     protected function forceStop(): void
