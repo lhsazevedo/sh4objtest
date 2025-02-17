@@ -274,6 +274,7 @@ final class ObjectParser
                                 // Unknown, usually 20
                                 $reader->eat(1);
                             } else {
+                                throw new \Exception("WARN: Unsupported relocation type $maybeRelType for relLen 11", 1);
                             }
                         } elseif ($relLen === 18) {
                             $maybeRelType = $reader->readUInt8();
@@ -286,7 +287,7 @@ final class ObjectParser
 
                                 // Unknown byte
                                 $reader->eat(1);
-                                
+
                                 $targetSectionIndex = $reader->readUInt16BE();
 
                                 // Unknown, usually 03 04
