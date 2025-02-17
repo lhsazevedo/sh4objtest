@@ -261,13 +261,18 @@ final class ObjectParser
                                 ));
                                 continue;
                             } else if ($maybeRelType === 2) {
-                                echo "WARN: Skipping unsupported relocation data type for relLen 11: $maybeRelType?\n";
-                                xdump($reader->readBytes(9));
-                                $terminator = $reader->readUInt8();
-                                if ($terminator !== 0xff) {
-                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                                }
-                                continue;
+                                // Unknown
+                                $reader->eat(1);
+
+                                $importIndex = $reader->readUInt8();
+                                $name = $this->imports[$importIndex]->name;
+                                // Unknown, usually 03 04
+                                $reader->eat(2);
+
+                                $offset = $reader->readUInt32BE();
+
+                                // Unknown, usually 20
+                                $reader->eat(1);
                             } else {
                             }
                         } elseif ($relLen === 18) {
