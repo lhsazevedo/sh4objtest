@@ -12,7 +12,7 @@ class CallExpectation extends AbstractExpectation
     /** @var array<int|float|string|WildcardArgument|LocalArgument> */
     public array $parameters = [];
 
-    public ?int $return = null;
+    public int|float|null $return = null;
 
     public ?\Closure $callback = null;
 
