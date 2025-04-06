@@ -809,7 +809,10 @@ class Run
         }
 
         if ($expectation->return !== null) {
-            $simulator->setRegister(0, U32::of($expectation->return & 0xffffffff));
+            match (gettype($expectation->return)) {
+                "integer" => $simulator->setRegister(0, U32::of($expectation->return & 0xffffffff)),
+                "double" => $simulator->setFloatRegister(0, $expectation->return),
+            };
         }
 
         $this->fulfilled($simulator, "Called " . $readableName . '(0x'. dechex($target) . ")");
