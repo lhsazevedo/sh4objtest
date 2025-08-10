@@ -24,7 +24,10 @@ require $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 use Lhsazevedo\Sh4ObjTest\Console\SuiteCommand;
 use Lhsazevedo\Sh4ObjTest\Console\TestCommand;
 
-$app = new Symfony\Component\Console\Application();
+$app = new Symfony\Component\Console\Application(
+    name: 'sh4objtest',
+    version: '@box_git_replacement@',
+);
 
 $app->add(new SuiteCommand());
 $app->add(new TestCommand());
