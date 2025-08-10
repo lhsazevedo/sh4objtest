@@ -284,6 +284,13 @@ class Simulator
         }
 
         switch ($opcode = $instruction & 0xf00f) {
+            // MOV.B <REG_M>, @(R0, <REG_N>)
+            case 0x0004:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("MOV.B", ["R$m", "@(R0,R$n)"]);
+                $this->writeUInt8($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]->trunc8());
+                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0]), $this->registers[$m]->trunc8());
+
             // MOV.W <REG_M>, @(R0, <REG_N>)
             case 0x0005:
                 [$n, $m] = getNM($instruction);
