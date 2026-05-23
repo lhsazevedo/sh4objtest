@@ -143,6 +143,16 @@ abstract readonly class UInt
         return new static($result);
     }
 
+    /**
+     * @param static|int $other
+     */
+    public function bxor(self|int $other): static
+    {
+        $other = $this->other($other);
+        $result = $this->value ^ $other->value;
+        return new static($result);
+    }
+
     public function shiftLeft(int $shift = 1): static
     {
         $result = $this->value << $shift;

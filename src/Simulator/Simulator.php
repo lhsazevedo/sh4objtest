@@ -403,6 +403,13 @@ class Simulator
                 $this->writeRegister($n, $this->registers[$n]->bor($this->registers[$m]));
                 return new GenericOperation($instruction, $opcode);
 
+            // XOR Rm,Rn
+            case 0x200a:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("XOR", ["R$m","R$n"]);
+                $this->writeRegister($n, $this->registers[$n]->bxor($this->registers[$m]));
+                return new GenericOperation($instruction, $opcode);
+
             // CMP/EQ <REG_M>,<REG_N>
             case 0x3000:
                 [$n, $m] = getNM($instruction);
