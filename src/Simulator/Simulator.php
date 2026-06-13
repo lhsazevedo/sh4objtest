@@ -1150,7 +1150,12 @@ class Simulator
             case 0xf02d:
                 $n = getN($instruction);
                 $this->emitDisasm("FLOAT", ["FPUL", "FR$n"]);
-                $this->writeFloatRegister($n, (float) $this->fpul);
+                // FPUL holds a signed 32-bit integer.
+                $signed = $this->fpul;
+                if ($signed >= 0x80000000) {
+                    $signed -= 0x100000000;
+                }
+                $this->writeFloatRegister($n, (float) $signed);
                 return new GenericOperation($instruction, $opcode);
 
             // FTRC <FREG_N>,FPUL
@@ -1166,6 +1171,15 @@ class Simulator
                 // if (fpscr.PR ==0)
                 $this->emitDisasm("FNEG", ["FR$n"]);
                 $this->writeFloatRegister($n, -$this->fregisters[$n]);
+                // else
+                return new GenericOperation($instruction, $opcode);
+
+            // FABS <FREG_N>
+            case 0xf05d:
+                $n = getN($instruction);
+                // if (fpscr.PR ==0)
+                $this->emitDisasm("FABS", ["FR$n"]);
+                $this->writeFloatRegister($n, abs($this->fregisters[$n]));
                 // else
                 return new GenericOperation($instruction, $opcode);
 
