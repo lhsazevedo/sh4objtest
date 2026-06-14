@@ -47,9 +47,73 @@ final class ObjectParser
     /** @var ImportSymbol[] */
     private array $imports = [];
 
+    /**
+     * Read the raw file bytes, validate magic, then join continuation chunks
+     * into logical records.
+     *
+     * @return Chunk[]
+     */
+    private function frameChunks(string $bytes): array
+    {
+        if (substr($bytes, 0, 4) !== self::MAGIC) {
+            echo "Invalid magic.\n";
+            exit;
+        }
+
+        $len = strlen($bytes);
+        $pos = 0;
+        $chunks = [];
+
+        /** @var array{type:int,data:string}|null */
+        $pending = null;
+
+        while ($pos < $len) {
+            $type   = ord($bytes[$pos]);
+            $chunkLen = ord($bytes[$pos + 1]);
+
+            if ($chunkLen < 3 || $pos + $chunkLen > $len) {
+                throw new \Exception(sprintf(
+                    "Invalid chunk length %d at offset 0x%x", $chunkLen, $pos
+                ));
+            }
+
+            $sum = 0;
+            for ($i = 0; $i < $chunkLen; $i++) {
+                $sum += ord($bytes[$pos + $i]);
+            }
+            if (($sum & 0xff) !== 0xff) {
+                throw new \Exception(sprintf(
+                    "Checksum error at offset 0x%x (type=0x%02x)", $pos, $type
+                ));
+            }
+
+            $final   = ($type & 0x80) !== 0;
+            $t       = $type & 0x7f;
+            $content = substr($bytes, $pos + 2, $chunkLen - 3);
+
+            if ($pending === null) {
+                $pending = ['type' => $t, 'data' => $content];
+            } else {
+                $pending['data'] .= $content;
+            }
+
+            if ($final) {
+                $chunks[] = new Chunk($pending['type'], $pending['data']);
+                $pending = null;
+            }
+
+            $pos += $chunkLen;
+        }
+
+        return $chunks;
+    }
+
     private function realParse(string $objectFile): ParsedObject
     {
-        // $obj = file_get_contents($objectFile);
+        $bytes = file_get_contents($objectFile);
+        if ($bytes === false) {
+            throw new \RuntimeException("Could not open file: $objectFile");
+        }
 
         /** @var ?ModuleHeader */
         $currentModule = null;
@@ -60,26 +124,8 @@ final class ObjectParser
         /** @var ?SectionHeader */
         $currentSection = null;
 
-        $reader = new BinaryReader($objectFile);
-
-        if ($reader->readBytes(4) !== self::MAGIC) {
-            echo "Invalid magic.\n";
-            exit;
-        }
-
-        $chunks = [];
-
-        $reader->seek(0x20);
-
-        while (!$reader->feof()) {
-            $chunkBase = $reader->tell();
-
-            $ukn = $reader->readUInt8();
-            $type = $reader->readUInt8();
-            $len = $reader->readUInt8();
-
-            $chunk = new Chunk($ukn, $type, $len);
-            $chunks[] = $chunk;
+        foreach ($this->frameChunks($bytes) as $chunk) {
+            $reader = new BinaryReader($chunk->data);
 
             switch ($chunk->type) {
                 case ChunkType::ModuleHeader:
@@ -108,21 +154,13 @@ final class ObjectParser
                     }
                     $currentSection = new SectionHeader($reader);
                     $currentUnit->addSection($currentSection);
+                    break;
 
                 case ChunkType::Exports:
-                    while($reader->tell() < $chunkBase + $len) {
+                    while (!$reader->feof()) {
                         $section = $reader->readUInt16BE();
                         $type = $reader->readUInt8();
                         $offset = $reader->readUInt32BE();
-
-                        // TODO: Extract to a ChunkReader or ObjectReader class
-                        if ($reader->tell() >= $chunkBase + $len) {
-                            $chunkBase = $reader->tell();
-                            $ukn = $reader->readUInt8();
-                            $type = $reader->readUInt8();
-                            $len = $reader->readUInt8();
-                        }
-
                         $name = $reader->readBytes($reader->readUInt8());
 
                         $currentUnit->sections[$section]->addExport(new ExportSymbol(
@@ -132,20 +170,8 @@ final class ObjectParser
                     break;
 
                 case ChunkType::Imports:
-                    while($reader->tell() < $chunkBase + $len) {
+                    while (!$reader->feof()) {
                         $type = $reader->readUInt8();
-
-                        // TODO: Extract to a ChunkReader or ObjectReader class
-                        // It is possible that the contents are split into multiple chunks
-                        // so we need to check if we are at the end of the current chunk.
-                        // Ideally, there should be a class that abstract this away.
-                        if ($reader->tell() >= $chunkBase + $len) {
-                            $chunkBase = $reader->tell();
-                            $ukn = $reader->readUInt8();
-                            $type = $reader->readUInt8();
-                            $len = $reader->readUInt8();
-                        }
-
                         $name = $reader->readBytes($reader->readUInt8());
 
                         $this->imports[] = new ImportSymbol($name, $type);
@@ -153,12 +179,13 @@ final class ObjectParser
                     break;
 
                 case ChunkType::ObjectData:
-                    $currentSection->addObjectData(new ObjectData($reader));
+                    while (!$reader->feof()) {
+                        $currentSection->addObjectData(new ObjectData($reader));
+                    }
                     break;
 
                 case ChunkType::Relocation:
-                    while($reader->tell() < $chunkBase + $len) {
-                        // TODO: Move to Relocation
+                    while (!$reader->feof()) {
                         $raw = $reader->peekBytes(14);
 
                         $flags = $reader->readUInt8();
@@ -177,10 +204,8 @@ final class ObjectParser
                         $opcode = $reader->readUInt8();
                         $addendLen = $reader->readUInt8();
 
-                        // Probably should not be determined by relocation data length
                         $relLen = $reader->readUInt8();
                         $raw .= $reader->peekBytes($relLen);
-                        //xdump($raw);
                         $importIndex = null;
                         $name = null;
                         $offset = null;
@@ -251,9 +276,6 @@ final class ObjectParser
                                     throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
                                 }
 
-                                // TODO: Fix this code flow, probably by adding
-                                // classes for different kinds of relocation
-                                // TODO: 
                                 $currentSection->addLocalRelocationLong(new LocalRelocationLong(
                                     $sectionIndex,
                                     $address,
@@ -335,10 +357,7 @@ final class ObjectParser
                             $opcode,
                             $addendLen,
                             $relLen,
-                            //$ukn1,
-                            //$ukn2,
                             $importIndex,
-                            //$ukn3,
                             $name,
                             $offset,
                         );
@@ -357,18 +376,8 @@ final class ObjectParser
                     break 2;
 
                 default:
-                    if (($type & 0x7f) === 0x07) {
-                        // TODO: Negotiation number
-                        break;
-                    }
-
-                    // echo "WARN: Unknown chunk type " . dechex($type) . "\n";
-                    // xdump($reader->readBytes($len - 3));
-                    //throw new \Exception("Unknown chunk type " . dechex($type), 1);
                     break;
             }
-
-            $reader->seek($chunkBase + $len);
         }
 
         return new ParsedObject($this->modules[0]->units[0]);

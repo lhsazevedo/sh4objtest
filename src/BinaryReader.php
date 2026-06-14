@@ -6,111 +6,106 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 class BinaryReader
 {
-    /** @var resource */
-    private $handle;
+    private int $pos = 0;
 
-    public function __construct(string $file)
+    public function __construct(private string $data)
     {
-        $fh = @fopen($file, "r+");
-        if ($fh === false) {
-            throw new \RuntimeException("Could not open file: $file");
-        }
+    }
 
-        $this->handle = $fh;
+    public static function fromFile(string $path): self
+    {
+        $data = file_get_contents($path);
+        if ($data === false) {
+            throw new \RuntimeException("Could not open file: $path");
+        }
+        return new self($data);
     }
 
     public function readUInt8(): int
     {
-        $data = fread($this->handle, 1);
-        $unpacked = unpack("C", $data);
-        return $unpacked[1];
+        return unpack('C', $this->data[$this->pos++])[1];
     }
 
     public function readUInt16(): int
     {
-        $data = fread($this->handle, 2);
-        $unpacked = unpack("v", $data);
-        return $unpacked[1];
+        $v = unpack('v', substr($this->data, $this->pos, 2))[1];
+        $this->pos += 2;
+        return $v;
     }
 
     public function readUInt16BE(): int
     {
-        $data = fread($this->handle, 2);
-        $unpacked = unpack("n", $data);
-        return $unpacked[1];
+        $v = unpack('n', substr($this->data, $this->pos, 2))[1];
+        $this->pos += 2;
+        return $v;
     }
 
     public function readUInt32(): int
     {
-        $data = fread($this->handle, 4);
-        $unpacked = unpack("V", $data);
-        return $unpacked[1];
+        $v = unpack('V', substr($this->data, $this->pos, 4))[1];
+        $this->pos += 4;
+        return $v;
     }
 
     public function readUInt32BE(): int
     {
-        $data = fread($this->handle, 4);
-        $unpacked = unpack("N", $data);
-        return $unpacked[1];
+        $v = unpack('N', substr($this->data, $this->pos, 4))[1];
+        $this->pos += 4;
+        return $v;
     }
 
     public function readInt8(): int
     {
-        $data = fread($this->handle, 1);
-        $unpacked = unpack("c", $data);
-        return $unpacked[1];
+        $v = unpack('c', $this->data[$this->pos])[1];
+        $this->pos++;
+        return $v;
     }
 
     public function readBytes(int $bytes): string
     {
-        $data = fread($this->handle, $bytes);
-        return $data;
+        $v = substr($this->data, $this->pos, $bytes);
+        $this->pos += $bytes;
+        return $v;
     }
 
     public function readFloat(): float
     {
-        $data = fread($this->handle, 4);
-        $unpacked = unpack("f", $data);
-        return $unpacked[1];
+        $v = unpack('f', substr($this->data, $this->pos, 4))[1];
+        $this->pos += 4;
+        return $v;
     }
 
     public function readDouble(): float
     {
-        $data = fread($this->handle, 8);
-        $unpacked = unpack("d", $data);
-        return $unpacked[1];
+        $v = unpack('d', substr($this->data, $this->pos, 8))[1];
+        $this->pos += 8;
+        return $v;
     }
 
-    public function eat(int $bytes): string|false
+    public function eat(int $bytes): string
     {
-        return fread($this->handle, $bytes);
+        $v = substr($this->data, $this->pos, $bytes);
+        $this->pos += $bytes;
+        return $v;
     }
 
-    public function peekBytes(int $bytes): string|false
+    public function peekBytes(int $bytes): string
     {
-        $pos = $this->tell();
-        $bytes = $this->readBytes($bytes);
-        $this->seek($pos);
-        return $bytes;
+        return substr($this->data, $this->pos, $bytes);
     }
 
-    public function tell(): int|false
+    public function tell(): int
     {
-        return ftell($this->handle);
+        return $this->pos;
     }
 
-    public function seek(int $offset): int
+    public function seek(int $offset): void
     {
-        return fseek($this->handle, $offset);
+        $this->pos = $offset;
     }
 
     public function feof(): bool
     {
-        return feof($this->handle);
-    }
-
-    public function __destruct()
-    {
-        fclose($this->handle);
+        return $this->pos >= strlen($this->data);
     }
 }

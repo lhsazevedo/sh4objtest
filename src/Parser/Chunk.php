@@ -4,17 +4,11 @@ namespace Lhsazevedo\Sh4ObjTest\Parser;
 
 class Chunk {
     public ChunkType $type;
-    public bool $continuation;
 
     public function __construct(
-        public int $ukn,
         int $type,
-        public int $len
+        public string $data,
     ) {
-        $this->continuation = ($type & 0x80) === 1;
-
-        // TODO: Use chunk classes
-
         $this->type = match ($type & 0x7f) {
             0x04 => ChunkType::ModuleHeader,
             0x06 => ChunkType::UnitHeader,
