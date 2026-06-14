@@ -19,6 +19,7 @@ class Chunk {
             0x1a => ChunkType::SectionSelection,
             0x1c => ChunkType::ObjectData,
             0x20 => ChunkType::Relocation,
+            0x38 => ChunkType::DebugLines,
             0x7f => ChunkType::Termination,
             default => ChunkType::Unknown,
         };

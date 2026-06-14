@@ -21,6 +21,7 @@ if ($limit && $limit < $desired) {
 
 require $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 
+use Lhsazevedo\Sh4ObjTest\Console\InspectCommand;
 use Lhsazevedo\Sh4ObjTest\Console\SuiteCommand;
 use Lhsazevedo\Sh4ObjTest\Console\TestCommand;
 
@@ -31,6 +32,7 @@ $app = new Symfony\Component\Console\Application(
 
 $app->add(new SuiteCommand());
 $app->add(new TestCommand());
+$app->add(new InspectCommand());
 
 $app->setDefaultCommand('suite');
 

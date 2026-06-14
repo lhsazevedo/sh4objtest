@@ -31,6 +31,13 @@ readonly class ObjectResult {
     public function getCoverage(ParsedObject $object): float {
         return $this->coverage->getCoverage($object);
     }
+
+    /**
+     * @return array<int, array{covered: int, total: int, uncoveredLines: int[]}>
+     */
+    public function getReport(ParsedObject $object): array {
+        return $this->coverage->getReport($object);
+    }
 }
 
 class Runner
@@ -160,45 +167,66 @@ class Runner
         }
 
         if ($this->shouldTrackCoverage) {
-            $this->output->writeln("Processing coverage:");
-            $table = new Table($this->output);
-            $table->setHeaders(['Object', 'Coverage']);
-            foreach ($objectResults as $objectPath => $objectResults) {
-                // $coverage = new CoverageTracker();
-                // $coverage->merge($objectResults->coverage);
-                // CONTINUE: Need to pass object here but object is only available inside runFile...
+            $this->output->writeln('');
+            $this->output->writeln('<info>Coverage:</info>');
+            foreach ($objectResults as $objectPath => $objResult) {
                 $parsedObject = ObjectParser::parse($objectPath);
-                $table->addRow([
-                    $objectPath,
-                    new TableCell(
-                        sprintf("%.2f%%", $objectResults->getCoverage($parsedObject) * 100),
-                        [
-                            'style' => new TableCellStyle(['align' => 'right']),
-                        ]
-                    ),
-                ]);
-            }
-            $table->render();
+                $report = $objResult->getReport($parsedObject);
 
-            // foreach ($fileResults as $object => $testCaseResult) {
-            //     $this->output->writeln("{$object}:");
-            //     $table2 = new Table($this->output);
-            //     $table2->setHeaders(['Address', 'R', 'W', 'X']);
-            //     $report = $testCaseResult->coverage->getReport($parsedObject);
-            //     foreach ($report as $address => $accesses) {
-            //         $table2->addRow([
-            //             sprintf("0x%08x", $address),
-            //             $accesses[0] ? 'X' : ' ',
-            //             $accesses[1] ? 'X' : ' ',
-            //             $accesses[2] ? 'X' : ' ',
-            //         ]);
-            //     }
-            //     $table2->render();
-            // }
+                $this->output->writeln("  <comment>{$objectPath}</comment>");
+
+                if (empty($report)) {
+                    $this->output->writeln('    (no debug line info)');
+                    continue;
+                }
+
+                foreach ($report as $fileNumber => $fileData) {
+                    $pct = $fileData['total'] === 0
+                        ? 100.0
+                        : $fileData['covered'] / $fileData['total'] * 100;
+
+                    $suffix = '';
+                    if (!empty($fileData['uncoveredLines'])) {
+                        sort($fileData['uncoveredLines']);
+                        $suffix = ' [uncovered: ' . $this->formatLineRanges($fileData['uncoveredLines']) . ']';
+                    }
+
+                    $this->output->writeln(sprintf(
+                        '    file %d: %.2f%%%s',
+                        $fileNumber,
+                        $pct,
+                        $suffix,
+                    ));
+                }
+            }
         }
 
         // TODO: Return failure as well
         return true;
+    }
+
+    /** @param int[] $lines sorted ascending */
+    private function formatLineRanges(array $lines): string
+    {
+        $ranges = [];
+        $start = $end = null;
+
+        foreach ($lines as $line) {
+            if ($start === null) {
+                $start = $end = $line;
+            } elseif ($line === $end + 1) {
+                $end = $line;
+            } else {
+                $ranges[] = $start === $end ? (string)$start : "{$start}-{$end}";
+                $start = $end = $line;
+            }
+        }
+
+        if ($start !== null) {
+            $ranges[] = $start === $end ? (string)$start : "{$start}-{$end}";
+        }
+
+        return implode(', ', $ranges);
     }
 
     protected function linkObject(ParsedObject $object): string {

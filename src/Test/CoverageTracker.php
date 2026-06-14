@@ -5,76 +5,33 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
-use ParseError;
 
 class CoverageTracker
 {
     /** @var int[] */
-    private array $readAddresses = [];
-
-    /** @var int[] */
-    private array $writeAddresses = [];
-
-    /** @var int[] */
     private array $executeAddresses = [];
 
-    public function logRead(int $address, int $size): void
-    {
-        for ($i = 0; $i < $size; $i++) { 
-            $byteAddress = $address + $i;
-            if (in_array($byteAddress, $this->readAddresses)) {
-                continue;
-            }
+    public function logRead(int $address, int $size): void {}
 
-            $this->readAddresses[] = $address + $i;
-        }
-    }
-
-    public function logWrite(int $address, int $size): void
-    {
-        for ($i = 0; $i < $size; $i++) { 
-            $byteAddress = $address + $i;
-            if (in_array($byteAddress, $this->writeAddresses)) {
-                continue;
-            }
-
-            $this->writeAddresses[] = $address + $i;
-        }
-    }
+    public function logWrite(int $address, int $size): void {}
 
     public function logExecute(int $address, int $size): void
     {
-        for ($i = 0; $i < $size; $i++) { 
+        for ($i = 0; $i < $size; $i++) {
             $byteAddress = $address + $i;
-            if (in_array($byteAddress, $this->executeAddresses)) {
-                continue;
+            if (!in_array($byteAddress, $this->executeAddresses)) {
+                $this->executeAddresses[] = $byteAddress;
             }
-
-            $this->executeAddresses[] = $address + $i;
         }
     }
 
-    public function merge(CoverageTracker $coverageTracker): void
+    public function merge(CoverageTracker $other): void
     {
-        $this->readAddresses = array_merge($this->readAddresses, $coverageTracker->getReadAddresses());
-        $this->writeAddresses = array_merge($this->writeAddresses, $coverageTracker->getWriteAddresses());
-        $this->executeAddresses = array_merge($this->executeAddresses, $coverageTracker->getExecuteAddresses());
-    }
-
-    /**
-     * @return int[]
-     */
-    public function getReadAddresses(): array
-    {
-        return $this->readAddresses;
-    }
-
-    /**
-     * @return int[]
-     */
-    public function getWriteAddresses(): array
-    {
-        return $this->writeAddresses;
+        foreach ($other->executeAddresses as $addr) {
+            if (!in_array($addr, $this->executeAddresses)) {
+                $this->executeAddresses[] = $addr;
+            }
+        }
     }
 
     /**
@@ -87,56 +44,80 @@ class CoverageTracker
 
     public function getCoverage(ParsedObject $object): float
     {
-        $linkedReadAddresses = [];
-        $linkedWriteAddresses = [];
-        $linkedExecuteAddresses = [];
+        [$covered, $total] = $this->countLines($object);
 
-        $totalBytes = 0;
-        foreach ($object->unit->sections as $section) {
-            for ($i = 0; $i < $section->length; $i++) { 
-                $totalBytes++;
-                $currentAddress = $section->address + $i;
-                if (in_array($currentAddress, $this->readAddresses)) {
-                    $linkedReadAddresses[] = $currentAddress;
-                }
-                if (in_array($currentAddress, $this->writeAddresses)) {
-                    $linkedWriteAddresses[] = $currentAddress;
-                }
-                if (in_array($currentAddress, $this->executeAddresses)) {
-                    $linkedExecuteAddresses[] = $currentAddress;
-                }
-            }
-        }
-
-        $totalAccessedAddresses = count(array_unique(
-            array_merge($linkedReadAddresses, $linkedWriteAddresses, $linkedExecuteAddresses)
-        ));
-        $totalReadAddresses = count(array_unique($this->readAddresses));
-        $totalWriteAddresses = count(array_unique($this->writeAddresses));
-        $totalExecuteAddresses = count(array_unique($this->executeAddresses));
-
-        return $totalAccessedAddresses / $totalBytes;
+        return $total === 0 ? 0.0 : $covered / $total;
     }
 
     /**
-     * @return array<int, array{0: bool, 1: bool, 2: bool}>
+     * Returns per-file coverage data.
+     *
+     * @return array<int, array{covered: int, total: int, uncoveredLines: int[]}>
      */
     public function getReport(ParsedObject $parsedObject): array
     {
-        /** @var array<int, array{0: bool, 1: bool, 2: bool}> */
         $report = [];
 
-        foreach ($parsedObject->unit->sections as $section) {
-            for ($i = 0; $i < $section->length; $i++) { 
-                $currentAddress = $section->address + $i;
-                $read = in_array($currentAddress, $this->readAddresses);
-                $write = in_array($currentAddress, $this->writeAddresses);
-                $execute = in_array($currentAddress, $this->executeAddresses);
+        foreach ($parsedObject->unit->debugLines as $line) {
+            if ($line->lineNumber === 0 || $line->toAddress <= $line->fromAddress) {
+                continue;
+            }
 
-                $report[$currentAddress] = [$read, $write, $execute];
+            $fn = $line->fileNumber;
+            if (!isset($report[$fn])) {
+                $report[$fn] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => []];
+            }
+
+            $report[$fn]['total']++;
+
+            if ($this->isLineCovered($parsedObject, $line)) {
+                $report[$fn]['covered']++;
+            } else {
+                $report[$fn]['uncoveredLines'][] = $line->lineNumber;
             }
         }
 
         return $report;
+    }
+
+    private function isLineCovered(ParsedObject $object, \Lhsazevedo\Sh4ObjTest\Parser\DebugLine $line): bool
+    {
+        $section = $object->unit->sections[$line->sectionNumber] ?? null;
+        if ($section === null) {
+            return false;
+        }
+
+        $base = $section->linkedAddress ?? $section->address;
+        $from = $base + $line->fromAddress;
+        $to   = $base + $line->toAddress;
+
+        foreach ($this->executeAddresses as $addr) {
+            if ($addr >= $from && $addr < $to) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return array{int, int} [covered, total] */
+    private function countLines(ParsedObject $object): array
+    {
+        $covered = 0;
+        $total   = 0;
+
+        foreach ($object->unit->debugLines as $line) {
+            if ($line->lineNumber === 0 || $line->toAddress <= $line->fromAddress) {
+                continue;
+            }
+
+            $total++;
+
+            if ($this->isLineCovered($object, $line)) {
+                $covered++;
+            }
+        }
+
+        return [$covered, $total];
     }
 }

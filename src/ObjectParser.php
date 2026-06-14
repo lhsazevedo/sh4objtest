@@ -15,6 +15,7 @@ use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
 use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\ImportSymbol;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugLine;
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 
 function hexpad(string $hex, int $len): string
@@ -372,10 +373,44 @@ final class ObjectParser
                     $currentSection = $this->modules[0]->units[$unitIndex]->sections[$sectionIndex];
                     break;
 
+                case ChunkType::DebugLines:
+                    $nLines = $reader->readUInt16BE();
+                    for ($li = 0; $li < $nLines; $li++) {
+                        $fileNumber    = $reader->readUInt16BE();
+                        $lineNumber    = $reader->readUInt16BE();
+                        $sectionNumber = $reader->readUInt16BE();
+                        $fromAddress   = $reader->readUInt32BE();
+                        $toAddress     = $reader->readUInt32BE();
+                        $callCount     = $reader->readUInt16BE();
+
+                        // Each call emitted on this source line is followed by a
+                        // 4-byte call-site address. These trailing entries are
+                        // part of the record and must be consumed, otherwise the
+                        // stream desyncs for every subsequent debug line.
+                        $callSites = [];
+                        for ($ci = 0; $ci < $callCount; $ci++) {
+                            $callSites[] = $reader->readUInt32BE();
+                        }
+
+                        $currentUnit->addDebugLine(new DebugLine(
+                            fileNumber:    $fileNumber,
+                            lineNumber:    $lineNumber,
+                            sectionNumber: $sectionNumber,
+                            fromAddress:   $fromAddress,
+                            toAddress:     $toAddress,
+                            callCount:     $callCount,
+                            callSites:     $callSites,
+                        ));
+                    }
+                    break;
+
                 case ChunkType::Termination:
                     break 2;
 
                 default:
+                    //echo "WARN: Unknown chunk type " . dechex($type) . "\n";
+                    //xdump($reader->readBytes($len - 3));
+                    //throw new \Exception("Unknown chunk type " . dechex($type), 1);
                     break;
             }
         }

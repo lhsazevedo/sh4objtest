@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
 use Lhsazevedo\Sh4ObjTest\BinaryReader;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugLine;
 
 class UnitHeader extends Base
 {
@@ -25,6 +26,9 @@ class UnitHeader extends Base
     /** @var SectionHeader[] */
     public array $sections;
 
+    /** @var DebugLine[] */
+    public array $debugLines = [];
+
     public function __construct(BinaryReader $reader)
     {
         $this->format = $reader->readUInt8() & 3;
@@ -43,6 +47,11 @@ class UnitHeader extends Base
     public function addSection(SectionHeader $section): void
     {
         $this->sections[] = $section;
+    }
+
+    public function addDebugLine(DebugLine $line): void
+    {
+        $this->debugLines[] = $line;
     }
 
     public function findExportedSymbol(string $name): ?ExportSymbol

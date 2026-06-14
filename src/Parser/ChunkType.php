@@ -14,6 +14,7 @@ enum ChunkType {
     case SectionSelection;
     case ObjectData;
     case Relocation;
+    case DebugLines;
     case Termination;
     case Unknown;
 }
