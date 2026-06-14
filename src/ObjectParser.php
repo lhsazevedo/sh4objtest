@@ -412,6 +412,14 @@ final class ObjectParser
                             callSites:     $callSites,
                         ));
                     }
+
+                    // The record list is followed by a fixed 2-byte footer,
+                    // consistently 0x10 0x01 across observed objects. Consume and
+                    // assert it so we notice if the assumption ever breaks.
+                    $footer = $reader->readUInt16BE();
+                    if ($footer !== 0x1001) {
+                        printf("WARN: Unexpected DebugLines footer 0x%04x\n", $footer);
+                    }
                     break;
 
                 case ChunkType::Termination:
