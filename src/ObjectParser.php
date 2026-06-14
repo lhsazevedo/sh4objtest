@@ -418,14 +418,20 @@ final class ObjectParser
                     break 2;
 
                 default:
-                    // Unknown/unhandled chunk types are skipped. Chunk::$offset
-                    // carries the file offset for diagnostics if needed. Warn
-                    // once per distinct type to avoid flooding the output.
+                    // Unknown/unhandled chunk types are skipped.
+                    $reader->eatRest();
                     if (!isset($warnedTypes[$chunk->rawType])) {
                         $warnedTypes[$chunk->rawType] = true;
                         printf("WARN: Skipping chunk type 0x%02x\n", $chunk->rawType);
                     }
                     break;
+            }
+
+            if (!$reader->feof()) {
+                printf(
+                    "WARN: Chunk %s left %d unconsumed byte(s) at file offset 0x%x\n",
+                    $chunk->type->name, $reader->remaining(), $chunk->offset
+                );
             }
         }
 

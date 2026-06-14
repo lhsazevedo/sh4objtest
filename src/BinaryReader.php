@@ -108,4 +108,14 @@ class BinaryReader
     {
         return $this->pos >= strlen($this->data);
     }
+
+    public function remaining(): int
+    {
+        return max(0, strlen($this->data) - $this->pos);
+    }
+
+    public function eatRest(): string
+    {
+        return $this->eat($this->remaining());
+    }
 }
