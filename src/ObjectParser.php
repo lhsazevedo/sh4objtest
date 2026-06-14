@@ -6,6 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Parser\Chunk;
 use Lhsazevedo\Sh4ObjTest\Parser\ChunkType;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\FileHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ModuleHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\UnitHeader;
@@ -42,6 +43,8 @@ final class ObjectParser
 {
     private const MAGIC = "\x80\x21\x00\x80";
 
+    private ?FileHeader $fileHeader = null;
+
     /** @var ModuleHeader[] */
     private array $modules = [];
 
@@ -65,7 +68,7 @@ final class ObjectParser
         $pos = 0;
         $chunks = [];
 
-        /** @var array{type:int,data:string}|null */
+        /** @var array{type:int,data:string,offset:int}|null */
         $pending = null;
 
         while ($pos < $len) {
@@ -93,13 +96,13 @@ final class ObjectParser
             $content = substr($bytes, $pos + 2, $chunkLen - 3);
 
             if ($pending === null) {
-                $pending = ['type' => $t, 'data' => $content];
+                $pending = ['type' => $t, 'data' => $content, 'offset' => $pos];
             } else {
                 $pending['data'] .= $content;
             }
 
             if ($final) {
-                $chunks[] = new Chunk($pending['type'], $pending['data']);
+                $chunks[] = new Chunk($pending['type'], $pending['data'], $pending['offset']);
                 $pending = null;
             }
 
@@ -125,10 +128,17 @@ final class ObjectParser
         /** @var ?SectionHeader */
         $currentSection = null;
 
+        /** @var array<int,true> Skipped chunk types already warned about */
+        $warnedTypes = [];
+
         foreach ($this->frameChunks($bytes) as $chunk) {
             $reader = new BinaryReader($chunk->data);
 
             switch ($chunk->type) {
+                case ChunkType::FileHeader:
+                    $this->fileHeader = new FileHeader($reader);
+                    break;
+
                 case ChunkType::ModuleHeader:
                     if ($currentModule) {
                         throw new \Exception("Multiple modules are unsupported at the moment", 1);
@@ -408,14 +418,18 @@ final class ObjectParser
                     break 2;
 
                 default:
-                    //echo "WARN: Unknown chunk type " . dechex($type) . "\n";
-                    //xdump($reader->readBytes($len - 3));
-                    //throw new \Exception("Unknown chunk type " . dechex($type), 1);
+                    // Unknown/unhandled chunk types are skipped. Chunk::$offset
+                    // carries the file offset for diagnostics if needed. Warn
+                    // once per distinct type to avoid flooding the output.
+                    if (!isset($warnedTypes[$chunk->rawType])) {
+                        $warnedTypes[$chunk->rawType] = true;
+                        printf("WARN: Skipping chunk type 0x%02x\n", $chunk->rawType);
+                    }
                     break;
             }
         }
 
-        return new ParsedObject($this->modules[0]->units[0]);
+        return new ParsedObject($this->modules[0]->units[0], $this->fileHeader);
     }
 
     public static function parse(string $objectFile): ParsedObject

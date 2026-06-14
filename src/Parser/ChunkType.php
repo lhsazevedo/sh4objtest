@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Parser;
 
 enum ChunkType: int {
+    case FileHeader      = 0x00;
     case ModuleHeader    = 0x04;
     case UnitHeader      = 0x06;
     case UnitDebug       = 0x07;
