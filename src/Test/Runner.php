@@ -191,9 +191,12 @@ class Runner
                         $suffix = ' [uncovered: ' . $this->formatLineRanges($fileData['uncoveredLines']) . ']';
                     }
 
+                    $path = $parsedObject->unit->sourceFiles[$fileNumber] ?? null;
+                    $name = $path !== null ? basename($path) : "file $fileNumber";
+
                     $this->output->writeln(sprintf(
-                        '    file %d: %.2f%%%s',
-                        $fileNumber,
+                        '    %s: %.2f%%%s',
+                        $name,
                         $pct,
                         $suffix,
                     ));

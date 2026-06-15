@@ -63,6 +63,10 @@ class CoverageTracker
                 continue;
             }
 
+            if (!$this->isInScope($parsedObject, $line)) {
+                continue;
+            }
+
             $fn = $line->fileNumber;
             if (!isset($report[$fn])) {
                 $report[$fn] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => []];
@@ -78,6 +82,21 @@ class CoverageTracker
         }
 
         return $report;
+    }
+
+    /**
+     * Whether a debug line counts toward coverage. When the object has a
+     * source-file table, scope coverage to the main compiled file (file 0) so
+     * #included header lines don't dilute a function's coverage. Objects with
+     * no table (empty sourceFiles) keep all lines in scope.
+     */
+    private function isInScope(ParsedObject $object, \Lhsazevedo\Sh4ObjTest\Parser\DebugLine $line): bool
+    {
+        if ($object->unit->sourceFiles === []) {
+            return true;
+        }
+
+        return $line->fileNumber === 0;
     }
 
     private function isLineCovered(ParsedObject $object, \Lhsazevedo\Sh4ObjTest\Parser\DebugLine $line): bool
@@ -108,6 +127,10 @@ class CoverageTracker
 
         foreach ($object->unit->debugLines as $line) {
             if ($line->lineNumber === 0 || $line->toAddress <= $line->fromAddress) {
+                continue;
+            }
+
+            if (!$this->isInScope($object, $line)) {
                 continue;
             }
 

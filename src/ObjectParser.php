@@ -442,11 +442,17 @@ final class ObjectParser
                         }
                     }
 
-                    // Trailing directory table. We don't surface directory names
-                    // yet, but must consume them to fully account for the chunk.
-                    $nDirs = $reader->readUInt16BE();
-                    for ($di = 0; $di < $nDirs; $di++) {
-                        $reader->readBytes($reader->readUInt8());
+                    // Optional trailing directory table. Compiler-produced "dus"
+                    // chunks end with a 2-byte directory count (0 when unused),
+                    // but assembler-produced ones (e.g. *_src.obj) omit it
+                    // entirely and the chunk ends right after the last path. Only
+                    // read the table when bytes remain; the leftover-bytes check
+                    // below still flags any layout we didn't fully account for.
+                    if ($reader->remaining() >= 2) {
+                        $nDirs = $reader->readUInt16BE();
+                        for ($di = 0; $di < $nDirs; $di++) {
+                            $reader->readBytes($reader->readUInt8());
+                        }
                     }
                     break;
 
