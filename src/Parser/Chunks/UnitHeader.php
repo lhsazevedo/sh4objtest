@@ -6,6 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
 use Lhsazevedo\Sh4ObjTest\BinaryReader;
 use Lhsazevedo\Sh4ObjTest\Parser\DebugLine;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugSymbol;
 
 class UnitHeader extends Base
 {
@@ -28,6 +29,17 @@ class UnitHeader extends Base
 
     /** @var DebugLine[] */
     public array $debugLines = [];
+
+    /** @var DebugSymbol[] */
+    public array $debugSymbols = [];
+
+    /**
+     * Source/include file paths indexed by debug file number. Index 0 is the
+     * main compiled file; the rest are #included headers.
+     *
+     * @var string[]
+     */
+    public array $sourceFiles = [];
 
     public function __construct(BinaryReader $reader)
     {
@@ -52,6 +64,22 @@ class UnitHeader extends Base
     public function addDebugLine(DebugLine $line): void
     {
         $this->debugLines[] = $line;
+    }
+
+    public function addDebugSymbol(DebugSymbol $symbol): void
+    {
+        $this->debugSymbols[] = $symbol;
+    }
+
+    public function addSourceFile(string $path): void
+    {
+        $this->sourceFiles[] = $path;
+    }
+
+    /** The main compiled source file (debug file number 0), if known. */
+    public function mainSourceFile(): ?string
+    {
+        return $this->sourceFiles[0] ?? null;
     }
 
     public function findExportedSymbol(string $name): ?ExportSymbol

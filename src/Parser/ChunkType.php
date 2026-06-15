@@ -15,6 +15,9 @@ enum ChunkType: int {
     case SectionSelection = 0x1a;
     case ObjectData      = 0x1c;
     case Relocation      = 0x20;
+    case DebugSymbol     = 0x34;
     case DebugLines      = 0x38;
+    // "dus" (debug unit sub-info): the unit's source/include file table.
+    case DebugSourceFiles = 0x40;
     case Termination     = 0x7f;
 }

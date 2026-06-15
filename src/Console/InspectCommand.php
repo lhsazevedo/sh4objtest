@@ -143,6 +143,42 @@ class InspectCommand extends Command
             $output->writeln('');
         }
 
+        if ($unit->sourceFiles) {
+            $output->writeln('<info>Source files:</info>');
+            foreach ($unit->sourceFiles as $i => $path) {
+                $output->writeln(sprintf('  %-3d %s%s', $i, $path, $i === 0 ? '  <comment>(main)</comment>' : ''));
+            }
+            $output->writeln('');
+        }
+
+        if ($unit->debugSymbols) {
+            // Only symbols defined in the main file are interesting here;
+            // everything from #included headers is noise for our purposes.
+            $mainSymbols = array_filter($unit->debugSymbols, fn($sym) => $sym->fileNumber === 0);
+            $hidden = count($unit->debugSymbols) - count($mainSymbols);
+
+            $output->writeln('<info>Debug symbols (main file):</info>');
+            $output->writeln(sprintf('  %-12s %-32s %-8s %-8s %s', 'type', 'name', 'section', 'address', 'storage'));
+            foreach ($mainSymbols as $sym) {
+                $typeName = $sym->type !== null ? $sym->type->name : "raw({$sym->rawType})";
+                $storage = $sym->register
+                    ?? $sym->externalName
+                    ?? ($sym->ainfo !== null ? "ainfo {$sym->ainfo}" : '');
+                $output->writeln(sprintf(
+                    '  %-12s %-32s %-8s %-8s %s',
+                    $typeName,
+                    $sym->name,
+                    $sym->section !== null ? (string) $sym->section : '-',
+                    $sym->address !== null ? sprintf('0x%x', $sym->address) : '-',
+                    $storage,
+                ));
+            }
+            if ($hidden > 0) {
+                $output->writeln(sprintf('  <comment>(%d symbols from included files hidden)</comment>', $hidden));
+            }
+            $output->writeln('');
+        }
+
         return Command::SUCCESS;
     }
 

@@ -17,6 +17,7 @@ use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\ImportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\DebugLine;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 
 function hexpad(string $hex, int $len): string
@@ -419,6 +420,33 @@ final class ObjectParser
                     $footer = $reader->readUInt16BE();
                     if ($footer !== 0x1001) {
                         printf("WARN: Unexpected DebugLines footer 0x%04x\n", $footer);
+                    }
+                    break;
+
+                case ChunkType::DebugSymbol:
+                    $currentUnit->addDebugSymbol(new DebugSymbol($reader));
+                    break;
+
+                case ChunkType::DebugSourceFiles:
+                    // "dus": negotiation number, then the source/include file
+                    // table. Each entry is a drb/spare flag byte followed by a
+                    // length-prefixed path; when the directory-reference bit is
+                    // set it also carries a 2-byte directory appearance number.
+                    $reader->readUInt16BE(); // negotiation number (efn)
+                    $nFiles = $reader->readUInt16BE();
+                    for ($fi = 0; $fi < $nFiles; $fi++) {
+                        $drb = ($reader->readUInt8() >> 7) & 1;
+                        $currentUnit->addSourceFile($reader->readBytes($reader->readUInt8()));
+                        if ($drb) {
+                            $reader->readUInt16BE(); // directory appearance number
+                        }
+                    }
+
+                    // Trailing directory table. We don't surface directory names
+                    // yet, but must consume them to fully account for the chunk.
+                    $nDirs = $reader->readUInt16BE();
+                    for ($di = 0; $di < $nDirs; $di++) {
+                        $reader->readBytes($reader->readUInt8());
                     }
                     break;
 
