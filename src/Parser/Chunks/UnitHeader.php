@@ -44,16 +44,20 @@ class UnitHeader extends Base
     public function __construct(BinaryReader $reader)
     {
         $this->format = $reader->readUInt8() & 3;
-        $this->nSections = $reader->readUInt16();
-        $this->nExtRefs = $reader->readUInt16();
-        $this->nExtDefs = $reader->readUInt16();
+        $this->nSections = $reader->readUInt16BE();
+        $this->nExtRefs = $reader->readUInt16BE();
+        $this->nExtDefs = $reader->readUInt16BE();
         $this->unitName = $reader->readBytes($reader->readUInt8());
         $this->toolName = $reader->readBytes($reader->readUInt8());
         $this->toolDate = $reader->readBytes(12);
 
-        // TODO
-        //linkerName = $reader->readBytes($reader->readUInt8());
-        //linkerDate = $reader->readBytes(12);
+        // Assembler ("A_SH") objects carry a single trailing zero byte here
+        // that compiler objects lack. Purpose unknown; consume it and warn if
+        // it is ever longer than one byte or non-zero.
+        $trailing = $reader->eatRest();
+        if (strlen($trailing) > 1 || ltrim($trailing, "\x00") !== '') {
+            printf("WARN: Unexpected UnitHeader trailing bytes: %s\n", bin2hex($trailing));
+        }
     }
 
     public function addSection(SectionHeader $section): void
@@ -74,12 +78,6 @@ class UnitHeader extends Base
     public function addSourceFile(string $path): void
     {
         $this->sourceFiles[] = $path;
-    }
-
-    /** The main compiled source file (debug file number 0), if known. */
-    public function mainSourceFile(): ?string
-    {
-        return $this->sourceFiles[0] ?? null;
     }
 
     public function findExportedSymbol(string $name): ?ExportSymbol

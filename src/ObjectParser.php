@@ -6,7 +6,6 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Parser\Chunk;
 use Lhsazevedo\Sh4ObjTest\Parser\ChunkType;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\FileHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ModuleHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\UnitHeader;
@@ -43,8 +42,6 @@ function xdump(string $data): void
 final class ObjectParser
 {
     private const MAGIC = "\x80\x21\x00\x80";
-
-    private ?FileHeader $fileHeader = null;
 
     /** @var ModuleHeader[] */
     private array $modules = [];
@@ -137,12 +134,13 @@ final class ObjectParser
 
             switch ($chunk->type) {
                 case ChunkType::FileHeader:
-                    $this->fileHeader = new FileHeader($reader);
+                    // Opaque header
+                    $reader->eatRest();
                     break;
 
                 case ChunkType::ModuleHeader:
                     if ($currentModule) {
-                        throw new \Exception("Multiple modules are unsupported at the moment", 1);
+                        throw new \Exception("Multiple modules are unsupported", 1);
                     }
 
                     $currentModule = new ModuleHeader($reader);
@@ -151,7 +149,7 @@ final class ObjectParser
 
                 case ChunkType::UnitHeader:
                     if ($currentUnit) {
-                        throw new \Exception("Multiple units are unsupported at the moment", 1);
+                        throw new \Exception("Multiple units are unsupported", 1);
                     }
                     if (!$currentModule) {
                         throw new \Exception("Invalid SysRof: Unit without module", 1);
@@ -478,7 +476,7 @@ final class ObjectParser
 
         ksort($skippedChunkTypes);
 
-        return new ParsedObject($this->modules[0]->units[0], $this->fileHeader, $skippedChunkTypes);
+        return new ParsedObject($this->modules[0]->units[0], $skippedChunkTypes);
     }
 
     public static function parse(string $objectFile): ParsedObject

@@ -11,9 +11,6 @@ use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
 use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\TestCase;
-use Symfony\Component\Console\Helper\Table;
-use Symfony\Component\Console\Helper\TableCell;
-use Symfony\Component\Console\Helper\TableCellStyle;
 
 readonly class ObjectResult {
     private CoverageTracker $coverage;
@@ -26,10 +23,6 @@ readonly class ObjectResult {
 
     public function mergeCoverage(CoverageTracker $coverage): void {
         $this->coverage->merge($coverage);
-    }
-
-    public function getCoverage(ParsedObject $object): float {
-        return $this->coverage->getCoverage($object);
     }
 
     /**
@@ -148,9 +141,6 @@ class Runner
         $suite = require $suiteFile;
         $suiteDir = dirname($suiteFile);
 
-        /** @var array<string, FileResult[]> */
-        $fileResults = [];
-
         /** @var ObjectResult[] */
         $objectResults = [];
 
@@ -166,7 +156,6 @@ class Runner
 
                     $objectPath = realpath("$suiteDir/$object");
                     $fileResult = $this->runFile($filePath, $objectPath);
-                    $fileResults[$objectPath] = $fileResult;
                     $objectResults[$objectPath] ??= new ObjectResult($objectPath);
                     $objectResults[$objectPath]->mergeCoverage($fileResult->coverage);
                 }
@@ -190,9 +179,7 @@ class Runner
                 }
 
                 foreach ($report as $fileNumber => $fileData) {
-                    $pct = $fileData['total'] === 0
-                        ? 100.0
-                        : $fileData['covered'] / $fileData['total'] * 100;
+                    $pct = $fileData['covered'] / $fileData['total'] * 100;
 
                     $suffix = '';
                     if (!empty($fileData['uncoveredLines'])) {
