@@ -5,15 +5,36 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
+use Lhsazevedo\Sh4ObjTest\Parser\Stype;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugLine;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugSymbol;
 
 class CoverageTracker
 {
     /** @var int[] */
     private array $executeAddresses = [];
 
-    public function logRead(int $address, int $size): void {}
+    private array $accessAddresses = [];
 
-    public function logWrite(int $address, int $size): void {}
+    public function logRead(int $address, int $size): void
+    {
+        $this->logAccess($address, $size);
+    }
+
+    public function logWrite(int $address, int $size): void
+    {
+        $this->logAccess($address, $size);
+    }
+
+    private function logAccess(int $address, int $size): void
+    {
+        for ($i = 0; $i < $size; $i++) {
+            $byteAddress = $address + $i;
+            if (!in_array($byteAddress, $this->accessAddresses)) {
+                $this->accessAddresses[] = $byteAddress;
+            }
+        }
+    }
 
     public function logExecute(int $address, int $size): void
     {
@@ -30,6 +51,12 @@ class CoverageTracker
         foreach ($other->executeAddresses as $addr) {
             if (!in_array($addr, $this->executeAddresses)) {
                 $this->executeAddresses[] = $addr;
+            }
+        }
+
+        foreach ($other->accessAddresses as $addr) {
+            if (!in_array($addr, $this->accessAddresses)) {
+                $this->accessAddresses[] = $addr;
             }
         }
     }
@@ -84,13 +111,7 @@ class CoverageTracker
         return $report;
     }
 
-    /**
-     * Whether a debug line counts toward coverage. When the object has a
-     * source-file table, scope coverage to the main compiled file (file 0) so
-     * #included header lines don't dilute a function's coverage. Objects with
-     * no table (empty sourceFiles) keep all lines in scope.
-     */
-    private function isInScope(ParsedObject $object, \Lhsazevedo\Sh4ObjTest\Parser\DebugLine $line): bool
+    private function isInScope(ParsedObject $object, DebugLine $line): bool
     {
         if ($object->unit->sourceFiles === []) {
             return true;
@@ -99,14 +120,13 @@ class CoverageTracker
         return $line->fileNumber === 0;
     }
 
-    private function isLineCovered(ParsedObject $object, \Lhsazevedo\Sh4ObjTest\Parser\DebugLine $line): bool
+    private function isLineCovered(ParsedObject $object, DebugLine $line): bool
     {
-        $section = $object->unit->sections[$line->sectionNumber] ?? null;
-        if ($section === null) {
+        $base = $this->sectionBase($object, $line->sectionNumber);
+        if ($base === null) {
             return false;
         }
 
-        $base = $section->linkedAddress ?? $section->address;
         $from = $base + $line->fromAddress;
         $to   = $base + $line->toAddress;
 
@@ -116,7 +136,82 @@ class CoverageTracker
             }
         }
 
+        // A line is also considered covered if any data access
+        // touched it. This covers literal pool accesses.
+        foreach ($this->accessAddresses as $addr) {
+            if ($addr >= $from && $addr < $to) {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    /** Runtime base address of a section, or null if unknown. */
+    private function sectionBase(ParsedObject $object, int $sectionNumber): ?int
+    {
+        $section = $object->unit->sections[$sectionNumber] ?? null;
+        if ($section === null) {
+            return null;
+        }
+
+        return $section->linkedAddress ?? $section->address;
+    }
+
+    /**
+     * Per static-variable access report.
+     *
+     * A symbol counts as touched if any byte
+     * in range was read or written.
+     *
+     * @return array{name: string, touched: bool}[]
+     */
+    public function getSymbolReport(ParsedObject $object): array
+    {
+        $report = [];
+
+        foreach ($object->unit->debugSymbols as $symbol) {
+            if ($symbol->type !== Stype::Var) {
+                continue;
+            }
+
+            if ($symbol->section === null || $symbol->address === null) {
+                continue;
+            }
+
+            if (!$this->isSymbolInScope($object, $symbol)) {
+                continue;
+            }
+
+            $base = $this->sectionBase($object, $symbol->section);
+            if ($base === null) {
+                continue;
+            }
+
+            $from = $base + $symbol->address;
+            $to   = $from + ($symbol->dataLength ?: 1);
+
+            $touched = false;
+            foreach ($this->accessAddresses as $addr) {
+                if ($addr >= $from && $addr < $to) {
+                    $touched = true;
+                    break;
+                }
+            }
+
+            $report[] = ['name' => $symbol->name, 'touched' => $touched];
+        }
+
+        return $report;
+    }
+
+    private function isSymbolInScope(ParsedObject $object, DebugSymbol $symbol): bool
+    {
+        if ($object->unit->sourceFiles === []) {
+            return true;
+        }
+
+        return $symbol->fileNumber === 0;
     }
 
     /** @return array{int, int} [covered, total] */

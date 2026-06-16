@@ -38,6 +38,13 @@ readonly class ObjectResult {
     public function getReport(ParsedObject $object): array {
         return $this->coverage->getReport($object);
     }
+
+    /**
+     * @return array{name: string, touched: bool}[]
+     */
+    public function getSymbolReport(ParsedObject $object): array {
+        return $this->coverage->getSymbolReport($object);
+    }
 }
 
 class Runner
@@ -200,6 +207,23 @@ class Runner
                         $pct,
                         $suffix,
                     ));
+                }
+
+                $symbolReport = $objResult->getSymbolReport($parsedObject);
+                if (!empty($symbolReport)) {
+                    $touched = array_filter($symbolReport, fn ($s) => $s['touched']);
+                    $untouched = array_filter($symbolReport, fn ($s) => !$s['touched']);
+
+                    $this->output->writeln(sprintf(
+                        '    Variables: %d/%d vars accessed',
+                        count($touched),
+                        count($symbolReport),
+                    ));
+
+                    if (!empty($untouched)) {
+                        $names = array_map(fn ($s) => $s['name'], $untouched);
+                        $this->output->writeln('      [unaccessed: ' . implode(', ', $names) . ']');
+                    }
                 }
             }
         }
