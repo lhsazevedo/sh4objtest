@@ -179,6 +179,14 @@ class InspectCommand extends Command
             $output->writeln('');
         }
 
+        if ($parsed->skippedChunkTypes) {
+            $output->writeln('<info>Skipped chunks (unhandled types):</info>');
+            foreach ($parsed->skippedChunkTypes as $rawType => $count) {
+                $output->writeln(sprintf('  0x%02x  x%d', $rawType, $count));
+            }
+            $output->writeln('');
+        }
+
         return Command::SUCCESS;
     }
 

@@ -129,8 +129,8 @@ final class ObjectParser
         /** @var ?SectionHeader */
         $currentSection = null;
 
-        /** @var array<int,true> Skipped chunk types already warned about */
-        $warnedTypes = [];
+        /** @var array<int,int> Count of skipped (unhandled) chunks, keyed by raw chunk type */
+        $skippedChunkTypes = [];
 
         foreach ($this->frameChunks($bytes) as $chunk) {
             $reader = new BinaryReader($chunk->data);
@@ -460,12 +460,11 @@ final class ObjectParser
                     break 2;
 
                 default:
-                    // Unknown/unhandled chunk types are skipped.
+                    // Unknown/unhandled chunk types are skipped; the inspect
+                    // command surfaces them via ParsedObject::$skippedChunkTypes.
                     $reader->eatRest();
-                    if (!isset($warnedTypes[$chunk->rawType])) {
-                        $warnedTypes[$chunk->rawType] = true;
-                        printf("WARN: Skipping chunk type 0x%02x\n", $chunk->rawType);
-                    }
+                    $skippedChunkTypes[$chunk->rawType] =
+                        ($skippedChunkTypes[$chunk->rawType] ?? 0) + 1;
                     break;
             }
 
@@ -477,7 +476,9 @@ final class ObjectParser
             }
         }
 
-        return new ParsedObject($this->modules[0]->units[0], $this->fileHeader);
+        ksort($skippedChunkTypes);
+
+        return new ParsedObject($this->modules[0]->units[0], $this->fileHeader, $skippedChunkTypes);
     }
 
     public static function parse(string $objectFile): ParsedObject
