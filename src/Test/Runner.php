@@ -178,6 +178,8 @@ class Runner
             $this->output->writeln('<info>Coverage:</info>');
             foreach ($objectResults as $objectPath => $objResult) {
                 $parsedObject = ObjectParser::parse($objectPath);
+                // Link so sections get their runtime linkedAddress
+                $this->linkObject($parsedObject);
                 $report = $objResult->getReport($parsedObject);
 
                 $this->output->writeln("  <comment>{$objectPath}</comment>");

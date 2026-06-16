@@ -14,6 +14,7 @@ class CoverageTracker
     /** @var int[] */
     private array $executeAddresses = [];
 
+    /** @var int[] */
     private array $accessAddresses = [];
 
     public function logRead(int $address, int $size): void
