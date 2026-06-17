@@ -343,10 +343,18 @@ final class ObjectParser
         $descriptorLen = ((($attributes >> 4) & 7) + 1) * 2;
         $reader->readBytes($descriptorLen); // field descriptor; unused downstream
 
-        $reader->readUInt8(); // exprLen: byte length of the expression; the
-        // evaluator instead reads until the 0xFF terminator, so it's unused.
+        $exprLen = $reader->readUInt8();
+        $exprStart = $reader->tell();
 
         $value = $this->evaluateRelocationExpression($reader);
+
+        // The evaluator stops at the 0xFF terminator; cross-check it consumed
+        // exactly exprLen bytes so a truncated/garbled expression fails here
+        // instead of silently reading into the next record.
+        $consumed = $reader->tell() - $exprStart;
+        if ($consumed !== $exprLen) {
+            throw new \Exception("Relocation expression consumed $consumed bytes, expected $exprLen");
+        }
 
         if ($value['symKind'] === 'section') {
             // Attribute bit 0 is the authoritative REL/RELA flag: set means the
