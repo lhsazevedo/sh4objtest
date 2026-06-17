@@ -451,29 +451,20 @@ final class ObjectParser
      */
     private function combineRelocationTerms(array $a, array $b, bool $subtract): array
     {
-        $sign = $subtract ? -1 : 1;
-
-        if ($a['symKind'] === null) {
-            // literal <op> X  -> keep X's symbol (only valid when adding to a symbol)
-            if ($b['symKind'] !== null && $subtract) {
-                throw new \Exception("Unsupported relocation: subtracting a symbol from a literal");
-            }
-            return [
-                'symKind' => $b['symKind'],
-                'symIndex' => $b['symIndex'],
-                'addend' => $a['addend'] + $sign * $b['addend'],
-            ];
-        }
-
-        if ($b['symKind'] !== null) {
+        if ($a['symKind'] !== null && $b['symKind'] !== null) {
             throw new \Exception("Unsupported relocation: combining two symbol operands");
         }
+        if ($b['symKind'] !== null && $subtract) {
+            throw new \Exception("Unsupported relocation: subtracting a symbol");
+        }
 
-        // symbol <op> literal
+        // Keep whichever operand carries the symbol (if any) and merge addends.
+        $symbol = $a['symKind'] !== null ? $a : $b;
+
         return [
-            'symKind' => $a['symKind'],
-            'symIndex' => $a['symIndex'],
-            'addend' => $a['addend'] + $sign * $b['addend'],
+            'symKind' => $symbol['symKind'],
+            'symIndex' => $symbol['symIndex'],
+            'addend' => $a['addend'] + ($subtract ? -$b['addend'] : $b['addend']),
         ];
     }
 }
