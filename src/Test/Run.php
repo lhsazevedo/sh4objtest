@@ -620,10 +620,6 @@ class Run
 
         $expectation = reset($this->pendingExpectations);
 
-        // if ($value instanceof Relocation) {
-        //     throw new \Exception("Trying to read relocation $value->name in $readableAddress");
-        // }
-
         $value = $instruction->value;
         $readableValue = $value . ' (0x' . dechex($value->value) . ')';
 
