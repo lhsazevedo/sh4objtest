@@ -21,7 +21,7 @@ class ExternalRelocation {
         public readonly int $address,
 
         /** Imported symbol name the field resolves to. */
-        public readonly ?string $name,
+        public readonly string $name,
 
         /** Signed addend applied on top of the symbol address. */
         public readonly int $addend,
