@@ -51,7 +51,7 @@ class Run
 
     private CoverageTracker $coverage;
 
-    /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation[] */
+    /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExternalRelocation[] */
     private array $unresolvedRelocations = [];
 
     private ?BranchOperation $delayedBranch = null;
@@ -111,32 +111,24 @@ class Run
         // TODO: Does not need to happen every run.
         // TODO: TestCase shouldn't have access to the parsed object
         foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->localRelocationsLong as $lr) {
+            foreach ($section->internalRelocations as $lr) {
                 $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
+                $site = $section->linkedAddress + $lr->address;
+
+                // An explicit addend (RELA) is added to the target section base;
+                // a null addend (REL) means the addend is stored in-place at the
+                // patched site, so read it back and add it.
+                $addend = $lr->addend ?? $memory->readUInt32($site)->value;
 
                 $memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress + $lr->target),
-                );
-            }
-        }
-
-        // TODO: Does not need to happen every run.
-        // TODO: Consolidate section loop above?
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->localRelocationsShort as $lr) {
-                $offset = $memory->readUInt32($section->linkedAddress + $lr->address);
-                $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
-
-                $memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress)->add($offset),
+                    $site,
+                    U32::of($targetSection->linkedAddress + $addend),
                 );
             }
         }
 
         foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->relocations as $relocation) {
+            foreach ($section->externalRelocations as $relocation) {
                 $found = false;
 
                 // FIXME: This is confusing:
@@ -146,20 +138,20 @@ class Run
                     if ($relocation->name === $userResolution->name) {
                         $offset = $memory->readUInt32($relocation->linkedAddress)->value;
 
-                        if ($relocation->offset && $offset) {
+                        if ($relocation->addend && $offset) {
                             throw new \Exception("Relocation $relocation->name has both built-in and code offset", 1);
                             // $this->output->writeln("WARN: Relocation $relocation->name has both built-in and code offset");
                             // $this->output->writeln("Built-in offset: $offset");
-                            // $this->output->writeln("Code offset: $relocation->offset");
+                            // $this->output->writeln("Code offset: $relocation->addend");
                         }
 
                         $memory->writeUInt32(
                             $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->offset + $offset),
+                            U32::of($userResolution->address + $relocation->addend + $offset),
                         );
                         $symbols->addSymbol(new Symbol(
                             $relocation->name,
-                            U32::of($userResolution->address + $relocation->offset + $offset),
+                            U32::of($userResolution->address + $relocation->addend + $offset),
                         ));
                         $found = true;
                         break;

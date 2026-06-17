@@ -82,37 +82,32 @@ class InspectCommand extends Command
                 }
             }
 
-            if ($section->relocations) {
-                $output->writeln('  <comment>Relocations (external):</comment>');
-                foreach ($section->relocations as $rel) {
+            if ($section->externalRelocations) {
+                $output->writeln('  <comment>External relocations (imported symbols):</comment>');
+                foreach ($section->externalRelocations as $rel) {
                     $output->writeln(sprintf(
-                        '    addr=0x%08x  %-40s  offset=0x%x',
+                        '    addr=0x%08x  %-40s  addend=%s  width=%d',
                         $rel->address,
                         $rel->name,
-                        $rel->offset,
+                        self::formatAddend($rel->addend),
+                        $rel->fieldWidth,
                     ));
                 }
             }
 
-            if ($section->localRelocationsShort) {
-                $output->writeln('  <comment>Local relocations (short):</comment>');
-                foreach ($section->localRelocationsShort as $rel) {
+            if ($section->internalRelocations) {
+                $output->writeln('  <comment>Internal relocations (section-relative):</comment>');
+                foreach ($section->internalRelocations as $rel) {
+                    // Explicit addend (RELA) is shown as a value; an implicit
+                    // addend (REL) lives in the section data at the patched site.
+                    $addend = $rel->addend === null
+                        ? 'in-place'
+                        : self::formatAddend($rel->addend);
                     $output->writeln(sprintf(
-                        '    addr=0x%08x  -> section %d',
+                        '    addr=0x%08x  -> section %d  addend=%s',
                         $rel->address,
                         $rel->sectionIndex,
-                    ));
-                }
-            }
-
-            if ($section->localRelocationsLong) {
-                $output->writeln('  <comment>Local relocations (long):</comment>');
-                foreach ($section->localRelocationsLong as $rel) {
-                    $output->writeln(sprintf(
-                        '    addr=0x%08x  -> section %d  target=0x%08x',
-                        $rel->address,
-                        $rel->sectionIndex,
-                        $rel->target,
+                        $addend,
                     ));
                 }
             }
@@ -188,6 +183,14 @@ class InspectCommand extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    /** Format a signed addend as e.g. "0x4" or "-0x4". */
+    private static function formatAddend(int $addend): string
+    {
+        return $addend < 0
+            ? sprintf('-0x%x', -$addend)
+            : sprintf('0x%x', $addend);
     }
 
     private function dumpHex(OutputInterface $output, string $data): void

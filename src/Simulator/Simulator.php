@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Simulator;
 
 use Closure;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExternalRelocation;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
@@ -1261,9 +1261,9 @@ class Simulator
         $this->pc = $pc;
     }
 
-    private function writeRegister(int $n, U32|Relocation $value): void
+    private function writeRegister(int $n, U32|ExternalRelocation $value): void
     {
-        if ($value instanceof Relocation) {
+        if ($value instanceof ExternalRelocation) {
             throw new \Exception("Trying to write relocation $value->name to R$n");
         }
 

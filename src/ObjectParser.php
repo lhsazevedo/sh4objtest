@@ -10,9 +10,8 @@ use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ModuleHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\UnitHeader;
 use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
-use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
-use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExternalRelocation;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\InternalRelocation;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\ImportSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\DebugLine;
@@ -42,6 +41,20 @@ function xdump(string $data): void
 final class ObjectParser
 {
     private const MAGIC = "\x80\x21\x00\x80";
+
+    /**
+     * Relocation value-expression opcodes.
+     *
+     * A relocation value is a postfix (RPN) expression: operand pushes
+     * followed by ADD/SUB combinators, terminated by END. Evaluating it
+     * yields one symbol operand plus a signed addend.
+     */
+    private const REL_PUSH_SECTION = 0x00; // operand: u16 section index
+    private const REL_PUSH_IMPORT  = 0x02; // operand: u16 import index
+    private const REL_PUSH_LITERAL = 0x03; // operand: u8 byte-size, then literal
+    private const REL_ADD          = 0x20;
+    private const REL_SUB          = 0x21;
+    private const REL_END          = 0xFF;
 
     /** @var ModuleHeader[] */
     private array $modules = [];
@@ -196,182 +209,7 @@ final class ObjectParser
 
                 case ChunkType::Relocation:
                     while (!$reader->feof()) {
-                        $raw = $reader->peekBytes(14);
-
-                        $flags = $reader->readUInt8();
-
-                        $address = $reader->readUInt32BE();
-                        $bitloc = $reader->readUInt8();
-                        $fieldLength = $reader->readUInt8();
-                        $bcount = $reader->readUInt8();
-                        $operator = $reader->readUInt8();
-
-                        if ($operator != 8) {
-                            throw new \Exception("Unsupported relocation operator $operator", 1);
-                        }
-
-                        $section = $reader->readUInt16();
-                        $opcode = $reader->readUInt8();
-                        $addendLen = $reader->readUInt8();
-
-                        $relLen = $reader->readUInt8();
-                        $raw .= $reader->peekBytes($relLen);
-                        $importIndex = null;
-                        $name = null;
-                        $offset = null;
-
-                        if ($relLen === 4) {
-                            $maybeRelType = $reader->readUInt8();
-                            if ($maybeRelType === 2) {
-                                // External Symbol Relocation
-                                $maybeImportIndexHighNible = $reader->readUInt8();
-                                if ($maybeImportIndexHighNible) {
-                                    echo "WARN: Value found in possible import index high nible\n";
-                                }
-
-                                $importIndex = $reader->readUInt8();
-
-                                if ($importIndex >= count($this->imports)) {
-                                    echo "Import index $importIndex out of bounds\n";
-                                    $terminator = $reader->readUInt8();
-                                    if ($terminator !== 0xff) {
-                                        throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                                    }
-
-                                    continue;
-                                }
-                                $name = $this->imports[$importIndex]->name;
-                                $offset = 0;
-                            } else if ($maybeRelType === 0) {
-                                // Internal Address Relocation (short form, data in object code)
-                                $sectionIndex = $reader->readUInt16BE();
-                                $currentSection->addLocalRelocationShort(new LocalRelocationShort(
-                                    $sectionIndex,
-                                    $address,
-                                ));
-
-                                $terminator = $reader->readUInt8();
-                                if ($terminator !== 0xff) {
-                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                                }
-
-                                continue;
-                            } else {
-                                echo "WARN: Wrong relocation data type for relLen 4: $maybeRelType?\n";
-                            }
-                        } elseif ($relLen === 11) {
-                            $maybeRelType = $reader->readUInt8();
-                            if ($maybeRelType === 3) {
-                                // External Symbol Offset Relocation
-                                $reader->eat(4);
-                                $offset = $reader->readUInt8();
-                                $reader->eat(2);
-                                $importIndex = $reader->readUInt8();
-                                $name = $this->imports[$importIndex]->name;
-
-                                $reader->eat(1);
-                            } else if ($maybeRelType === 0) {
-                                // Internal Address Relocation (long form, data in relocation)
-
-                                $sectionIndex = $reader->readUInt16BE();
-
-                                // Unknown, usually 03 04
-                                $reader->eat(2);
-
-                                $target = $reader->readUInt32BE();
-                                $reader->eat(1);
-
-                                $terminator = $reader->readUInt8();
-                                if ($terminator !== 0xff) {
-                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                                }
-
-                                $currentSection->addLocalRelocationLong(new LocalRelocationLong(
-                                    $sectionIndex,
-                                    $address,
-                                    $target
-                                ));
-                                continue;
-                            } else if ($maybeRelType === 2) {
-                                // Unknown
-                                $reader->eat(1);
-
-                                $importIndex = $reader->readUInt8();
-                                $name = $this->imports[$importIndex]->name;
-                                // Unknown, usually 03 04
-                                $reader->eat(2);
-
-                                $offset = $reader->readUInt32BE();
-
-                                // Unknown, usually 20
-                                $reader->eat(1);
-                            } else {
-                                throw new \Exception("WARN: Unsupported relocation type $maybeRelType for relLen 11", 1);
-                            }
-                        } elseif ($relLen === 18) {
-                            $maybeRelType = $reader->readUInt8();
-
-                            if ($maybeRelType === 3) {
-                                // Unknown byte
-                                $reader->eat(1);
-
-                                $offset = $reader->readUInt32BE();
-
-                                // Unknown byte
-                                $reader->eat(1);
-
-                                $targetSectionIndex = $reader->readUInt16BE();
-
-                                // Unknown, usually 03 04
-                                $reader->eat(2);
-
-                                $target = $reader->readUInt32BE();
-
-                                // Unknown, usually 20 20
-                                $reader->eat(2);
-
-                                $terminator = $reader->readUInt8();
-                                if ($terminator !== 0xff) {
-                                    throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                                }
-
-                                $currentSection->addLocalRelocationLong(new LocalRelocationLong(
-                                    $targetSectionIndex,
-                                    $address,
-                                    $target + $offset
-                                ));
-
-                                continue;
-                            } else if ($maybeRelType === 0) {
-                                throw new \Exception("WARN: Unsupported relocation type $maybeRelType for relLen 18", 1);
-                            } else {
-                                throw new \Exception("WARN: Unsupported relocation type $maybeRelType for relLen 18", 1);
-                            }
-                        } else {
-                            throw new \Exception("Unsupported relocation length $relLen", 1);
-                        }
-
-                        $terminator = $reader->readUInt8();
-                        if ($terminator !== 0xff) {
-                            throw new \Exception("Wrong terminator byte 0x" . dechex($terminator), 1);
-                        }
-
-                        $relocation = new Relocation(
-                            $flags,
-                            $address,
-                            $bitloc,
-                            $fieldLength,
-                            $bcount,
-                            $operator,
-                            $section,
-                            $opcode,
-                            $addendLen,
-                            $relLen,
-                            $importIndex,
-                            $name,
-                            $offset,
-                        );
-                        $currentSection->addRelocation($relocation);
+                        $this->parseRelocation($reader, $currentSection);
                     }
                     break;
 
@@ -482,5 +320,161 @@ final class ObjectParser
     public static function parse(string $objectFile): ParsedObject
     {
         return (new static())->realParse($objectFile);
+    }
+
+    /**
+     * Parse one relocation record and attach it to its section.
+     *
+     * Layout:
+     *   attributes  u8     bit 0 set => addend lives in the expression,
+     *                      bits 4-6 = field-descriptor length code
+     *   address     u32    offset of the patched field within the section
+     *   descriptor  bytes  ((code + 1) * 2) bytes describing which bits of the
+     *                      target word get patched (length tracks field width:
+     *                      8 bytes for a 32-bit .DATA.L, 4 for a 16-bit .DATA.W)
+     *   exprLen     u8     byte length of the value expression
+     *   expression  bytes  postfix value expression, terminated by 0xFF
+     */
+    private function parseRelocation(BinaryReader $reader, SectionHeader $currentSection): void
+    {
+        $attributes = $reader->readUInt8();
+        $address = $reader->readUInt32BE();
+
+        $descriptorLen = ((($attributes >> 4) & 7) + 1) * 2;
+        $reader->readBytes($descriptorLen); // field descriptor; unused downstream
+
+        $reader->readUInt8(); // exprLen: byte length of the expression; the
+        // evaluator instead reads until the 0xFF terminator, so it's unused.
+
+        $value = $this->evaluateRelocationExpression($reader);
+
+        if ($value['symKind'] === 'section') {
+            $currentSection->addInternalRelocation(new InternalRelocation(
+                sectionIndex: $value['symIndex'],
+                address: $address,
+                // Explicit addend when the expression carries it (RELA style),
+                // otherwise null: the addend lives in the object code in-place.
+                addend: $value['hadLiteral'] ? $value['addend'] : null,
+            ));
+            return;
+        }
+
+        if ($value['symKind'] === 'import') {
+            $import = $this->imports[$value['symIndex']] ?? null;
+            if ($import === null) {
+                echo "Import index {$value['symIndex']} out of bounds\n";
+                return;
+            }
+
+            $currentSection->addExternalRelocation(new ExternalRelocation(
+                address: $address,
+                name: $import->name,
+                addend: $value['addend'],
+                attributes: $attributes,
+                fieldWidth: intdiv($descriptorLen, 2),
+            ));
+            return;
+        }
+
+        throw new \Exception(sprintf(
+            "Relocation at 0x%08x has no symbol operand (addend %d)",
+            $address, $value['addend'],
+        ));
+    }
+
+    /**
+     * Evaluate a relocation value expression into a single term.
+     *
+     * @return array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int, hadLiteral: bool}
+     */
+    private function evaluateRelocationExpression(BinaryReader $reader): array
+    {
+        /** @var list<array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}> $stack */
+        $stack = [];
+        $hadLiteral = false;
+
+        while (true) {
+            $op = $reader->readUInt8();
+
+            if ($op === self::REL_END) {
+                break;
+            }
+
+            switch ($op) {
+                case self::REL_PUSH_SECTION:
+                    $stack[] = ['symKind' => 'section', 'symIndex' => $reader->readUInt16BE(), 'addend' => 0];
+                    break;
+
+                case self::REL_PUSH_IMPORT:
+                    $stack[] = ['symKind' => 'import', 'symIndex' => $reader->readUInt16BE(), 'addend' => 0];
+                    break;
+
+                case self::REL_PUSH_LITERAL:
+                    $size = $reader->readUInt8();
+                    if ($size !== 4) {
+                        throw new \Exception("Unsupported relocation literal size $size");
+                    }
+                    $stack[] = ['symKind' => null, 'symIndex' => null, 'addend' => $reader->readUInt32BE()];
+                    $hadLiteral = true;
+                    break;
+
+                case self::REL_ADD:
+                case self::REL_SUB:
+                    $b = array_pop($stack);
+                    $a = array_pop($stack);
+                    if ($a === null || $b === null) {
+                        throw new \Exception("Relocation expression underflow");
+                    }
+                    $stack[] = $this->combineRelocationTerms($a, $b, $op === self::REL_SUB);
+                    break;
+
+                default:
+                    throw new \Exception(sprintf("Unknown relocation opcode 0x%02x", $op));
+            }
+        }
+
+        if (count($stack) !== 1) {
+            throw new \Exception("Relocation expression did not reduce to a single term");
+        }
+
+        $result = $stack[0];
+        $result['hadLiteral'] = $hadLiteral;
+        return $result;
+    }
+
+    /**
+     * Combine two relocation terms with ADD/SUB. At most one operand may carry
+     * a symbol; symbol-difference relocations are not supported.
+     *
+     * @param array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int} $a
+     * @param array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int} $b
+     * @return array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}
+     */
+    private function combineRelocationTerms(array $a, array $b, bool $subtract): array
+    {
+        $sign = $subtract ? -1 : 1;
+
+        if ($a['symKind'] === null) {
+            // literal <op> X  -> keep X's symbol (only valid when adding to a symbol)
+            if ($b['symKind'] !== null && $subtract) {
+                throw new \Exception("Unsupported relocation: subtracting a symbol from a literal");
+            }
+            return [
+                'symKind' => $b['symKind'],
+                'symIndex' => $b['symIndex'],
+                'addend' => $a['addend'] + $sign * $b['addend'],
+            ];
+        }
+
+        if ($b['symKind'] !== null) {
+            throw new \Exception("Unsupported relocation: combining two symbol operands");
+        }
+
+        // symbol <op> literal
+        return [
+            'symKind' => $a['symKind'],
+            'symIndex' => $a['symIndex'],
+            'addend' => $a['addend'] + $sign * $b['addend'],
+        ];
     }
 }
