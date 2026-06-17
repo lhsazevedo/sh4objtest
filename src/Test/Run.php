@@ -129,6 +129,12 @@ class Run
 
         foreach ($parsedObject->unit->sections as $section) {
             foreach ($section->externalRelocations as $relocation) {
+                // The linker only knows how to patch 32-bit fields; a narrower
+                // field would silently clobber adjacent bytes below.
+                if ($relocation->fieldWidth !== 4) {
+                    throw new \Exception("Unsupported external relocation field width {$relocation->fieldWidth} for $relocation->name", 1);
+                }
+
                 $found = false;
 
                 // FIXME: This is confusing:
