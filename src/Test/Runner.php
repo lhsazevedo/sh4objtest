@@ -102,15 +102,17 @@ class Runner
                     }
                 }
 
+                $testRelocations = $reflectedBaseTestCase->getProperty('testRelocations')->getValue($currentTestCase);
+                $linkedProgram = (new Linker())->link($parsedObject, $linkedCode, $testRelocations);
+
                 $testCaseDto = new TestCaseDTO(
                     name: $reflectionMethod->name,
                     objectFile: $objectFile,
-                    parsedObject: $parsedObject,
+                    linkedProgram: $linkedProgram,
                     initializations: $reflectedBaseTestCase->getProperty('initializations')->getValue($currentTestCase),
-                    testRelocations: $reflectedBaseTestCase->getProperty('testRelocations')->getValue($currentTestCase),
+                    testRelocations: $testRelocations,
                     expectations: $expectations,
                     // entry: $reflectedBaseTestCase->getProperty('entry')->getValue($currentTestCase),
-                    linkedCode: $linkedCode,
                     shouldRandomizeMemory: $reflectedBaseTestCase->getProperty('randomizeMemory')->getValue($currentTestCase),
                     shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),
                 );

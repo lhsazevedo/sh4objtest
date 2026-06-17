@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
-use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
-
 readonly class TestCaseDTO
 {
     public function __construct(
@@ -13,7 +11,7 @@ readonly class TestCaseDTO
 
         public string $objectFile,
 
-        public ParsedObject $parsedObject,
+        public LinkedProgram $linkedProgram,
 
         /** @var MemoryInitialization[] */
         public array $initializations,
@@ -25,8 +23,6 @@ readonly class TestCaseDTO
         public array $expectations,
 
         // public Entry $entry,
-
-        public string $linkedCode,
 
         public bool $shouldRandomizeMemory,
 

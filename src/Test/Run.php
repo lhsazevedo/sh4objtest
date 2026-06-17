@@ -12,7 +12,6 @@ use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
-use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
@@ -76,14 +75,11 @@ class Run
             randomize: $this->testCase->shouldRandomizeMemory,
         );
 
-        $parsedObject = $this->testCase->parsedObject;
-        $linkedCode = $this->testCase->linkedCode;
+        $program = $this->testCase->linkedProgram;
+        $memory->writeBytes(0, $program->image);
 
-        // TODO: Linking should be done here
-        $memory->writeBytes(0, $linkedCode);
-
-        $symbols = new SymbolTable();
-        $this->symbols = $symbols;
+        $this->symbols = $program->symbols;
+        $this->unresolvedRelocations = $program->unresolvedRelocations;
 
         // Initializations (FIXME: bad name)
         foreach ($this->testCase->initializations as $initialization) {
@@ -108,74 +104,6 @@ class Run
             }
         }
 
-        // TODO: Does not need to happen every run.
-        // TODO: TestCase shouldn't have access to the parsed object
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->internalRelocations as $internal) {
-                $targetSection = $parsedObject->unit->sections[$internal->sectionIndex];
-                $site = $internal->linkedAddress;
-
-                // A null addend (REL) is stored in-place; read it back.
-                $addend = $internal->addend ?? $memory->readUInt32($site)->value;
-
-                $memory->writeUInt32(
-                    $site,
-                    U32::of($targetSection->linkedAddress + $addend),
-                );
-            }
-        }
-
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->externalRelocations as $relocation) {
-                // The linker below only patches 32-bit fields.
-                if ($relocation->fieldWidth !== 4) {
-                    throw new \Exception("Unsupported external relocation field width {$relocation->fieldWidth} for $relocation->name", 1);
-                }
-
-                $found = false;
-
-                // FIXME: This is confusing:
-                // - Object relocation address is the address of the literal pool data item
-                // - Test relocation address is the value of the literal pool item
-                foreach ($this->testCase->testRelocations as $userResolution) {
-                    if ($relocation->name === $userResolution->name) {
-                        $offset = $memory->readUInt32($relocation->linkedAddress)->value;
-
-                        if ($relocation->addend && $offset) {
-                            throw new \Exception("Relocation $relocation->name has both built-in and code offset", 1);
-                            // $this->output->writeln("WARN: Relocation $relocation->name has both built-in and code offset");
-                            // $this->output->writeln("Built-in offset: $offset");
-                            // $this->output->writeln("Code offset: $relocation->addend");
-                        }
-
-                        $memory->writeUInt32(
-                            $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->addend + $offset),
-                        );
-                        $symbols->addSymbol(new Symbol(
-                            $relocation->name,
-                            U32::of($userResolution->address + $relocation->addend + $offset),
-                        ));
-                        $found = true;
-                        break;
-                    }
-                }
-
-                if (!$found) {
-                    $this->unresolvedRelocations[] = $relocation;
-                }
-            }
-        }
-
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->exports as $export) {
-                $symbols->addSymbol(new Symbol(
-                    $export->name,
-                    U32::of($export->linkedAddress),
-                ));
-            }
-        }
-
         $simulator = new Simulator($memory);
 
         $simulator->onDisasm($this->disasm(...));
@@ -187,9 +115,9 @@ class Run
         }
         $entrySymbolName = $command->symbol;
 
-        $entrySymbol = $parsedObject->unit->findExportedSymbol($entrySymbolName);
-        if (!$entrySymbol) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
-        $simulator->setPc($entrySymbol->offset);
+        $entryAddress = $program->resolveEntryAddress($entrySymbolName);
+        if ($entryAddress === null) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
+        $simulator->setPc($entryAddress);
 
         $convention = new DefaultCallingConvention();
         $stackPointer = U32::of(1024 * 1024 * 16 - 4);

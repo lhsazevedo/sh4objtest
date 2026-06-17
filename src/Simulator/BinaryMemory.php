@@ -87,6 +87,11 @@ class BinaryMemory {
         $this->memory[$address + 3] = $data[3] ?? "\0";
     }
 
+    public function readBytes(int $address, int $length): string
+    {
+        return substr($this->memory, $address, $length);
+    }
+
     public function writeBytes(int $address, string $data): void
     {
         for ($i = 0; $i < strlen($data); $i++) { 
