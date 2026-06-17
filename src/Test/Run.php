@@ -111,14 +111,14 @@ class Run
         // TODO: Does not need to happen every run.
         // TODO: TestCase shouldn't have access to the parsed object
         foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->internalRelocations as $lr) {
-                $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
-                $site = $lr->linkedAddress;
+            foreach ($section->internalRelocations as $internal) {
+                $targetSection = $parsedObject->unit->sections[$internal->sectionIndex];
+                $site = $internal->linkedAddress;
 
                 // An explicit addend (RELA) is added to the target section base;
                 // a null addend (REL) means the addend is stored in-place at the
                 // patched site, so read it back and add it.
-                $addend = $lr->addend ?? $memory->readUInt32($site)->value;
+                $addend = $internal->addend ?? $memory->readUInt32($site)->value;
 
                 $memory->writeUInt32(
                     $site,
