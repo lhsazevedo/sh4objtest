@@ -115,9 +115,7 @@ class Run
                 $targetSection = $parsedObject->unit->sections[$internal->sectionIndex];
                 $site = $internal->linkedAddress;
 
-                // An explicit addend (RELA) is added to the target section base;
-                // a null addend (REL) means the addend is stored in-place at the
-                // patched site, so read it back and add it.
+                // A null addend (REL) is stored in-place; read it back.
                 $addend = $internal->addend ?? $memory->readUInt32($site)->value;
 
                 $memory->writeUInt32(
@@ -129,8 +127,7 @@ class Run
 
         foreach ($parsedObject->unit->sections as $section) {
             foreach ($section->externalRelocations as $relocation) {
-                // The linker only knows how to patch 32-bit fields; a narrower
-                // field would silently clobber adjacent bytes below.
+                // The linker below only patches 32-bit fields.
                 if ($relocation->fieldWidth !== 4) {
                     throw new \Exception("Unsupported external relocation field width {$relocation->fieldWidth} for $relocation->name", 1);
                 }

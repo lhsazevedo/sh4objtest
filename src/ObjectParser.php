@@ -348,18 +348,14 @@ final class ObjectParser
 
         $value = $this->evaluateRelocationExpression($reader);
 
-        // The evaluator stops at the 0xFF terminator; cross-check it consumed
-        // exactly exprLen bytes so a truncated/garbled expression fails here
-        // instead of silently reading into the next record.
+        // Check we consumed the expected expression length.
         $consumed = $reader->tell() - $exprStart;
         if ($consumed !== $exprLen) {
             throw new \Exception("Relocation expression consumed $consumed bytes, expected $exprLen");
         }
 
         if (isset($value['section'])) {
-            // Attribute bit 0 is the authoritative REL/RELA flag: set means the
-            // addend is carried explicitly in the expression (RELA style), clear
-            // means it lives in the object code in-place (REL style).
+            // Attribute bit 0 set => explicit addend (RELA), clear => in-place (REL).
             $explicitAddend = (bool) ($attributes & 1);
             $currentSection->addInternalRelocation(new InternalRelocation(
                 sectionIndex: $value['section'],
@@ -392,9 +388,8 @@ final class ObjectParser
     }
 
     /**
-     * Evaluate a relocation value expression into a single term. A term is an
-     * addend plus at most one symbol reference, keyed by kind ('section' or
-     * 'import'); a literal-only term carries neither key.
+     * Evaluate a relocation value expression into a single term: an addend plus
+     * an optional symbol reference keyed by kind ('section' or 'import').
      *
      * @return array{section?: int, import?: int, addend: int}
      */
@@ -424,8 +419,7 @@ final class ObjectParser
                     if ($size !== 4) {
                         throw new \Exception("Unsupported relocation literal size $size");
                     }
-                    // Read unsigned; observed negatives arrive via SUB, not as a
-                    // two's-complement literal (which would read as a large positive).
+                    // Unsigned: negatives arrive via SUB, not as two's-complement.
                     $stack[] = ['addend' => $reader->readUInt32BE()];
                     break;
 
@@ -471,7 +465,7 @@ final class ObjectParser
             throw new \Exception("Unsupported relocation: subtracting a symbol");
         }
 
-        // Keep whichever operand carries the symbol (if any) and merge addends.
+        // Keep the symbol-bearing operand and merge addends.
         $result = $aSymbol ? $a : $b;
         $result['addend'] = $a['addend'] + ($subtract ? -$b['addend'] : $b['addend']);
 
