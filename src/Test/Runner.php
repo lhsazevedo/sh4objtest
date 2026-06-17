@@ -103,6 +103,9 @@ class Runner
                 }
 
                 $testRelocations = $reflectedBaseTestCase->getProperty('testRelocations')->getValue($currentTestCase);
+                // TODO: Check if it's necessary to link on every test. Only the
+                // external resolution depends on the per-test relocations; the
+                // internal relocations and exports could be linked once per object.
                 $linkedProgram = (new Linker())->link($parsedObject, $linkedCode, $testRelocations);
 
                 $testCaseDto = new TestCaseDTO(
