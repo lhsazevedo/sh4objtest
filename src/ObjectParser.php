@@ -415,6 +415,8 @@ final class ObjectParser
                     if ($size !== 4) {
                         throw new \Exception("Unsupported relocation literal size $size");
                     }
+                    // Read unsigned; observed negatives arrive via SUB, not as a
+                    // two's-complement literal (which would read as a large positive).
                     $stack[] = ['symKind' => null, 'symIndex' => null, 'addend' => $reader->readUInt32BE()];
                     break;
 
