@@ -349,12 +349,14 @@ final class ObjectParser
         $value = $this->evaluateRelocationExpression($reader);
 
         if ($value['symKind'] === 'section') {
+            // Attribute bit 0 is the authoritative REL/RELA flag: set means the
+            // addend is carried explicitly in the expression (RELA style), clear
+            // means it lives in the object code in-place (REL style).
+            $explicitAddend = (bool) ($attributes & 1);
             $currentSection->addInternalRelocation(new InternalRelocation(
                 sectionIndex: $value['symIndex'],
                 address: $address,
-                // Explicit addend when the expression carries it (RELA style),
-                // otherwise null: the addend lives in the object code in-place.
-                addend: $value['hadLiteral'] ? $value['addend'] : null,
+                addend: $explicitAddend ? $value['addend'] : null,
             ));
             return;
         }
@@ -385,13 +387,12 @@ final class ObjectParser
     /**
      * Evaluate a relocation value expression into a single term.
      *
-     * @return array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int, hadLiteral: bool}
+     * @return array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}
      */
     private function evaluateRelocationExpression(BinaryReader $reader): array
     {
         /** @var list<array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}> $stack */
         $stack = [];
-        $hadLiteral = false;
 
         while (true) {
             $op = $reader->readUInt8();
@@ -415,7 +416,6 @@ final class ObjectParser
                         throw new \Exception("Unsupported relocation literal size $size");
                     }
                     $stack[] = ['symKind' => null, 'symIndex' => null, 'addend' => $reader->readUInt32BE()];
-                    $hadLiteral = true;
                     break;
 
                 case self::REL_ADD:
@@ -437,9 +437,7 @@ final class ObjectParser
             throw new \Exception("Relocation expression did not reduce to a single term");
         }
 
-        $result = $stack[0];
-        $result['hadLiteral'] = $hadLiteral;
-        return $result;
+        return $stack[0];
     }
 
     /**
