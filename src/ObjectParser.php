@@ -356,23 +356,23 @@ final class ObjectParser
             throw new \Exception("Relocation expression consumed $consumed bytes, expected $exprLen");
         }
 
-        if ($value['symKind'] === 'section') {
+        if (isset($value['section'])) {
             // Attribute bit 0 is the authoritative REL/RELA flag: set means the
             // addend is carried explicitly in the expression (RELA style), clear
             // means it lives in the object code in-place (REL style).
             $explicitAddend = (bool) ($attributes & 1);
             $currentSection->addInternalRelocation(new InternalRelocation(
-                sectionIndex: $value['symIndex'],
+                sectionIndex: $value['section'],
                 address: $address,
                 addend: $explicitAddend ? $value['addend'] : null,
             ));
             return;
         }
 
-        if ($value['symKind'] === 'import') {
-            $import = $this->imports[$value['symIndex']] ?? null;
+        if (isset($value['import'])) {
+            $import = $this->imports[$value['import']] ?? null;
             if ($import === null) {
-                throw new \Exception("Import index {$value['symIndex']} out of bounds");
+                throw new \Exception("Import index {$value['import']} out of bounds");
             }
 
             $currentSection->addExternalRelocation(new ExternalRelocation(
@@ -392,13 +392,15 @@ final class ObjectParser
     }
 
     /**
-     * Evaluate a relocation value expression into a single term.
+     * Evaluate a relocation value expression into a single term. A term is an
+     * addend plus at most one symbol reference, keyed by kind ('section' or
+     * 'import'); a literal-only term carries neither key.
      *
-     * @return array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}
+     * @return array{section?: int, import?: int, addend: int}
      */
     private function evaluateRelocationExpression(BinaryReader $reader): array
     {
-        /** @var list<array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}> $stack */
+        /** @var list<array{section?: int, import?: int, addend: int}> $stack */
         $stack = [];
 
         while (true) {
@@ -410,11 +412,11 @@ final class ObjectParser
 
             switch ($op) {
                 case self::REL_PUSH_SECTION:
-                    $stack[] = ['symKind' => 'section', 'symIndex' => $reader->readUInt16BE(), 'addend' => 0];
+                    $stack[] = ['section' => $reader->readUInt16BE(), 'addend' => 0];
                     break;
 
                 case self::REL_PUSH_IMPORT:
-                    $stack[] = ['symKind' => 'import', 'symIndex' => $reader->readUInt16BE(), 'addend' => 0];
+                    $stack[] = ['import' => $reader->readUInt16BE(), 'addend' => 0];
                     break;
 
                 case self::REL_PUSH_LITERAL:
@@ -424,7 +426,7 @@ final class ObjectParser
                     }
                     // Read unsigned; observed negatives arrive via SUB, not as a
                     // two's-complement literal (which would read as a large positive).
-                    $stack[] = ['symKind' => null, 'symIndex' => null, 'addend' => $reader->readUInt32BE()];
+                    $stack[] = ['addend' => $reader->readUInt32BE()];
                     break;
 
                 case self::REL_ADD:
@@ -453,26 +455,26 @@ final class ObjectParser
      * Combine two relocation terms with ADD/SUB. At most one operand may carry
      * a symbol; symbol-difference relocations are not supported.
      *
-     * @param array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int} $a
-     * @param array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int} $b
-     * @return array{symKind: 'section'|'import'|null, symIndex: int|null, addend: int}
+     * @param array{section?: int, import?: int, addend: int} $a
+     * @param array{section?: int, import?: int, addend: int} $b
+     * @return array{section?: int, import?: int, addend: int}
      */
     private function combineRelocationTerms(array $a, array $b, bool $subtract): array
     {
-        if ($a['symKind'] !== null && $b['symKind'] !== null) {
+        $aSymbol = isset($a['section']) || isset($a['import']);
+        $bSymbol = isset($b['section']) || isset($b['import']);
+
+        if ($aSymbol && $bSymbol) {
             throw new \Exception("Unsupported relocation: combining two symbol operands");
         }
-        if ($b['symKind'] !== null && $subtract) {
+        if ($bSymbol && $subtract) {
             throw new \Exception("Unsupported relocation: subtracting a symbol");
         }
 
         // Keep whichever operand carries the symbol (if any) and merge addends.
-        $symbol = $a['symKind'] !== null ? $a : $b;
+        $result = $aSymbol ? $a : $b;
+        $result['addend'] = $a['addend'] + ($subtract ? -$b['addend'] : $b['addend']);
 
-        return [
-            'symKind' => $symbol['symKind'],
-            'symIndex' => $symbol['symIndex'],
-            'addend' => $a['addend'] + ($subtract ? -$b['addend'] : $b['addend']),
-        ];
+        return $result;
     }
 }
