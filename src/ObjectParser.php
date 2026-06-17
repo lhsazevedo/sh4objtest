@@ -364,8 +364,7 @@ final class ObjectParser
         if ($value['symKind'] === 'import') {
             $import = $this->imports[$value['symIndex']] ?? null;
             if ($import === null) {
-                echo "Import index {$value['symIndex']} out of bounds\n";
-                return;
+                throw new \Exception("Import index {$value['symIndex']} out of bounds");
             }
 
             $currentSection->addExternalRelocation(new ExternalRelocation(
