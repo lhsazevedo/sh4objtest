@@ -113,7 +113,7 @@ class Run
         foreach ($parsedObject->unit->sections as $section) {
             foreach ($section->internalRelocations as $lr) {
                 $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
-                $site = $section->linkedAddress + $lr->address;
+                $site = $lr->linkedAddress;
 
                 // An explicit addend (RELA) is added to the target section base;
                 // a null addend (REL) means the addend is stored in-place at the

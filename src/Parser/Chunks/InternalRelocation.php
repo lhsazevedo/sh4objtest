@@ -13,6 +13,9 @@ namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
  * ($addend === null, ELF REL style).
  */
 class InternalRelocation {
+    ////// Link/Simulation properties //////
+    public ?int $linkedAddress = null;
+
     public function __construct(
         /** Index of the target section within the unit. */
         public readonly int $sectionIndex,
@@ -23,4 +26,11 @@ class InternalRelocation {
         /** Explicit addend, or null when carried in-place at the patched site. */
         public readonly ?int $addend = null,
     ) {}
+
+    ////// Link/Simulation methods //////
+
+    public function rellocate(int $address): void
+    {
+        $this->linkedAddress = $this->address + $address;
+    }
 }

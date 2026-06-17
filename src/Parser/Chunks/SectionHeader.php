@@ -124,6 +124,10 @@ class SectionHeader extends Base
             $relocation->rellocate($this->linkedAddress);
         }
 
+        foreach ($this->internalRelocations as $relocation) {
+            $relocation->rellocate($this->linkedAddress);
+        }
+
         foreach ($this->exports as $export) {
             $export->rellocate($this->linkedAddress);
         }
