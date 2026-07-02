@@ -12,7 +12,6 @@ use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
-use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
@@ -51,7 +50,7 @@ class Run
 
     private CoverageTracker $coverage;
 
-    /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation[] */
+    /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExternalRelocation[] */
     private array $unresolvedRelocations = [];
 
     private ?BranchOperation $delayedBranch = null;
@@ -76,14 +75,11 @@ class Run
             randomize: $this->testCase->shouldRandomizeMemory,
         );
 
-        $parsedObject = $this->testCase->parsedObject;
-        $linkedCode = $this->testCase->linkedCode;
+        $program = $this->testCase->linkedProgram;
+        $memory->writeBytes(0, $program->image);
 
-        // TODO: Linking should be done here
-        $memory->writeBytes(0, $linkedCode);
-
-        $symbols = new SymbolTable();
-        $this->symbols = $symbols;
+        $this->symbols = $program->symbols;
+        $this->unresolvedRelocations = $program->unresolvedRelocations;
 
         // Initializations (FIXME: bad name)
         foreach ($this->testCase->initializations as $initialization) {
@@ -108,79 +104,6 @@ class Run
             }
         }
 
-        // TODO: Does not need to happen every run.
-        // TODO: TestCase shouldn't have access to the parsed object
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->localRelocationsLong as $lr) {
-                $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
-
-                $memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress + $lr->target),
-                );
-            }
-        }
-
-        // TODO: Does not need to happen every run.
-        // TODO: Consolidate section loop above?
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->localRelocationsShort as $lr) {
-                $offset = $memory->readUInt32($section->linkedAddress + $lr->address);
-                $targetSection = $parsedObject->unit->sections[$lr->sectionIndex];
-
-                $memory->writeUInt32(
-                    $section->linkedAddress + $lr->address,
-                    U32::of($targetSection->linkedAddress)->add($offset),
-                );
-            }
-        }
-
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->relocations as $relocation) {
-                $found = false;
-
-                // FIXME: This is confusing:
-                // - Object relocation address is the address of the literal pool data item
-                // - Test relocation address is the value of the literal pool item
-                foreach ($this->testCase->testRelocations as $userResolution) {
-                    if ($relocation->name === $userResolution->name) {
-                        $offset = $memory->readUInt32($relocation->linkedAddress)->value;
-
-                        if ($relocation->offset && $offset) {
-                            throw new \Exception("Relocation $relocation->name has both built-in and code offset", 1);
-                            // $this->output->writeln("WARN: Relocation $relocation->name has both built-in and code offset");
-                            // $this->output->writeln("Built-in offset: $offset");
-                            // $this->output->writeln("Code offset: $relocation->offset");
-                        }
-
-                        $memory->writeUInt32(
-                            $relocation->linkedAddress,
-                            U32::of($userResolution->address + $relocation->offset + $offset),
-                        );
-                        $symbols->addSymbol(new Symbol(
-                            $relocation->name,
-                            U32::of($userResolution->address + $relocation->offset + $offset),
-                        ));
-                        $found = true;
-                        break;
-                    }
-                }
-
-                if (!$found) {
-                    $this->unresolvedRelocations[] = $relocation;
-                }
-            }
-        }
-
-        foreach ($parsedObject->unit->sections as $section) {
-            foreach ($section->exports as $export) {
-                $symbols->addSymbol(new Symbol(
-                    $export->name,
-                    U32::of($export->linkedAddress),
-                ));
-            }
-        }
-
         $simulator = new Simulator($memory);
 
         $simulator->onDisasm($this->disasm(...));
@@ -192,9 +115,9 @@ class Run
         }
         $entrySymbolName = $command->symbol;
 
-        $entrySymbol = $parsedObject->unit->findExportedSymbol($entrySymbolName);
-        if (!$entrySymbol) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
-        $simulator->setPc($entrySymbol->offset);
+        $entryAddress = $program->resolveEntryAddress($entrySymbolName);
+        if ($entryAddress === null) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
+        $simulator->setPc($entryAddress);
 
         $convention = new DefaultCallingConvention();
         $stackPointer = U32::of(1024 * 1024 * 16 - 4);
@@ -621,10 +544,6 @@ class Run
         }
 
         $expectation = reset($this->pendingExpectations);
-
-        // if ($value instanceof Relocation) {
-        //     throw new \Exception("Trying to read relocation $value->name in $readableAddress");
-        // }
 
         $value = $instruction->value;
         $readableValue = $value . ' (0x' . dechex($value->value) . ')';

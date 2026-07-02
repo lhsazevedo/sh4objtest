@@ -23,6 +23,8 @@ class SuiteCommand extends Command
         $this->addOption('suite', 's', InputOption::VALUE_REQUIRED, 'The suite to run')
             ->addOption('disasm', 'd', InputOption::VALUE_NONE, 'Print asm instructions during test execution')
             ->addOption('coverage', 'c', InputOption::VALUE_NONE, 'Print coverage information')
+            ->addOption('coverage-json', null, InputOption::VALUE_REQUIRED, 'Write the full coverage report (including variables) to a JSON file')
+            ->addOption('coverage-full', null, InputOption::VALUE_NONE, 'Show all uncovered ranges and unaccessed variables instead of a trimmed summary')
             ->addArgument('testcase', InputArgument::OPTIONAL, 'The test case to run');
     }
 
@@ -34,10 +36,15 @@ class SuiteCommand extends Command
             $suiteFile = realpath($suiteFile);
         }
 
+        $coverageJsonPath = $input->getOption('coverage-json');
+
         $runner = new Runner(
             output: $output,
             shouldOutputDisasm: $input->getOption('disasm'),
-            shouldTrackCoverage: $input->getOption('coverage'),
+            // A JSON report implies coverage tracking.
+            shouldTrackCoverage: $input->getOption('coverage') || $coverageJsonPath !== null,
+            coverageJsonPath: $coverageJsonPath,
+            coverageFull: $input->getOption('coverage-full'),
         );
 
         return $runner->runSuite($suiteFile, $input->getArgument('testcase'))

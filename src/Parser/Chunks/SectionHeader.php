@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Parser\Chunks;
 
 use Lhsazevedo\Sh4ObjTest\BinaryReader;
-use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationLong;
 use Lhsazevedo\Sh4ObjTest\Parser\ObjectData;
-use Lhsazevedo\Sh4ObjTest\Parser\Chunks\Relocation;
-use Lhsazevedo\Sh4ObjTest\Parser\LocalRelocationShort;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExternalRelocation;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\InternalRelocation;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExportSymbol;
 
 function bitf(int $bitfield, int $position, int $length): int
@@ -50,14 +49,11 @@ class SectionHeader extends Base
     /** @var ObjectData[] */
     public array $objectDataEntries = [];
 
-    /** @var Relocation[] */
-    public array $relocations = [];
+    /** @var ExternalRelocation[] */
+    public array $externalRelocations = [];
 
-    /** @var LocalRelocationLong[] */
-    public array $localRelocationsLong = [];
-
-    /** @var LocalRelocationShort[] */
-    public array $localRelocationsShort = [];
+    /** @var InternalRelocation[] */
+    public array $internalRelocations = [];
 
     /** @var ExportSymbol[] */
     public array $exports = [];
@@ -85,19 +81,14 @@ class SectionHeader extends Base
         $this->name = $reader->readBytes($reader->readInt8());
     }
     
-    public function addRelocation(Relocation $relocation): void
+    public function addExternalRelocation(ExternalRelocation $relocation): void
     {
-        $this->relocations[] = $relocation;
+        $this->externalRelocations[] = $relocation;
     }
 
-    public function addLocalRelocationLong(LocalRelocationLong $localRelocationLong): void
+    public function addInternalRelocation(InternalRelocation $relocation): void
     {
-        $this->localRelocationsLong[] = $localRelocationLong;
-    }
-
-    public function addLocalRelocationShort(LocalRelocationShort $localRelocationShort): void
-    {
-        $this->localRelocationsShort[] = $localRelocationShort;
+        $this->internalRelocations[] = $relocation;
     }
 
     public function addObjectData(ObjectData $objectData): void
@@ -129,7 +120,11 @@ class SectionHeader extends Base
     {
         $this->linkedAddress = $this->address + $address;
 
-        foreach ($this->relocations as $relocation) {
+        foreach ($this->externalRelocations as $relocation) {
+            $relocation->rellocate($this->linkedAddress);
+        }
+
+        foreach ($this->internalRelocations as $relocation) {
             $relocation->rellocate($this->linkedAddress);
         }
 
