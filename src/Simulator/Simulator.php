@@ -1169,6 +1169,13 @@ class Simulator
                 // else
                 return new GenericOperation($instruction, $opcode);
 
+            // FABS <FREG_N>
+            case 0xf05d:
+                $n = getN($instruction);
+                $this->emitDisasm("FABS", ["FR$n"]);
+                $this->writeFloatRegister($n, abs($this->fregisters[$n]));
+                return new GenericOperation($instruction, $opcode);
+
             // FLDI0
             case 0xf08d:
                 // TODO
