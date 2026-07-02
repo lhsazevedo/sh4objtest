@@ -3,4 +3,17 @@
 /dwfinf
 
 set_kt.sh
+/docker-run.sh
 .devcontainer/devcontainer.env
+
+# Playground build artifacts
+/playground/**/dwfinf
+/playground/**/*.DWF
+/playground/**/*.obj
+
+
+# Tool Build artifacts
+/box.phar
+/sh4objtest.phar
+
+/CLAUDE.local.md
