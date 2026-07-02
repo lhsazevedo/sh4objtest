@@ -56,7 +56,7 @@ class CoverageTracker
     /**
      * Returns per-file coverage data.
      *
-     * @return array<int, array{covered: int, total: int, uncoveredLines: int[]}>
+     * @return array<int, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
      */
     public function getReport(ParsedObject $parsedObject): array
     {
@@ -73,13 +73,14 @@ class CoverageTracker
 
             $fn = $line->fileNumber;
             if (!isset($report[$fn])) {
-                $report[$fn] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => []];
+                $report[$fn] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => [], 'coveredLines' => []];
             }
 
             $report[$fn]['total']++;
 
             if ($this->isLineCovered($parsedObject, $line)) {
                 $report[$fn]['covered']++;
+                $report[$fn]['coveredLines'][] = $line->lineNumber;
             } else {
                 $report[$fn]['uncoveredLines'][] = $line->lineNumber;
             }

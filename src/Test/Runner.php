@@ -26,7 +26,7 @@ readonly class ObjectResult {
     }
 
     /**
-     * @return array<int, array{covered: int, total: int, uncoveredLines: int[]}>
+     * @return array<int, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
      */
     public function getReport(ParsedObject $object): array {
         return $this->coverage->getReport($object);
@@ -46,6 +46,8 @@ class Runner
         private OutputInterface $output,
         private bool $shouldOutputDisasm = false,
         private bool $shouldTrackCoverage = false,
+        private ?string $coverageJsonPath = null,
+        private bool $coverageFull = false,
     )
     {}
 
@@ -168,57 +170,16 @@ class Runner
         }
 
         if ($this->shouldTrackCoverage) {
-            $this->output->writeln('');
-            $this->output->writeln('<info>Coverage:</info>');
-            foreach ($objectResults as $objectPath => $objResult) {
-                $parsedObject = ObjectParser::parse($objectPath);
-                // Link so sections get their runtime linkedAddress
-                $this->linkObject($parsedObject);
-                $report = $objResult->getReport($parsedObject);
+            $coverageData = $this->collectCoverage($objectResults);
+            $this->renderCoverage($coverageData);
 
-                $this->output->writeln("  <comment>{$objectPath}</comment>");
-
-                if (empty($report)) {
-                    $this->output->writeln('    (no debug line info)');
-                    continue;
-                }
-
-                foreach ($report as $fileNumber => $fileData) {
-                    $pct = $fileData['covered'] / $fileData['total'] * 100;
-
-                    $suffix = '';
-                    if (!empty($fileData['uncoveredLines'])) {
-                        sort($fileData['uncoveredLines']);
-                        $suffix = ' [uncovered: ' . $this->formatLineRanges($fileData['uncoveredLines']) . ']';
-                    }
-
-                    $path = $parsedObject->unit->sourceFiles[$fileNumber] ?? null;
-                    $name = $path !== null ? basename($path) : "file $fileNumber";
-
-                    $this->output->writeln(sprintf(
-                        '    %s: %.2f%%%s',
-                        $name,
-                        $pct,
-                        $suffix,
-                    ));
-                }
-
-                $symbolReport = $objResult->getSymbolReport($parsedObject);
-                if (!empty($symbolReport)) {
-                    $touched = array_filter($symbolReport, fn ($s) => $s['touched']);
-                    $untouched = array_filter($symbolReport, fn ($s) => !$s['touched']);
-
-                    $this->output->writeln(sprintf(
-                        '    Variables: %d/%d vars accessed',
-                        count($touched),
-                        count($symbolReport),
-                    ));
-
-                    if (!empty($untouched)) {
-                        $names = array_map(fn ($s) => $s['name'], $untouched);
-                        $this->output->writeln('      [unaccessed: ' . implode(', ', $names) . ']');
-                    }
-                }
+            if ($this->coverageJsonPath !== null) {
+                file_put_contents(
+                    $this->coverageJsonPath,
+                    json_encode($coverageData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n",
+                );
+                $this->output->writeln('');
+                $this->output->writeln("  <info>Wrote coverage report to {$this->coverageJsonPath}</info>");
             }
         }
 
@@ -226,16 +187,146 @@ class Runner
         return true;
     }
 
-    /** @param int[] $lines sorted ascending */
-    private function formatLineRanges(array $lines): string
+    /**
+     * Build the full structured coverage report, shared by the terminal view
+     * and the JSON dump.
+     *
+     * @param array<string, ObjectResult> $objectResults
+     * @return array<string, array{
+     *     files: array<array{name: string, path: ?string, covered: int, total: int, percentage: float, uncoveredRanges: string[]}>,
+     *     variables: array{name: string, touched: bool}[]
+     * }>
+     */
+    private function collectCoverage(array $objectResults): array
     {
+        $coverageData = [];
+
+        foreach ($objectResults as $objectPath => $objResult) {
+            $parsedObject = ObjectParser::parse($objectPath);
+            // Link so sections get their runtime linkedAddress
+            $this->linkObject($parsedObject);
+            $report = $objResult->getReport($parsedObject);
+
+            $files = [];
+            foreach ($report as $fileNumber => $fileData) {
+                sort($fileData['uncoveredLines']);
+                $path = $parsedObject->unit->sourceFiles[$fileNumber] ?? null;
+
+                $files[] = [
+                    'name' => $path !== null ? basename($path) : "file $fileNumber",
+                    'path' => $path,
+                    'covered' => $fileData['covered'],
+                    'total' => $fileData['total'],
+                    'percentage' => $fileData['covered'] / $fileData['total'] * 100,
+                    'uncoveredRanges' => $this->computeLineRanges($fileData['uncoveredLines'], $fileData['coveredLines']),
+                ];
+            }
+
+            $coverageData[$objectPath] = [
+                'files' => $files,
+                'variables' => $objResult->getSymbolReport($parsedObject),
+            ];
+        }
+
+        return $coverageData;
+    }
+
+    /** @param array<string, array{files: array<array<string, mixed>>, variables: array{name: string, touched: bool}[]}> $coverageData */
+    private function renderCoverage(array $coverageData): void
+    {
+        $this->output->writeln('');
+        $this->output->writeln('<info>Coverage:</info>');
+
+        // Width the percentage column against every file so it right-aligns
+        // across all objects, not just within one.
+        $names = array_merge(...array_map(
+            fn ($data) => array_map(fn ($f) => $f['name'], $data['files']),
+            array_values($coverageData),
+        ));
+        $nameWidth = $names === [] ? 0 : max(array_map('strlen', $names));
+
+        foreach ($coverageData as $objectPath => $data) {
+            $this->output->writeln("  <comment>{$objectPath}</comment>");
+
+            if ($data['files'] === []) {
+                $this->output->writeln('    (no debug line info)');
+                continue;
+            }
+
+            foreach ($data['files'] as $file) {
+                $pct = sprintf('%6.2f%%', $file['percentage']);
+                $color = $file['percentage'] >= 100 ? 'green' : ($file['percentage'] >= 50 ? 'yellow' : 'red');
+                $ranges = $this->coverageFull
+                    ? implode(', ', $file['uncoveredRanges'])
+                    : $this->truncateRanges($file['uncoveredRanges'], 4);
+
+                $this->output->writeln(sprintf(
+                    '    %-' . $nameWidth . "s  <fg=%s>%s</>  %s",
+                    $file['name'],
+                    $color,
+                    $pct,
+                    $ranges,
+                ));
+            }
+
+            $variables = $data['variables'];
+            if ($variables !== []) {
+                $untouched = array_values(array_filter($variables, fn ($s) => !$s['touched']));
+
+                $this->output->writeln(sprintf(
+                    '    %d/%d variables accessed',
+                    count($variables) - count($untouched),
+                    count($variables),
+                ));
+
+                if ($this->coverageFull && $untouched !== []) {
+                    $names = array_map(fn ($s) => $s['name'], $untouched);
+                    $this->output->writeln('      <fg=red>unaccessed:</> ' . implode(', ', $names));
+                }
+            }
+        }
+    }
+
+    /**
+     * Render uncovered ranges, keeping only the first few so the line stays
+     * tidy; the full list lives in the JSON report.
+     *
+     * @param string[] $ranges
+     */
+    private function truncateRanges(array $ranges, int $max): string
+    {
+        if ($ranges === []) {
+            return '';
+        }
+
+        if (count($ranges) <= $max) {
+            return implode(', ', $ranges);
+        }
+
+        $shown = array_slice($ranges, 0, $max);
+        return implode(', ', $shown) . sprintf(' (+%d more)', count($ranges) - $max);
+    }
+
+    /**
+     * Collapse line numbers into ranges, bridging gaps that contain no covered
+     * line so e.g. 5-8 and 10-15 collapse to 5-15 when line 9 has no debug
+     * record (blank line, brace, declaration).
+     *
+     * @param int[] $lines        uncovered line numbers, sorted ascending
+     * @param int[] $coveredLines covered line numbers
+     * @return string[]
+     */
+    private function computeLineRanges(array $lines, array $coveredLines = []): array
+    {
+        $covered = array_flip($coveredLines);
+
         $ranges = [];
         $start = $end = null;
 
         foreach ($lines as $line) {
             if ($start === null) {
                 $start = $end = $line;
-            } elseif ($line === $end + 1) {
+            } elseif ($this->gapIsEmpty($end, $line, $covered)) {
                 $end = $line;
             } else {
                 $ranges[] = $start === $end ? (string)$start : "{$start}-{$end}";
@@ -247,7 +338,19 @@ class Runner
             $ranges[] = $start === $end ? (string)$start : "{$start}-{$end}";
         }
 
-        return implode(', ', $ranges);
+        return $ranges;
+    }
+
+    /** @param array<int,int> $covered covered line numbers as a set */
+    private function gapIsEmpty(int $from, int $to, array $covered): bool
+    {
+        for ($line = $from + 1; $line < $to; $line++) {
+            if (isset($covered[$line])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function linkObject(ParsedObject $object): string {
