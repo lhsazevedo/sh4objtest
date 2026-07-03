@@ -959,6 +959,13 @@ class Simulator
                 $this->writeRegister(0, $this->registers[0]->band($imm));
                 return new GenericOperation($instruction, $opcode);
 
+            // XOR #imm,R0
+            case 0xca00:
+                $imm = getImm8($instruction)->u32();
+                $this->emitDisasm("XOR", ["#H'{$imm->hex()}", "R0"]);
+                $this->writeRegister(0, $this->registers[0]->bxor($imm));
+                return new GenericOperation($instruction, $opcode);
+
             // OR #imm,R0
             case 0xcb00:
                 $imm = getImm8($instruction)->u32();
