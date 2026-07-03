@@ -16,4 +16,6 @@ set_kt.sh
 /box.phar
 /sh4objtest.phar
 
+/.phpunit.result.cache
+
 /CLAUDE.local.md

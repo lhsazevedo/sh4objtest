@@ -156,7 +156,6 @@ abstract readonly class UInt
     public function shiftLeft(int $shift = 1): static
     {
         $result = $this->value << $shift;
-        self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);
     }
 
