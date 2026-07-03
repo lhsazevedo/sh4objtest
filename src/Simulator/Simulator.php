@@ -1150,7 +1150,8 @@ class Simulator
             case 0xf02d:
                 $n = getN($instruction);
                 $this->emitDisasm("FLOAT", ["FPUL", "FR$n"]);
-                $this->writeFloatRegister($n, (float) $this->fpul);
+                // FLOAT converts FPUL as a signed integer
+                $this->writeFloatRegister($n, (float) unpack('l', pack('L', $this->fpul))[1]);
                 return new GenericOperation($instruction, $opcode);
 
             // FTRC <FREG_N>,FPUL
