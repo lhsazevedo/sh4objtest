@@ -63,7 +63,7 @@ class Runner
         $linkedCode = $this->linkObject($parsedObject);
         $result = new FileResult();
 
-        $this->output->writeln("◯ {$testFile}");
+        $this->output->writeln("◯ {$testFile} <comment>→ {$objectFile}</comment>");
 
         try {
             foreach ($reflectedTestCase->getMethods() as $reflectionMethod) {
@@ -133,7 +133,8 @@ class Runner
                 $result->addRun($run->run());
             }
         } catch (ExpectationException $e) {
-            $this->output->writeln("\n<bg=red> FAILED EXPECTATION </> <fg=red>{$e->getMessage()}</>\n");
+            $this->output->writeln("\n<bg=red> FAILED EXPECTATION </> <fg=red>{$e->getMessage()}</>");
+            $this->output->writeln("<comment>  Object: {$objectFile}</comment>\n");
             // TODO: Add failed expectation to result
             exit;
         }
