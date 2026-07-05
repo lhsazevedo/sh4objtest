@@ -16,6 +16,8 @@ class Sh4ObjTestReadWritePropertiesExtension implements ReadWritePropertiesExten
                 'initializations',
                 'testRelocations',
                 'expectations',
+                'defaultCallbacks',
+                'defaultConventions',
                 'entry',
                 'randomizeMemory',
                 'forceStop',

@@ -6,6 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest\Test\Expectations;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\LocalArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 
 class CallExpectation extends AbstractExpectation
 {
@@ -15,6 +16,8 @@ class CallExpectation extends AbstractExpectation
     public int|float|null $return = null;
 
     public ?\Closure $callback = null;
+
+    public ?CallingConvention $convention = null;
 
     public function __construct(
         public ?string $name,
@@ -36,6 +39,12 @@ class CallExpectation extends AbstractExpectation
     public function do(\Closure $callback): self
     {
         $this->callback = $callback;
+        return $this;
+    }
+
+    public function using(CallingConvention $convention): self
+    {
+        $this->convention = $convention;
         return $this;
     }
 }

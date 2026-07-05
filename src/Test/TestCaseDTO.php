@@ -22,6 +22,12 @@ readonly class TestCaseDTO
         /** @var Expectations\AbstractExpectation[] */
         public array $expectations,
 
+        /** @var array<string, \Closure> */
+        public array $defaultCallbacks,
+
+        /** @var array<string, \Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention> */
+        public array $defaultConventions,
+
         // public Entry $entry,
 
         public bool $shouldRandomizeMemory,

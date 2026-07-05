@@ -580,17 +580,6 @@ class Run
             $readableName = "$name (" . U32::of($target)->hex() . ")";
         }
 
-        // FIXME: modls and modlu probrably behave differently
-        if ($name === '__modls' || $name === '__modlu') {
-            $simulator->setRegister(0, $simulator->getRegister(1)->mod($simulator->getRegister(0)));
-            return;
-        }
-
-        if ($name === '__divls') {
-            $simulator->setRegister(0, $simulator->getRegister(1)->div($simulator->getRegister(0)));
-            return;
-        }
-
         /** @var Expectations\AbstractExpectation */
         $expectation = array_shift($this->pendingExpectations);
 
@@ -603,8 +592,9 @@ class Run
         }
 
         if ($expectation->parameters) {
-            // TODO: Handle other calling convetions?
-            $convention = new DefaultCallingConvention();
+            $convention = $expectation->convention
+                ?? ($name !== null ? ($this->testCase->defaultConventions[$name] ?? null) : null)
+                ?? new DefaultCallingConvention();
 
             foreach ($expectation->parameters as $expected) {
                 if ($expected instanceof WildcardArgument) {
@@ -722,8 +712,11 @@ class Run
         }
 
         // TODO: Temporary hack to modify write during runtime
-        if ($expectation->callback) {
-            $callback = \Closure::bind($expectation->callback, $simulator, $simulator);
+        $callback = $expectation->callback
+            ?? ($name !== null ? ($this->testCase->defaultCallbacks[$name] ?? null) : null);
+
+        if ($callback) {
+            $callback = \Closure::bind($callback, $simulator, $simulator);
             $callback($expectation->parameters);
         }
 

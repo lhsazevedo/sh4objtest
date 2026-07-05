@@ -6,6 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest;
 
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 use Lhsazevedo\Sh4ObjTest\Test\Entry;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
@@ -39,6 +40,12 @@ class TestCase
     /** @var MemoryInitialization[] */
     private array $initializations = [];
 
+    /** @var array<string, \Closure> */
+    private array $defaultCallbacks = [];
+
+    /** @var array<string, CallingConvention> */
+    private array $defaultConventions = [];
+
     public function __construct()
     {
         $this->entry = new Entry();
@@ -59,6 +66,26 @@ class TestCase
         $this->expectations[] = $expectation;
 
         return $expectation;
+    }
+
+    /**
+     * Registers a default effect for calls to $symbol, used when a matching
+     * CallExpectation has no ->do() of its own. The closure is bound to the
+     * Simulator at call time.
+     */
+    protected function onCall(string $symbol, \Closure $callback): void
+    {
+        $this->defaultCallbacks[$symbol] = $callback;
+    }
+
+    /**
+     * Registers a default calling convention for calls to $symbol, used when a
+     * matching CallExpectation has no ->using() of its own (e.g. the SHC
+     * runtime routines that pass operands in R0/R1 instead of R4-R7).
+     */
+    protected function setDefaultConvention(string $symbol, CallingConvention $convention): void
+    {
+        $this->defaultConventions[$symbol] = $convention;
     }
 
     protected function shouldRead(int $address, int $value): ReadExpectation

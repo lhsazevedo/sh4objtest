@@ -117,6 +117,8 @@ class Runner
                     initializations: $reflectedBaseTestCase->getProperty('initializations')->getValue($currentTestCase),
                     testRelocations: $testRelocations,
                     expectations: $expectations,
+                    defaultCallbacks: $reflectedBaseTestCase->getProperty('defaultCallbacks')->getValue($currentTestCase),
+                    defaultConventions: $reflectedBaseTestCase->getProperty('defaultConventions')->getValue($currentTestCase),
                     // entry: $reflectedBaseTestCase->getProperty('entry')->getValue($currentTestCase),
                     shouldRandomizeMemory: $reflectedBaseTestCase->getProperty('randomizeMemory')->getValue($currentTestCase),
                     shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),
