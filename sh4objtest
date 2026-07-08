@@ -24,6 +24,7 @@ require $_composer_autoload_path ?? __DIR__ . '/vendor/autoload.php';
 use Lhsazevedo\Sh4ObjTest\Console\InspectCommand;
 use Lhsazevedo\Sh4ObjTest\Console\SuiteCommand;
 use Lhsazevedo\Sh4ObjTest\Console\TestCommand;
+use Lhsazevedo\Sh4ObjTest\Console\WorkerCommand;
 
 $app = new Symfony\Component\Console\Application(
     name: 'sh4objtest',
@@ -33,6 +34,7 @@ $app = new Symfony\Component\Console\Application(
 $app->add(new SuiteCommand());
 $app->add(new TestCommand());
 $app->add(new InspectCommand());
+$app->add(new WorkerCommand());
 
 $app->setDefaultCommand('suite');
 
