@@ -6,6 +6,7 @@ namespace Lhsazevedo\Sh4ObjTest\Console;
 
 use Lhsazevedo\Sh4ObjTest\ObjectParser;
 use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
+use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -30,7 +31,9 @@ class InspectCommand extends Command
     public function configure(): void
     {
         $this->addArgument('object', InputArgument::REQUIRED, 'The object file to inspect')
-            ->addOption('hex', 'x', InputOption::VALUE_NONE, 'Dump raw section bytes as hex');
+            ->addOption('hex', 'x', InputOption::VALUE_NONE, 'Dump raw section bytes as hex')
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: "pretty" or "json"', 'pretty')
+            ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Write --format=json output to this file instead of stdout');
     }
 
     public function execute(InputInterface $input, OutputInterface $output): int
@@ -42,8 +45,28 @@ class InspectCommand extends Command
             return Command::FAILURE;
         }
 
+        $format = $input->getOption('format');
+        if (!in_array($format, ['pretty', 'json'], true)) {
+            $output->writeln("<error>Invalid --format \"{$format}\", expected \"pretty\" or \"json\".</error>");
+            return Command::INVALID;
+        }
+
         $parsed = ObjectParser::parse($objectFile);
         $unit = $parsed->unit;
+
+        if ($format === 'json') {
+            $json = json_encode($this->buildJsonDocument($parsed), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+
+            $outputPath = $input->getOption('output');
+            if ($outputPath !== null) {
+                file_put_contents($outputPath, $json);
+                $output->writeln("<info>Wrote results to {$outputPath}</info>");
+            } else {
+                $output->write($json);
+            }
+
+            return Command::SUCCESS;
+        }
 
         $output->writeln("<info>Unit:</info> {$unit->unitName}");
         $output->writeln("  Tool:     {$unit->toolName}");
@@ -183,6 +206,80 @@ class InspectCommand extends Command
         }
 
         return Command::SUCCESS;
+    }
+
+    /** @return array<string,mixed> */
+    private function buildJsonDocument(ParsedObject $parsed): array
+    {
+        $unit = $parsed->unit;
+
+        return [
+            'unit' => [
+                'unitName' => $unit->unitName,
+                'toolName' => $unit->toolName,
+                'toolDate' => $unit->toolDate,
+                'nSections' => $unit->nSections,
+                'nExtRefs' => $unit->nExtRefs,
+                'nExtDefs' => $unit->nExtDefs,
+            ],
+            'sections' => array_map(function (int $i, SectionHeader $section) {
+                $raw = $section->assembleObjectData();
+
+                return [
+                    'index' => $i,
+                    'name' => $section->name,
+                    'contents' => self::CONTENTS_NAMES[$section->contents] ?? $section->contents,
+                    'read' => (bool) $section->read,
+                    'write' => (bool) $section->write,
+                    'exec' => (bool) $section->exec,
+                    'address' => $section->address,
+                    'length' => $section->length,
+                    'alignment' => $section->alignment,
+                    'objectDataHex' => bin2hex($raw),
+                    'exports' => array_map(fn($e) => [
+                        'name' => $e->name,
+                        'section' => $e->section,
+                        'offset' => $e->offset,
+                    ], $section->exports),
+                    'externalRelocations' => array_map(fn($r) => [
+                        'address' => $r->address,
+                        'name' => $r->name,
+                        'addend' => $r->addend,
+                        'fieldWidth' => $r->fieldWidth,
+                    ], $section->externalRelocations),
+                    'internalRelocations' => array_map(fn($r) => [
+                        'address' => $r->address,
+                        'sectionIndex' => $r->sectionIndex,
+                        'addend' => $r->addend, // null => implicit/in-place
+                    ], $section->internalRelocations),
+                ];
+            }, array_keys($unit->sections), $unit->sections),
+            'debugLines' => array_map(fn($dl) => [
+                'fileNumber' => $dl->fileNumber,
+                'lineNumber' => $dl->lineNumber,
+                'sectionNumber' => $dl->sectionNumber,
+                'fromAddress' => $dl->fromAddress,
+                'toAddress' => $dl->toAddress,
+                'callCount' => $dl->callCount,
+                'callSites' => $dl->callSites,
+            ], $unit->debugLines),
+            'sourceFiles' => $unit->sourceFiles, // index 0 = main file, rest = #included
+            'debugSymbols' => array_map(fn($sym) => [
+                'type' => $sym->type?->name,
+                'rawType' => $sym->rawType,
+                'name' => $sym->name,
+                'nesting' => $sym->nesting,
+                'section' => $sym->section,
+                'address' => $sym->address,
+                'register' => $sym->register,
+                'externalName' => $sym->externalName,
+                'constant' => $sym->constant,
+                'ainfo' => $sym->ainfo,
+                'fileNumber' => $sym->fileNumber,
+                'lineNumber' => $sym->lineNumber,
+            ], $unit->debugSymbols), // unfiltered — includes symbols from #included files
+            'skippedChunkTypes' => $parsed->skippedChunkTypes,
+        ];
     }
 
     /** Format a signed addend as e.g. "0x4" or "-0x4". */
