@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Console;
 
+use Lhsazevedo\Sh4ObjTest\Test\ConsoleEventListener;
 use Lhsazevedo\Sh4ObjTest\Test\Runner;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -22,27 +23,22 @@ class TestCommand extends Command
     {
         $this->addArgument('test', InputArgument::REQUIRED, 'The test case to run')
             ->addArgument('object', InputArgument::REQUIRED, 'The object file to test against')
-            ->addOption('disasm', 'd', InputOption::VALUE_NONE, 'Print asm instructions during test execution');
+            ->addOption('disasm', 'd', InputOption::VALUE_NONE, 'Print asm instructions during test execution')
+            ->addOption('fail-fast', null, InputOption::VALUE_NONE, 'Stop at the first failing test instead of running the rest of the file');
     }
 
     public function execute (InputInterface $input, OutputInterface $output): int
     {
         $testFile = $input->getArgument('test');
 
-        // $testCase->_inject($input, $output);
-        // $testCase->parseObject();
-    
-        // TODO: Setup and teardown.
-
-        // echo "# $testFile against $objectFile\n";
-
         $runner = new Runner(
-            output: $output,
+            events: new ConsoleEventListener($output),
             shouldOutputDisasm: $input->getOption('disasm'),
+            failFast: (bool) $input->getOption('fail-fast'),
         );
 
-        $runner->runFile($testFile, $input->getArgument('object'));
+        $result = $runner->runFile($testFile, $input->getArgument('object'));
 
-        return Command::SUCCESS;
+        return $result->isSuccessful() ? Command::SUCCESS : Command::FAILURE;
     }
 }

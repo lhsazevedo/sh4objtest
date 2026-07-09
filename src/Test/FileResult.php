@@ -4,8 +4,8 @@ namespace Lhsazevedo\Sh4ObjTest\Test;
 
 class FileResult
 {
-    /** @var RunResult[] */
-    private array $runs;
+    /** @var array{name: string, status: string, message: string}[] */
+    private array $tests = [];
 
     public CoverageTracker $coverage;
 
@@ -16,15 +16,31 @@ class FileResult
 
     public function addRun(RunResult $run): void
     {
-        $this->runs[] = $run;
+        $this->tests[] = ['name' => $run->name, 'status' => 'pass', 'message' => $run->message];
+        $this->coverage->merge($run->coverage);
+    }
+
+    public function addFailure(string $name, string $message): void
+    {
+        $this->tests[] = ['name' => $name, 'status' => 'fail', 'message' => $message];
     }
 
     /**
-     * @return RunResult[]
+     * @return array{name: string, status: string, message: string}[]
      */
-    public function getRuns(): array
+    public function getTests(): array
     {
-        return $this->runs;
+        return $this->tests;
+    }
+
+    public function isSuccessful(): bool
+    {
+        foreach ($this->tests as $test) {
+            if ($test['status'] === 'fail') {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
-

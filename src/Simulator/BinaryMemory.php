@@ -12,10 +12,23 @@ class BinaryMemory {
 
     private string $memory;
 
+    /** Size of the random tile repeated across memory when randomizing (see below). */
+    private const RANDOM_TILE_SIZE = 65536;
+
     public function __construct(int $size, bool $randomize = true)
     {
         if ($randomize) {
-            $this->memory = random_bytes($size);
+            // random_bytes() over the full (typically 16MB) region dominated
+            // suite runtime (CSPRNG throughput, not memory bandwidth). Tests
+            // only need non-zero "garbage" to catch code relying on
+            // zero-initialized memory, not cryptographic randomness, so tile
+            // a small random chunk instead.
+            $tile = random_bytes(self::RANDOM_TILE_SIZE);
+            $reps = intdiv($size, self::RANDOM_TILE_SIZE);
+            $remainder = $size % self::RANDOM_TILE_SIZE;
+            $this->memory = $remainder === 0
+                ? str_repeat($tile, $reps)
+                : str_repeat($tile, $reps) . substr($tile, 0, $remainder);
             return;
         }
 

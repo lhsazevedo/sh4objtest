@@ -16,8 +16,6 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
@@ -58,7 +56,7 @@ class Run
     private bool $running = true;
 
     public function __construct(
-        private OutputInterface $output,
+        private EventListener $events,
         private TestCaseDTO $testCase,
         private bool $shouldOutputDisasm,
     )
@@ -214,19 +212,15 @@ class Run
         } while (reset($this->pendingExpectations) instanceof CallCommand);
 
         if ($this->pendingExpectations) {
-            var_dump($this->pendingExpectations);
-            throw new \Exception("Pending expectations", 1);
+            $names = array_map(fn ($e) => $e::class, $this->pendingExpectations);
+            throw new \Exception("Pending expectations: " . implode(', ', $names), 1);
         }
 
         $this->outputMessages();
 
         $count = count($this->expectations);
 
-        $name = $this->testCase->name;
-        $name = preg_replace('/^test_?/', '', $name, 1);
-        $name = str_replace('_', ' ', $name);
-        $name = preg_replace('/([a-z])([A-Z])/', '$1 $2', $name);
-        $name = ucfirst(strtolower($name));
+        $name = self::humanizeName($this->testCase->name);
 
         $expectationsMessage = match (true) {
             $count === 0 => "<fg=yellow>no expectations</>",
@@ -234,12 +228,21 @@ class Run
             default => "$count expectations",
         };
 
-        $this->output->writeln("    <fg=bright-green;options=bold>✔</> $name ($expectationsMessage)");
+        $this->events->onTestPassed($name, $expectationsMessage);
 
         return new RunResult(
-            success: true,
+            name: $name,
+            message: $expectationsMessage,
             coverage: $this->coverage,
         );
+    }
+
+    public static function humanizeName(string $name): string
+    {
+        $name = preg_replace('/^test_?/', '', $name, 1);
+        $name = str_replace('_', ' ', $name);
+        $name = preg_replace('/([a-z])([A-Z])/', '$1 $2', $name);
+        return ucfirst(strtolower($name));
     }
 
     /**
@@ -358,11 +361,11 @@ class Run
 
         if ($this->disasm) {
             $disasm = $addLog($this->disasm, $this->registerLog);
-            $this->output->writeln($disasm);
+            $this->events->onDisasm($disasm);
         }
 
         foreach ($this->messages as $message) {
-            $this->output->writeln($message);
+            $this->events->onMessage($message);
         }
 
         $this->disasm = null;

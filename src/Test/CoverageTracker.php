@@ -54,6 +54,36 @@ class CoverageTracker
     }
 
     /**
+     * Serializes the two hit-sets to plain int arrays so coverage can cross
+     * a worker/controller process boundary as JSON.
+     *
+     * @return array{execute: int[], access: int[]}
+     */
+    public function toArray(): array
+    {
+        return [
+            'execute' => array_keys($this->executeAddresses),
+            'access' => array_keys($this->accessAddresses),
+        ];
+    }
+
+    /** @param array{execute: int[], access: int[]} $data */
+    public static function fromArray(array $data): self
+    {
+        $tracker = new self();
+
+        foreach ($data['execute'] as $address) {
+            $tracker->executeAddresses[$address] = true;
+        }
+
+        foreach ($data['access'] as $address) {
+            $tracker->accessAddresses[$address] = true;
+        }
+
+        return $tracker;
+    }
+
+    /**
      * Returns per-file coverage data.
      *
      * @return array<int, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
