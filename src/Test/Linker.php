@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
+use Lhsazevedo\Sh4ObjTest\Parser\Stype;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
@@ -74,6 +75,36 @@ class Linker
                 $symbols->addSymbol(new Symbol($export->name, U32::of($export->linkedAddress)));
                 $entryPoints[$export->name] ??= $export->offset;
             }
+        }
+
+        // Static (internal-linkage) functions have no Exports entry, but the
+        // compiler still emits their name via debug info when built with -debug.
+        // Debug symbol names are bare source identifiers; the linker name (as
+        // used by Exports/relocations, and thus by test cases) prepends "_".
+        foreach ($object->unit->debugSymbols as $debugSymbol) {
+            if ($debugSymbol->type !== Stype::Func && $debugSymbol->type !== Stype::Proc) {
+                continue;
+            }
+
+            // Static symbols lack an external name.
+            $linkedName = $debugSymbol->externalName ?? ('_' . $debugSymbol->name);
+
+            if (isset($entryPoints[$linkedName])
+                || $debugSymbol->section === null
+                || $debugSymbol->address === null) {
+                continue;
+            }
+
+            $section = $object->unit->sections[$debugSymbol->section] ?? null;
+            if ($section === null) {
+                continue;
+            }
+
+            $entryPoints[$linkedName] = $debugSymbol->address;
+            $symbols->addSymbol(new Symbol(
+                $linkedName,
+                U32::of($section->linkedAddress + $debugSymbol->address),
+            ));
         }
 
         return new LinkedProgram(
