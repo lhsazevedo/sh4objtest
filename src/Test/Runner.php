@@ -13,6 +13,9 @@ use Lhsazevedo\Sh4ObjTest\TestCase;
 
 class Runner
 {
+    /** @var array<string, array{0: ParsedObject, 1: string}> keyed by object file path */
+    private static array $linkedObjectCache = [];
+
     public function __construct(
         private EventListener $events,
         private bool $shouldOutputDisasm = false,
@@ -28,8 +31,17 @@ class Runner
 
         // TODO: Check if it is really necessary to
         // pass the parsed object to the test case.
-        $parsedObject = ObjectParser::parse($objectFile);
-        $linkedCode = self::linkObject($parsedObject);
+        // A suite's groups fan multiple test files out against the same
+        // objects, so cache the parsed+linked object across test files
+        // instead of redoing it per test file (safe: rellocate() only
+        // happens here, and nothing downstream mutates the parsed object).
+        if (!isset(self::$linkedObjectCache[$objectFile])) {
+            $parsedObject = ObjectParser::parse($objectFile);
+            $linkedCode = self::linkObject($parsedObject);
+            self::$linkedObjectCache[$objectFile] = [$parsedObject, $linkedCode];
+        }
+        [$parsedObject, $linkedCode] = self::$linkedObjectCache[$objectFile];
+
         $result = new FileResult();
 
         $this->events->onFileStarted($testFile, $objectFile);
@@ -85,7 +97,6 @@ class Runner
                 expectations: $expectations,
                 defaultCallbacks: $reflectedBaseTestCase->getProperty('defaultCallbacks')->getValue($currentTestCase),
                 defaultConventions: $reflectedBaseTestCase->getProperty('defaultConventions')->getValue($currentTestCase),
-                // entry: $reflectedBaseTestCase->getProperty('entry')->getValue($currentTestCase),
                 shouldRandomizeMemory: $reflectedBaseTestCase->getProperty('randomizeMemory')->getValue($currentTestCase),
                 shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),
             );
