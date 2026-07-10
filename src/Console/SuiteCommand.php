@@ -79,7 +79,7 @@ class SuiteCommand extends Command
             $workersOption = $input->getOption('workers');
             $workerCount = $workersOption !== null ? (int) $workersOption : Controller::detectCoreCount();
 
-            $binPath = realpath((string) ($_SERVER['argv'][0] ?? ''));
+            $binPath = self::resolveBinPath((string) ($_SERVER['argv'][0] ?? ''));
             if ($binPath === false) {
                 $output->writeln('<error>Could not resolve the sh4objtest binary path for spawning workers.</error>');
                 return Command::FAILURE;
@@ -101,6 +101,20 @@ class SuiteCommand extends Command
         $this->printResult($output, $result, $format, $input->getOption('output'), $shouldTrackCoverage, $coverageFull);
 
         return $result->success ? Command::SUCCESS : Command::FAILURE;
+    }
+
+    private static function resolveBinPath(string $argv0): string|false
+    {
+        // Inside a PHAR (php foo.phar) or a phpmicro self-executable — the two
+        // distributed forms — this is the absolute archive/executable path
+        // however it was invoked. Empty only for the raw entry script, where
+        // argv[0] is a real relative/CWD path realpath() can resolve.
+        $running = \Phar::running(false);
+        if ($running !== '') {
+            return $running;
+        }
+
+        return realpath($argv0);
     }
 
     private function printResult(

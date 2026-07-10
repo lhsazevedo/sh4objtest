@@ -179,7 +179,13 @@ class Controller
     private function spawnWorker(): array
     {
         $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-        $proc = proc_open([\PHP_BINARY, $this->binPath, 'worker'], $descriptors, $pipes);
+
+        // A phpmicro self-executable embeds the script and has an empty
+        // PHP_BINARY, so it's run directly; a plain PHAR needs the interpreter.
+        $command = php_sapi_name() === 'micro'
+            ? [$this->binPath, 'worker']
+            : [\PHP_BINARY, $this->binPath, 'worker'];
+        $proc = proc_open($command, $descriptors, $pipes);
 
         if (!is_resource($proc)) {
             throw new \RuntimeException('Failed to spawn worker process');
