@@ -20,14 +20,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class InspectCommand extends Command
 {
-    private const CONTENTS_NAMES = [
-        SectionHeader::CONTENTS_CODE    => 'code',
-        SectionHeader::CONTENTS_DATA    => 'data',
-        SectionHeader::CONTENTS_STACK   => 'stack',
-        SectionHeader::CONTENTS_DUMMY   => 'dummy',
-        SectionHeader::CONTENTS_SPECIAL => 'special',
-    ];
-
     public function configure(): void
     {
         $this->addArgument('object', InputArgument::REQUIRED, 'The object file to inspect')
@@ -77,7 +69,7 @@ class InspectCommand extends Command
         $output->writeln('');
 
         foreach ($unit->sections as $i => $section) {
-            $contentsLabel = self::CONTENTS_NAMES[$section->contents] ?? "unknown({$section->contents})";
+            $contentsLabel = SectionHeader::contentsLabel($section->contents);
             $rwx = ($section->read  ? 'r' : '-')
                  . ($section->write ? 'w' : '-')
                  . ($section->exec  ? 'x' : '-');
@@ -228,7 +220,7 @@ class InspectCommand extends Command
                 return [
                     'index' => $i,
                     'name' => $section->name,
-                    'contents' => self::CONTENTS_NAMES[$section->contents] ?? $section->contents,
+                    'contents' => SectionHeader::contentsLabel($section->contents),
                     'read' => (bool) $section->read,
                     'write' => (bool) $section->write,
                     'exec' => (bool) $section->exec,

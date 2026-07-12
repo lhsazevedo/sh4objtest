@@ -28,6 +28,19 @@ class SectionHeader extends Base
     public const CONTENTS_SPECIAL = 4;
     public const CONTENTS_NONSPEC = 0;
 
+    private const CONTENTS_NAMES = [
+        self::CONTENTS_CODE    => 'code',
+        self::CONTENTS_DATA    => 'data',
+        self::CONTENTS_STACK   => 'stack',
+        self::CONTENTS_DUMMY   => 'dummy',
+        self::CONTENTS_SPECIAL => 'special',
+    ];
+
+    public static function contentsLabel(int $contents): string
+    {
+        return self::CONTENTS_NAMES[$contents] ?? "unknown({$contents})";
+    }
+
     public readonly int $format;
     public readonly int $address;
     public readonly int $length;

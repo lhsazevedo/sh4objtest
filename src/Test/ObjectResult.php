@@ -22,7 +22,7 @@ readonly class ObjectResult
     }
 
     /**
-     * @return array<int, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
+     * @return array<int, array{sectionNumber: int, fileNumber: int, covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
      */
     public function getReport(ParsedObject $object): array
     {

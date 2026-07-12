@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
 use Lhsazevedo\Sh4ObjTest\ObjectParser;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -14,9 +15,14 @@ use Symfony\Component\Console\Output\OutputInterface;
 class CoverageReporter
 {
     /**
+     * Per-section coverage. Sections are the natural split between code and
+     * data: assembler-built objects emit debug-line records for data
+     * directives too, so a single blended percentage can be dragged down by
+     * a large, mostly-unread data table even when the code is well covered.
+     *
      * @param array<string, ObjectResult> $objectResults
      * @return array<string, array{
-     *     files: array<array{name: string, path: ?string, covered: int, total: int, percentage: float, uncoveredRanges: string[]}>,
+     *     sections: array<array{name: string, contents: string, sourceFile: ?string, covered: int, total: int, percentage: float, uncoveredLines: int[], coveredLines: int[], uncoveredRanges: string[]}>,
      *     variables: array{name: string, touched: bool}[]
      * }>
      */
@@ -30,23 +36,27 @@ class CoverageReporter
             Runner::linkObject($parsedObject);
             $report = $objResult->getReport($parsedObject);
 
-            $files = [];
-            foreach ($report as $fileNumber => $fileData) {
-                sort($fileData['uncoveredLines']);
-                $path = $parsedObject->unit->sourceFiles[$fileNumber] ?? null;
+            $sections = [];
+            foreach ($report as $sectionNumber => $sectionData) {
+                sort($sectionData['uncoveredLines']);
+                $section = $parsedObject->unit->sections[$sectionNumber];
+                $path = $parsedObject->unit->sourceFiles[$sectionData['fileNumber']] ?? null;
 
-                $files[] = [
-                    'name' => $path !== null ? basename($path) : "file $fileNumber",
-                    'path' => $path,
-                    'covered' => $fileData['covered'],
-                    'total' => $fileData['total'],
-                    'percentage' => $fileData['covered'] / $fileData['total'] * 100,
-                    'uncoveredRanges' => self::computeLineRanges($fileData['uncoveredLines'], $fileData['coveredLines']),
+                $sections[] = [
+                    'name' => $section->name,
+                    'contents' => SectionHeader::contentsLabel($section->contents),
+                    'sourceFile' => $path,
+                    'covered' => $sectionData['covered'],
+                    'total' => $sectionData['total'],
+                    'percentage' => $sectionData['covered'] / $sectionData['total'] * 100,
+                    'uncoveredLines' => $sectionData['uncoveredLines'],
+                    'coveredLines' => $sectionData['coveredLines'],
+                    'uncoveredRanges' => self::computeLineRanges($sectionData['uncoveredLines'], $sectionData['coveredLines']),
                 ];
             }
 
             $coverageData[$objectPath] = [
-                'files' => $files,
+                'sections' => $sections,
                 'variables' => $objResult->getSymbolReport($parsedObject),
             ];
         }
@@ -54,38 +64,43 @@ class CoverageReporter
         return $coverageData;
     }
 
-    /** @param array<string, array{files: array<array<string, mixed>>, variables: array{name: string, touched: bool}[]}> $coverageData */
+    /** @param array<string, array{sections: array<array<string, mixed>>, variables: array{name: string, touched: bool}[]}> $coverageData */
     public static function render(OutputInterface $output, array $coverageData, bool $coverageFull): void
     {
         $output->writeln('');
         $output->writeln('<info>Coverage:</info>');
 
-        // Width the percentage column against every file so it right-aligns
-        // across all objects, not just within one.
-        $names = array_merge(...array_map(
-            fn ($data) => array_map(fn ($f) => $f['name'], $data['files']),
+        // Width the percentage column against every bucket label so it
+        // right-aligns across all objects, not just within one.
+        $labels = array_unique(array_merge(...array_map(
+            fn ($data) => array_map(fn ($s) => $s['contents'], $data['sections']),
             array_values($coverageData),
-        ));
-        $nameWidth = $names === [] ? 0 : max(array_map('strlen', $names));
+        )));
+        $labelWidth = $labels === [] ? 0 : max(array_map('strlen', $labels));
 
         foreach ($coverageData as $objectPath => $data) {
             $output->writeln("  <comment>{$objectPath}</comment>");
 
-            if ($data['files'] === []) {
+            if ($data['sections'] === []) {
                 $output->writeln('    (no debug line info)');
                 continue;
             }
 
-            foreach ($data['files'] as $file) {
-                $pct = sprintf('%6.2f%%', $file['percentage']);
-                $color = $file['percentage'] >= 100 ? 'green' : ($file['percentage'] >= 50 ? 'yellow' : 'red');
+            $sourceFile = $data['sections'][0]['sourceFile'] ?? null;
+            if ($sourceFile !== null) {
+                $output->writeln("    {$sourceFile}");
+            }
+
+            foreach (self::bucketSections($data['sections']) as $label => $bucket) {
+                $pct = sprintf('%6.2f%%', $bucket['percentage']);
+                $color = $bucket['percentage'] >= 100 ? 'green' : ($bucket['percentage'] >= 50 ? 'yellow' : 'red');
                 $ranges = $coverageFull
-                    ? implode(', ', $file['uncoveredRanges'])
-                    : self::truncateRanges($file['uncoveredRanges'], 4);
+                    ? implode(', ', $bucket['uncoveredRanges'])
+                    : self::truncateRanges($bucket['uncoveredRanges'], 4);
 
                 $output->writeln(sprintf(
-                    '    %-' . $nameWidth . "s  <fg=%s>%s</>  %s",
-                    $file['name'],
+                    '      %-' . $labelWidth . "s  <fg=%s>%s</>  %s",
+                    $label,
                     $color,
                     $pct,
                     $ranges,
@@ -108,6 +123,44 @@ class CoverageReporter
                 }
             }
         }
+    }
+
+    /**
+     * Groups per-section coverage into per-contents buckets (code/data/…) for
+     * the CLI summary, in the order each contents label first appears.
+     *
+     * @param array<array{contents: string, covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}> $sections
+     * @return array<string, array{covered: int, total: int, percentage: float, uncoveredRanges: string[]}>
+     */
+    private static function bucketSections(array $sections): array
+    {
+        /** @var array<string, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}> $raw */
+        $raw = [];
+
+        foreach ($sections as $section) {
+            $label = $section['contents'];
+            if (!isset($raw[$label])) {
+                $raw[$label] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => [], 'coveredLines' => []];
+            }
+
+            $raw[$label]['covered'] += $section['covered'];
+            $raw[$label]['total'] += $section['total'];
+            array_push($raw[$label]['uncoveredLines'], ...$section['uncoveredLines']);
+            array_push($raw[$label]['coveredLines'], ...$section['coveredLines']);
+        }
+
+        $buckets = [];
+        foreach ($raw as $label => $bucket) {
+            sort($bucket['uncoveredLines']);
+            $buckets[$label] = [
+                'covered' => $bucket['covered'],
+                'total' => $bucket['total'],
+                'percentage' => $bucket['covered'] / $bucket['total'] * 100,
+                'uncoveredRanges' => self::computeLineRanges($bucket['uncoveredLines'], $bucket['coveredLines']),
+            ];
+        }
+
+        return $buckets;
     }
 
     /**

@@ -84,9 +84,11 @@ class CoverageTracker
     }
 
     /**
-     * Returns per-file coverage data.
+     * Returns per-section coverage data. Sections are the natural split
+     * between code and data, since assembler-built objects emit debug-line
+     * records for data directives too, not just instructions.
      *
-     * @return array<int, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
+     * @return array<int, array{sectionNumber: int, fileNumber: int, covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
      */
     public function getReport(ParsedObject $parsedObject): array
     {
@@ -101,18 +103,25 @@ class CoverageTracker
                 continue;
             }
 
-            $fn = $line->fileNumber;
-            if (!isset($report[$fn])) {
-                $report[$fn] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => [], 'coveredLines' => []];
+            $sn = $line->sectionNumber;
+            if (!isset($report[$sn])) {
+                $report[$sn] = [
+                    'sectionNumber' => $sn,
+                    'fileNumber' => $line->fileNumber,
+                    'covered' => 0,
+                    'total' => 0,
+                    'uncoveredLines' => [],
+                    'coveredLines' => [],
+                ];
             }
 
-            $report[$fn]['total']++;
+            $report[$sn]['total']++;
 
             if ($this->isLineCovered($parsedObject, $line)) {
-                $report[$fn]['covered']++;
-                $report[$fn]['coveredLines'][] = $line->lineNumber;
+                $report[$sn]['covered']++;
+                $report[$sn]['coveredLines'][] = $line->lineNumber;
             } else {
-                $report[$fn]['uncoveredLines'][] = $line->lineNumber;
+                $report[$sn]['uncoveredLines'][] = $line->lineNumber;
             }
         }
 
