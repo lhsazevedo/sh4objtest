@@ -88,9 +88,10 @@ class CoverageTracker
      * between code and data, since assembler-built objects emit debug-line
      * records for data directives too, not just instructions.
      *
+     * @param array<int,true> $ignoredLines line numbers excluded by coverage tags
      * @return array<int, array{sectionNumber: int, fileNumber: int, covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
      */
-    public function getReport(ParsedObject $parsedObject): array
+    public function getReport(ParsedObject $parsedObject, array $ignoredLines = []): array
     {
         $report = [];
 
@@ -100,6 +101,10 @@ class CoverageTracker
             }
 
             if (!$this->isInScope($parsedObject, $line)) {
+                continue;
+            }
+
+            if (isset($ignoredLines[$line->lineNumber])) {
                 continue;
             }
 

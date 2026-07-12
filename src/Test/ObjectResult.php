@@ -22,11 +22,12 @@ readonly class ObjectResult
     }
 
     /**
+     * @param array<int,true> $ignoredLines line numbers excluded by coverage tags
      * @return array<int, array{sectionNumber: int, fileNumber: int, covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}>
      */
-    public function getReport(ParsedObject $object): array
+    public function getReport(ParsedObject $object, array $ignoredLines = []): array
     {
-        return $this->coverage->getReport($object);
+        return $this->coverage->getReport($object, $ignoredLines);
     }
 
     /**

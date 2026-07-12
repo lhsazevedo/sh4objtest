@@ -28,20 +28,25 @@ class CoverageReporter
      * section from the report.
      *
      * @param array<string, ObjectResult> $objectResults
+     * @param array<string,string> $sourcePaths Wine prefix => host dir, relative to $suiteDir
      * @return array<string, array{
      *     sections: array<array{name: string, contents: string, sourceFile: ?string, covered: int, total: int, percentage: float, basis: string, uncoveredLines: int[], coveredLines: int[], uncoveredRanges: string[]}>,
-     *     variables: array{name: string, touched: bool}[]
+     *     variables: array{name: string, touched: bool}[],
+     *     excludedLines: int[]
      * }>
      */
-    public static function collect(array $objectResults): array
+    public static function collect(array $objectResults, array $sourcePaths = [], string $suiteDir = ''): array
     {
         $coverageData = [];
+        $exclusions = new SourceExclusions($sourcePaths, $suiteDir);
 
         foreach ($objectResults as $objectPath => $objResult) {
             $parsedObject = ObjectParser::parse($objectPath);
             // Link so sections get their runtime linkedAddress
             Runner::linkObject($parsedObject);
-            $report = $objResult->getReport($parsedObject);
+            $ignoredLines = $exclusions->ignoredLinesFor($parsedObject->unit->sourceFiles[0] ?? null);
+            $excludedLines = array_keys($ignoredLines);
+            $report = $objResult->getReport($parsedObject, $ignoredLines);
 
             $sections = [];
             $sourceFile = null;
@@ -61,7 +66,7 @@ class CoverageReporter
                     'basis' => 'lines',
                     'uncoveredLines' => $sectionData['uncoveredLines'],
                     'coveredLines' => $sectionData['coveredLines'],
-                    'uncoveredRanges' => self::computeLineRanges($sectionData['uncoveredLines'], $sectionData['coveredLines']),
+                    'uncoveredRanges' => self::computeLineRanges($sectionData['uncoveredLines'], $sectionData['coveredLines'], $excludedLines),
                 ];
             }
 
@@ -92,13 +97,14 @@ class CoverageReporter
             $coverageData[$objectPath] = [
                 'sections' => $sections,
                 'variables' => $objResult->getSymbolReport($parsedObject),
+                'excludedLines' => $excludedLines,
             ];
         }
 
         return $coverageData;
     }
 
-    /** @param array<string, array{sections: array<array<string, mixed>>, variables: array{name: string, touched: bool}[]}> $coverageData */
+    /** @param array<string, array{sections: array<array<string, mixed>>, variables: array{name: string, touched: bool}[], excludedLines: int[]}> $coverageData */
     public static function render(OutputInterface $output, array $coverageData, bool $coverageFull): void
     {
         $output->writeln('');
@@ -125,7 +131,7 @@ class CoverageReporter
                 $output->writeln("    {$sourceFile}");
             }
 
-            foreach (self::bucketSections($data['sections']) as $label => $bucket) {
+            foreach (self::bucketSections($data['sections'], $data['excludedLines']) as $label => $bucket) {
                 $pct = sprintf('%6.2f%%', $bucket['percentage']);
                 $color = $bucket['percentage'] >= 100 ? 'green' : ($bucket['percentage'] >= 50 ? 'yellow' : 'red');
                 $ranges = $coverageFull
@@ -167,9 +173,10 @@ class CoverageReporter
      * separately and just concatenated in the final list.
      *
      * @param array<array{contents: string, covered: int, total: int, basis: string, uncoveredLines: int[], coveredLines: int[], uncoveredRanges: string[]}> $sections
+     * @param int[] $excludedLines
      * @return array<string, array{covered: int, total: int, percentage: float, uncoveredRanges: string[]}>
      */
-    private static function bucketSections(array $sections): array
+    private static function bucketSections(array $sections, array $excludedLines = []): array
     {
         /** @var array<string, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[], uncoveredNames: string[]}> $raw */
         $raw = [];
@@ -194,7 +201,7 @@ class CoverageReporter
         $buckets = [];
         foreach ($raw as $label => $bucket) {
             sort($bucket['uncoveredLines']);
-            $ranges = self::computeLineRanges($bucket['uncoveredLines'], $bucket['coveredLines']);
+            $ranges = self::computeLineRanges($bucket['uncoveredLines'], $bucket['coveredLines'], $excludedLines);
 
             $buckets[$label] = [
                 'covered' => $bucket['covered'],
@@ -229,16 +236,19 @@ class CoverageReporter
 
     /**
      * Collapse line numbers into ranges, bridging gaps that contain no covered
-     * line so e.g. 5-8 and 10-15 collapse to 5-15 when line 9 has no debug
-     * record (blank line, brace, declaration).
+     * or excluded line so e.g. 5-8 and 10-15 collapse to 5-15 when line 9 has
+     * no debug record (blank line, brace, declaration). A covered or
+     * coverage-tag-excluded line in the gap is accounted for, so it walls off
+     * the range instead of being silently swallowed into it.
      *
-     * @param int[] $lines        uncovered line numbers, sorted ascending
-     * @param int[] $coveredLines covered line numbers
+     * @param int[] $lines         uncovered line numbers, sorted ascending
+     * @param int[] $coveredLines  covered line numbers
+     * @param int[] $excludedLines lines excluded by coverage tags
      * @return string[]
      */
-    private static function computeLineRanges(array $lines, array $coveredLines = []): array
+    private static function computeLineRanges(array $lines, array $coveredLines = [], array $excludedLines = []): array
     {
-        $covered = array_flip($coveredLines);
+        $walls = array_flip(array_merge($coveredLines, $excludedLines));
 
         $ranges = [];
         $start = $end = null;
@@ -246,7 +256,7 @@ class CoverageReporter
         foreach ($lines as $line) {
             if ($start === null) {
                 $start = $end = $line;
-            } elseif (self::gapIsEmpty($end, $line, $covered)) {
+            } elseif (self::gapIsEmpty($end, $line, $walls)) {
                 $end = $line;
             } else {
                 $ranges[] = $start === $end ? (string)$start : "{$start}-{$end}";
@@ -261,11 +271,11 @@ class CoverageReporter
         return $ranges;
     }
 
-    /** @param array<int,int> $covered covered line numbers as a set */
-    private static function gapIsEmpty(int $from, int $to, array $covered): bool
+    /** @param array<int,int> $walls covered or excluded line numbers as a set */
+    private static function gapIsEmpty(int $from, int $to, array $walls): bool
     {
         for ($line = $from + 1; $line < $to; $line++) {
-            if (isset($covered[$line])) {
+            if (isset($walls[$line])) {
                 return false;
             }
         }

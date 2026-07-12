@@ -46,6 +46,9 @@ class SuiteCommand extends Command
             $suiteFile = realpath($suiteFile);
         }
 
+        $suiteDir = dirname($suiteFile);
+        $sourcePaths = (require $suiteFile)['sourcePaths'] ?? [];
+
         $format = $input->getOption('format');
         if (!in_array($format, ['pretty', 'json'], true)) {
             $output->writeln("<error>Invalid --format \"{$format}\", expected \"pretty\" or \"json\".</error>");
@@ -98,7 +101,7 @@ class SuiteCommand extends Command
             $result = $runner->runSuite($suiteFile, $testCaseFilter);
         }
 
-        $this->printResult($output, $result, $format, $input->getOption('output'), $shouldTrackCoverage, $coverageFull);
+        $this->printResult($output, $result, $format, $input->getOption('output'), $shouldTrackCoverage, $coverageFull, $sourcePaths, $suiteDir);
 
         return $result->success ? Command::SUCCESS : Command::FAILURE;
     }
@@ -117,6 +120,7 @@ class SuiteCommand extends Command
         return realpath($argv0);
     }
 
+    /** @param array<string,string> $sourcePaths */
     private function printResult(
         OutputInterface $output,
         SuiteResult $result,
@@ -124,9 +128,11 @@ class SuiteCommand extends Command
         ?string $outputPath,
         bool $shouldTrackCoverage,
         bool $coverageFull,
+        array $sourcePaths,
+        string $suiteDir,
     ): void
     {
-        $coverageData = $shouldTrackCoverage ? CoverageReporter::collect($result->objectResults) : null;
+        $coverageData = $shouldTrackCoverage ? CoverageReporter::collect($result->objectResults, $sourcePaths, $suiteDir) : null;
 
         if ($format === 'json') {
             $document = [
