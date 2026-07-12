@@ -20,9 +20,16 @@ class CoverageReporter
      * directives too, so a single blended percentage can be dragged down by
      * a large, mostly-unread data table even when the code is well covered.
      *
+     * Compiler-built objects go the other way: they carry no debug-line
+     * records for data sections at all (only for code), so getReport() never
+     * sees them. For any section missing from the line-based report, we fall
+     * back to variable-touch data (basis "symbols" — coarser, one unit per
+     * variable rather than per source line) instead of silently dropping the
+     * section from the report.
+     *
      * @param array<string, ObjectResult> $objectResults
      * @return array<string, array{
-     *     sections: array<array{name: string, contents: string, sourceFile: ?string, covered: int, total: int, percentage: float, uncoveredLines: int[], coveredLines: int[], uncoveredRanges: string[]}>,
+     *     sections: array<array{name: string, contents: string, sourceFile: ?string, covered: int, total: int, percentage: float, basis: string, uncoveredLines: int[], coveredLines: int[], uncoveredRanges: string[]}>,
      *     variables: array{name: string, touched: bool}[]
      * }>
      */
@@ -37,10 +44,12 @@ class CoverageReporter
             $report = $objResult->getReport($parsedObject);
 
             $sections = [];
+            $sourceFile = null;
             foreach ($report as $sectionNumber => $sectionData) {
                 sort($sectionData['uncoveredLines']);
                 $section = $parsedObject->unit->sections[$sectionNumber];
                 $path = $parsedObject->unit->sourceFiles[$sectionData['fileNumber']] ?? null;
+                $sourceFile ??= $path;
 
                 $sections[] = [
                     'name' => $section->name,
@@ -49,9 +58,34 @@ class CoverageReporter
                     'covered' => $sectionData['covered'],
                     'total' => $sectionData['total'],
                     'percentage' => $sectionData['covered'] / $sectionData['total'] * 100,
+                    'basis' => 'lines',
                     'uncoveredLines' => $sectionData['uncoveredLines'],
                     'coveredLines' => $sectionData['coveredLines'],
                     'uncoveredRanges' => self::computeLineRanges($sectionData['uncoveredLines'], $sectionData['coveredLines']),
+                ];
+            }
+
+            $symbolSections = $objResult->getSymbolCoverageBySection($parsedObject);
+            foreach ($symbolSections as $sectionNumber => $symbolData) {
+                if (isset($report[$sectionNumber])) {
+                    // This section already has line-based coverage; don't
+                    // shadow it with the coarser symbol-based fallback.
+                    continue;
+                }
+
+                $section = $parsedObject->unit->sections[$sectionNumber];
+
+                $sections[] = [
+                    'name' => $section->name,
+                    'contents' => SectionHeader::contentsLabel($section->contents),
+                    'sourceFile' => $sourceFile,
+                    'covered' => $symbolData['covered'],
+                    'total' => $symbolData['total'],
+                    'percentage' => $symbolData['covered'] / $symbolData['total'] * 100,
+                    'basis' => 'symbols',
+                    'uncoveredLines' => [],
+                    'coveredLines' => [],
+                    'uncoveredRanges' => $symbolData['untouchedNames'],
                 ];
             }
 
@@ -128,35 +162,45 @@ class CoverageReporter
     /**
      * Groups per-section coverage into per-contents buckets (code/data/…) for
      * the CLI summary, in the order each contents label first appears.
+     * Sections mix two incomparable units — source lines and whole
+     * variables — so line-based ranges and symbol names are accumulated
+     * separately and just concatenated in the final list.
      *
-     * @param array<array{contents: string, covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}> $sections
+     * @param array<array{contents: string, covered: int, total: int, basis: string, uncoveredLines: int[], coveredLines: int[], uncoveredRanges: string[]}> $sections
      * @return array<string, array{covered: int, total: int, percentage: float, uncoveredRanges: string[]}>
      */
     private static function bucketSections(array $sections): array
     {
-        /** @var array<string, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[]}> $raw */
+        /** @var array<string, array{covered: int, total: int, uncoveredLines: int[], coveredLines: int[], uncoveredNames: string[]}> $raw */
         $raw = [];
 
         foreach ($sections as $section) {
             $label = $section['contents'];
             if (!isset($raw[$label])) {
-                $raw[$label] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => [], 'coveredLines' => []];
+                $raw[$label] = ['covered' => 0, 'total' => 0, 'uncoveredLines' => [], 'coveredLines' => [], 'uncoveredNames' => []];
             }
 
             $raw[$label]['covered'] += $section['covered'];
             $raw[$label]['total'] += $section['total'];
-            array_push($raw[$label]['uncoveredLines'], ...$section['uncoveredLines']);
-            array_push($raw[$label]['coveredLines'], ...$section['coveredLines']);
+
+            if ($section['basis'] === 'symbols') {
+                array_push($raw[$label]['uncoveredNames'], ...$section['uncoveredRanges']);
+            } else {
+                array_push($raw[$label]['uncoveredLines'], ...$section['uncoveredLines']);
+                array_push($raw[$label]['coveredLines'], ...$section['coveredLines']);
+            }
         }
 
         $buckets = [];
         foreach ($raw as $label => $bucket) {
             sort($bucket['uncoveredLines']);
+            $ranges = self::computeLineRanges($bucket['uncoveredLines'], $bucket['coveredLines']);
+
             $buckets[$label] = [
                 'covered' => $bucket['covered'],
                 'total' => $bucket['total'],
                 'percentage' => $bucket['covered'] / $bucket['total'] * 100,
-                'uncoveredRanges' => self::computeLineRanges($bucket['uncoveredLines'], $bucket['coveredLines']),
+                'uncoveredRanges' => array_merge($ranges, $bucket['uncoveredNames']),
             ];
         }
 

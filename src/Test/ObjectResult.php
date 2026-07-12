@@ -36,4 +36,12 @@ readonly class ObjectResult
     {
         return $this->coverage->getSymbolReport($object);
     }
+
+    /**
+     * @return array<int, array{sectionNumber: int, covered: int, total: int, touchedNames: string[], untouchedNames: string[]}>
+     */
+    public function getSymbolCoverageBySection(ParsedObject $object): array
+    {
+        return $this->coverage->getSymbolCoverageBySection($object);
+    }
 }

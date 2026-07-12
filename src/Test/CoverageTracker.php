@@ -226,4 +226,62 @@ class CoverageTracker
 
         return $symbol->fileNumber === 0;
     }
+
+    /**
+     * Per-section variable-touch coverage. Compiler-built objects carry no
+     * debug-line records for data sections (only for code), so getReport()
+     * never sees their data sections at all; this is the fallback signal for
+     * those sections, grouping the same touched-byte data getSymbolReport()
+     * uses but keyed by section like getReport() so the two can be merged.
+     *
+     * @return array<int, array{sectionNumber: int, covered: int, total: int, touchedNames: string[], untouchedNames: string[]}>
+     */
+    public function getSymbolCoverageBySection(ParsedObject $object): array
+    {
+        $report = [];
+
+        foreach ($object->unit->debugSymbols as $symbol) {
+            if ($symbol->type !== Stype::Var) {
+                continue;
+            }
+
+            if ($symbol->section === null || $symbol->address === null) {
+                continue;
+            }
+
+            if (!$this->isSymbolInScope($object, $symbol)) {
+                continue;
+            }
+
+            $base = $this->sectionBase($object, $symbol->section);
+            if ($base === null) {
+                continue;
+            }
+
+            $sn = $symbol->section;
+            if (!isset($report[$sn])) {
+                $report[$sn] = [
+                    'sectionNumber' => $sn,
+                    'covered' => 0,
+                    'total' => 0,
+                    'touchedNames' => [],
+                    'untouchedNames' => [],
+                ];
+            }
+
+            $from = $base + $symbol->address;
+            $to   = $from + ($symbol->dataLength ?: 1);
+
+            $report[$sn]['total']++;
+
+            if ($this->rangeTouched($this->accessAddresses, $from, $to)) {
+                $report[$sn]['covered']++;
+                $report[$sn]['touchedNames'][] = $symbol->name;
+            } else {
+                $report[$sn]['untouchedNames'][] = $symbol->name;
+            }
+        }
+
+        return $report;
+    }
 }
