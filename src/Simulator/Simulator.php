@@ -520,7 +520,7 @@ class Simulator
                 return new GenericOperation($instruction, $opcode);
 
             // SHLD <REG_M>,<REG_N>
-            case 0x400c:
+            case 0x400d:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("SHLD", ["R$m","R$n"]);
                 $shiftRegister = $this->registers[$m];
