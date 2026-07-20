@@ -65,4 +65,50 @@ class SimulatorTest extends TestCase
             'high bit set compares unsigned' => [0x80000000, 0x00000001, 1],
         ];
     }
+
+    /**
+     * The R0-indexed effective address is 32-bit modular: a negative index such
+     * as 0xfffffffc wraps base + 0xfffffffc back to base - 4 (e.g. arr[-1]),
+     * matching SH4 hardware (and flycast's u32 addr+offset).
+     *
+     * @param int $r0 @param int $rm @param int $ea resolved effective address
+     */
+    #[DataProvider('r0IndexedProvider')]
+    public function testMovLLoadR0Indexed(int $r0, int $rm, int $ea): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->getMemory()->writeUInt32($ea, U32::of(0xdeadbeef));
+
+        $simulator->setRegister(0, U32::of($r0));
+        $simulator->setRegister(2, U32::of($rm));
+
+        // MOV.L @(R0,R2),R1 (0000nnnnmmmm1110, n=1, m=2)
+        $simulator->executeInstruction(U16::of(0x012e));
+
+        $this->assertSame(0xdeadbeef, $simulator->getRegister(1)->value);
+    }
+
+    #[DataProvider('r0IndexedProvider')]
+    public function testMovLStoreR0Indexed(int $r0, int $rm, int $ea): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+
+        $simulator->setRegister(0, U32::of($r0));
+        $simulator->setRegister(2, U32::of($rm));
+        $simulator->setRegister(1, U32::of(0xdeadbeef));
+
+        // MOV.L R1,@(R0,R2) (0000nnnnmmmm0110, n=2, m=1)
+        $simulator->executeInstruction(U16::of(0x0216));
+
+        $this->assertSame(0xdeadbeef, $simulator->getMemory()->readUInt32($ea)->value);
+    }
+
+    /** @return array<string, array{int, int, int}> */
+    public static function r0IndexedProvider(): array
+    {
+        return [
+            'positive index' => [0x40, 0xc0, 0x100],
+            'negative index wraps' => [0x100, -4 & 0xffffffff, 0xfc],
+        ];
+    }
 }

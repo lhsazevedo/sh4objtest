@@ -289,14 +289,14 @@ class Simulator
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.B", ["R$m", "@(R0,R$n)"]);
                 $this->writeUInt8($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]->trunc8());
-                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0]), $this->registers[$m]->trunc8());
+                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0], allowOverflow: true), $this->registers[$m]->trunc8());
 
             // MOV.W <REG_M>, @(R0, <REG_N>)
             case 0x0005:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.W", ["R$m", "@(R0,R$n)"]);
                 $this->writeUInt16($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]->trunc16());
-                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0]), $this->registers[$m]->trunc16());
+                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0], allowOverflow: true), $this->registers[$m]->trunc16());
 
             // MOV.L <REG_M>, @(R0,<REG_N>)
             case 0x0006:
@@ -305,7 +305,7 @@ class Simulator
                 // TODO: Is R0 always the offset?
                 // TODO2: Why this matters?
                 $this->writeUInt32($this->registers[$n]->value, $this->registers[0]->value, $this->registers[$m]);
-                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0]), $this->registers[$m]);
+                return new WriteOperation($instruction, $opcode, $this->registers[$n]->add($this->registers[0], allowOverflow: true), $this->registers[$m]);
 
             // MUL.L <REG_M>,<REG_N>
             case 0x0007:
@@ -320,7 +320,7 @@ class Simulator
             case 0x000c:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.B", ["@(R0, R$m)","R$n"]);
-                $source = $this->registers[0]->add(($this->registers[$m]));
+                $source = $this->registers[0]->add($this->registers[$m], allowOverflow: true);
                 $value = $this->readUInt8($this->registers[0]->value, $this->registers[$m]->value)->extend32();
                 $this->writeRegister($n, $value);
                 return new ReadOperation($instruction, $opcode, $source, $value);
@@ -329,7 +329,7 @@ class Simulator
             case 0x000d:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.W", ["@(R0,R$m)","R$n"]);
-                $source = $this->registers[0]->add($this->registers[$m]);
+                $source = $this->registers[0]->add($this->registers[$m], allowOverflow: true);
                 $value = $this->readUInt16($this->registers[0]->value, $this->registers[$m]->value)->extend32();
                 $this->writeRegister($n, $value);
                 return new ReadOperation($instruction, $opcode, $source, $value);
@@ -338,7 +338,7 @@ class Simulator
             case 0x000e:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MOV.L", ["@(R0,R$m)","R$n"]);
-                $source = $this->registers[0]->add($this->registers[$m]);
+                $source = $this->registers[0]->add($this->registers[$m], allowOverflow: true);
                 $value = $this->readUInt32($this->registers[0]->value, $this->registers[$m]->value);
                 $this->writeRegister($n, $value);
                 return new ReadOperation($instruction, $opcode, $source, $value);
@@ -1400,7 +1400,8 @@ class Simulator
 
     protected function readUInt(int $addr, int $offset, int $size): U8|U16|U32
     {
-        $displacedAddr = $addr + $offset;
+        // 32-bit modular: a negative index (e.g. 0xfffffffc) wraps back below base.
+        $displacedAddr = ($addr + $offset) & 0xffffffff;
 
         $value = match ($size) {
             U8::BIT_COUNT => $this->memory->readUInt8($displacedAddr),
@@ -1429,7 +1430,8 @@ class Simulator
 
     private function writeUInt(int $addr, int $offset, UInt $value): void
     {
-        $displacedAddr = $addr + $offset;
+        // 32-bit modular: a negative index (e.g. 0xfffffffc) wraps back below base.
+        $displacedAddr = ($addr + $offset) & 0xffffffff;
 
         match (get_class($value)) {
             U8::class => $this->memory->writeUInt8($displacedAddr, $value),
