@@ -436,6 +436,19 @@ class Simulator
 
                 return new GenericOperation($instruction, $opcode);
 
+            // CMP/HI <REG_M>,<REG_N>
+            case 0x3006:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("CMP/HI", ["R$m","R$n"]);
+                $this->logRegisters([$m, $n]);
+                if ($this->registers[$n]->greaterThan($this->registers[$m])) {
+                    $this->srT = 1;
+                } else {
+                    $this->srT = 0;
+                }
+
+                return new GenericOperation($instruction, $opcode);
+
             // CMP/GE <REG_M>,<REG_N>
             case 0x3003:
                 [$n, $m] = getNM($instruction);
