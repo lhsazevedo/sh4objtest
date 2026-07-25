@@ -32,6 +32,16 @@ class DefaultCallingConvention implements CallingConvention
     private int $generalIndex = 0;
     private int $floatIndex = 0;
     private int $stackOffset = 0;
+    private int $argumentIndex = 0;
+
+    /**
+     * @param ?int $variadic Number of leading fixed arguments; args at or
+     * past this position go on the stack regardless of free registers,
+     * per the SHC ABI.
+     */
+    public function __construct(
+        private ?int $variadic = null,
+    ) {}
 
     public function getNextArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset
     {
@@ -52,6 +62,12 @@ class DefaultCallingConvention implements CallingConvention
 
     private function getGeneralStorage(): GeneralRegister|StackOffset
     {
+        $this->argumentIndex++;
+
+        if ($this->variadic !== null && $this->argumentIndex > $this->variadic) {
+            return $this->getStackStorage();
+        }
+
         if ($this->generalIndex < count($this->generalRegisters)) {
             return $this->generalRegisters[$this->generalIndex++];
         }
@@ -60,6 +76,12 @@ class DefaultCallingConvention implements CallingConvention
 
     private function getFloatStorage(): FloatingPointRegister|StackOffset
     {
+        $this->argumentIndex++;
+
+        if ($this->variadic !== null && $this->argumentIndex > $this->variadic) {
+            return $this->getStackStorage();
+        }
+
         if ($this->floatIndex < count($this->floatRegisters)) {
             return $this->floatRegisters[$this->floatIndex++];
         }
