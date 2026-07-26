@@ -80,6 +80,64 @@ class DefaultCallingConventionTest extends TestCase
                     [ArgumentType::General, 0],
                 ],
             ],
+            'non-variadic fills all float registers before stack' => [
+                null,
+                [
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR4],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR5],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR6],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR7],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR8],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR9],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR10],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR11],
+                    [ArgumentType::FloatingPoint, 0],
+                ],
+            ],
+            'stack offsets are shared and continuous across general and float overflow' => [
+                0,
+                [
+                    [ArgumentType::General, 0],
+                    [ArgumentType::FloatingPoint, 4],
+                ],
+            ],
+            'variadic cutoff past the number of arguments dispensed behaves like non-variadic' => [
+                10,
+                [
+                    [ArgumentType::General, GeneralRegister::R4],
+                    [ArgumentType::General, GeneralRegister::R5],
+                ],
+            ],
         ];
+    }
+
+    public function testTakeArgumentStorageForValueDispatchesByType(): void
+    {
+        $convention = new DefaultCallingConvention();
+
+        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorageForValue(1));
+        $this->assertSame(FloatingPointRegister::FR4, $convention->takeArgumentStorageForValue(1.0));
+        $this->assertSame(GeneralRegister::R5, $convention->takeArgumentStorageForValue(2));
+    }
+
+    public function testTakeArgumentStorageForValueThrowsForUnsupportedType(): void
+    {
+        $convention = new DefaultCallingConvention();
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Unsupported argument type');
+
+        $convention->takeArgumentStorageForValue('unsupported');
+    }
+
+    public function testVariadicCutoffAppliesToTakeArgumentStorageForValue(): void
+    {
+        $convention = (new DefaultCallingConvention())->variadic(1);
+
+        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorageForValue(1));
+
+        $storage = $convention->takeArgumentStorageForValue(2);
+        $this->assertInstanceOf(StackOffset::class, $storage);
+        $this->assertSame(0, $storage->offset);
     }
 }
