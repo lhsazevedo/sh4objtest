@@ -10,6 +10,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\ArgumentType;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
+use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\VariadicCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
@@ -256,7 +257,7 @@ class Run
     {
         $stackPointer = $simulator->getRegister(15);
         foreach ($arguments as $argument) {
-            $storage = $convention->getNextArgumentStorageForValue($argument);
+            $storage = $convention->takeArgumentStorageForValue($argument);
 
             if ($storage instanceof GeneralRegister) {
                 $simulator->setRegister($storage->index(), U32::of($argument));
@@ -599,10 +600,17 @@ class Run
                 ?? ($name !== null ? ($this->testCase->defaultConventions[$name] ?? null) : null)
                 ?? new DefaultCallingConvention();
 
+            if ($expectation->variadicFixed !== null) {
+                if (!$convention instanceof VariadicCallingConvention) {
+                    throw new \Exception(get_class($convention) . " does not support variadic arguments, but variadic() was set on the expectation for $readableName");
+                }
+                $convention->variadic($expectation->variadicFixed);
+            }
+
             foreach ($expectation->parameters as $expected) {
                 if ($expected instanceof WildcardArgument) {
                     // FIXME: Allow wildcard float arguments?
-                    $convention->getNextArgumentStorage(ArgumentType::General);
+                    $convention->takeArgumentStorage(ArgumentType::General);
                     continue;
                 }
 
@@ -626,7 +634,7 @@ class Run
                 // }
 
                 if (is_int($expected)) {
-                    $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+                    $storage = $convention->takeArgumentStorage(ArgumentType::General);
                     $expected &= 0xffffffff;
 
                     if ($storage instanceof GeneralRegister) {
@@ -658,7 +666,7 @@ class Run
                 }
 
                 if (is_float($expected)) {
-                    $storage = $convention->getNextArgumentStorage(ArgumentType::FloatingPoint);
+                    $storage = $convention->takeArgumentStorage(ArgumentType::FloatingPoint);
 
                     if ($storage instanceof FloatingPointRegister) {
                         $register = $storage->index();
@@ -691,7 +699,7 @@ class Run
                 }
 
                 if (is_string($expected)) {
-                    $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+                    $storage = $convention->takeArgumentStorage(ArgumentType::General);
 
                     if ($storage instanceof GeneralRegister) {
                         $register = $storage->index();

@@ -7,7 +7,7 @@ namespace Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 
-class DefaultCallingConvention implements CallingConvention
+class DefaultCallingConvention implements CallingConvention, VariadicCallingConvention
 {
     /** @var GeneralRegister[] */
     private array $generalRegisters = [
@@ -31,68 +31,56 @@ class DefaultCallingConvention implements CallingConvention
 
     private int $generalIndex = 0;
     private int $floatIndex = 0;
-    private int $stackOffset = 0;
-    private int $argumentIndex = 0;
+    private int $stackIndex = 0;
+    private ?int $variadicFixed = null;
 
-    /**
-     * @param ?int $variadicFixed Number of leading fixed arguments; args at
-     * or past this position go on the stack regardless of free registers,
-     * per the SHC ABI.
-     */
-    public function __construct(
-        private ?int $variadicFixed = null,
-    ) {}
+    public function variadic(int $fixed): static
+    {
+        $this->variadicFixed = $fixed;
+        return $this;
+    }
 
-    public function getNextArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset
+    public function takeArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset
     {
         return match ($type) {
-            ArgumentType::General => $this->getGeneralStorage(),
-            ArgumentType::FloatingPoint => $this->getFloatStorage(),
+            ArgumentType::General => $this->takeStorage($this->generalRegisters, $this->generalIndex),
+            ArgumentType::FloatingPoint => $this->takeStorage($this->floatRegisters, $this->floatIndex),
         };
     }
 
-    public function getNextArgumentStorageForValue(mixed $value): GeneralRegister|FloatingPointRegister|StackOffset
+    public function takeArgumentStorageForValue(mixed $value): GeneralRegister|FloatingPointRegister|StackOffset
     {
         return match (true) {
-            is_int($value) => $this->getGeneralStorage(),
-            is_float($value) => $this->getFloatStorage(),
+            is_int($value) => $this->takeStorage($this->generalRegisters, $this->generalIndex),
+            is_float($value) => $this->takeStorage($this->floatRegisters, $this->floatIndex),
             default => throw new \Exception('Unsupported argument type'),
         };
     }
 
-    private function getGeneralStorage(): GeneralRegister|StackOffset
+    /**
+     * @param GeneralRegister[]|FloatingPointRegister[] $registers
+     */
+    private function takeStorage(array $registers, int &$index): GeneralRegister|FloatingPointRegister|StackOffset
     {
-        $this->argumentIndex++;
-
-        if ($this->variadicFixed !== null && $this->argumentIndex > $this->variadicFixed) {
-            return $this->getStackStorage();
+        if ($this->variadicFixed !== null && $this->argumentIndex() >= $this->variadicFixed) {
+            return $this->takeStackStorage();
         }
 
-        if ($this->generalIndex < count($this->generalRegisters)) {
-            return $this->generalRegisters[$this->generalIndex++];
+        if ($index < count($registers)) {
+            return $registers[$index++];
         }
-        return $this->getStackStorage();
+
+        return $this->takeStackStorage();
     }
 
-    private function getFloatStorage(): FloatingPointRegister|StackOffset
+    private function argumentIndex(): int
     {
-        $this->argumentIndex++;
-
-        if ($this->variadicFixed !== null && $this->argumentIndex > $this->variadicFixed) {
-            return $this->getStackStorage();
-        }
-
-        if ($this->floatIndex < count($this->floatRegisters)) {
-            return $this->floatRegisters[$this->floatIndex++];
-        }
-        return $this->getStackStorage();
+        return $this->generalIndex + $this->floatIndex + $this->stackIndex;
     }
 
-    private function getStackStorage(): StackOffset
+    private function takeStackStorage(): StackOffset
     {
-        $offset = new StackOffset($this->stackOffset);
-        $this->stackOffset += 4;
-        return $offset;
+        return new StackOffset(4 * $this->stackIndex++);
     }
 }
 

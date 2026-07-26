@@ -21,7 +21,7 @@ class RiroCallingConvention implements CallingConvention
 
     private int $generalIndex = 0;
 
-    public function getNextArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset
+    public function takeArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset
     {
         if ($type !== ArgumentType::General) {
             throw new \Exception('Runtime routines only take general arguments');
@@ -34,12 +34,12 @@ class RiroCallingConvention implements CallingConvention
         return $this->generalRegisters[$this->generalIndex++];
     }
 
-    public function getNextArgumentStorageForValue(mixed $value): GeneralRegister|FloatingPointRegister|StackOffset
+    public function takeArgumentStorageForValue(mixed $value): GeneralRegister|FloatingPointRegister|StackOffset
     {
         if (!is_int($value)) {
             throw new \Exception('Runtime routines only take integer arguments');
         }
 
-        return $this->getNextArgumentStorage(ArgumentType::General);
+        return $this->takeArgumentStorage(ArgumentType::General);
     }
 }

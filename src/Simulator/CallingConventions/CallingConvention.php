@@ -9,7 +9,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 
 interface CallingConvention
 {
-    public function getNextArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset;
+    public function takeArgumentStorage(ArgumentType $type): GeneralRegister|FloatingPointRegister|StackOffset;
 
-    public function getNextArgumentStorageForValue(mixed $value): GeneralRegister|FloatingPointRegister|StackOffset;
+    public function takeArgumentStorageForValue(mixed $value): GeneralRegister|FloatingPointRegister|StackOffset;
 }

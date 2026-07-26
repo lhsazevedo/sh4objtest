@@ -17,12 +17,12 @@ class DefaultCallingConventionTest extends TestCase
     {
         $convention = new DefaultCallingConvention();
 
-        $this->assertSame(GeneralRegister::R4, $convention->getNextArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R5, $convention->getNextArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R6, $convention->getNextArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R7, $convention->getNextArgumentStorage(ArgumentType::General));
+        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorage(ArgumentType::General));
+        $this->assertSame(GeneralRegister::R5, $convention->takeArgumentStorage(ArgumentType::General));
+        $this->assertSame(GeneralRegister::R6, $convention->takeArgumentStorage(ArgumentType::General));
+        $this->assertSame(GeneralRegister::R7, $convention->takeArgumentStorage(ArgumentType::General));
 
-        $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+        $storage = $convention->takeArgumentStorage(ArgumentType::General);
         $this->assertInstanceOf(StackOffset::class, $storage);
         $this->assertSame(0, $storage->offset);
     }
@@ -30,18 +30,18 @@ class DefaultCallingConventionTest extends TestCase
     public function testVariadicArgumentsGoOnStackEvenWithFreeRegisters(): void
     {
         // e.g. sprintf(buf, fmt, ...): 2 fixed args, rest variadic.
-        $convention = new DefaultCallingConvention(variadicFixed: 2);
+        $convention = (new DefaultCallingConvention())->variadic(2);
 
-        $this->assertSame(GeneralRegister::R4, $convention->getNextArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R5, $convention->getNextArgumentStorage(ArgumentType::General));
+        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorage(ArgumentType::General));
+        $this->assertSame(GeneralRegister::R5, $convention->takeArgumentStorage(ArgumentType::General));
 
         // R6/R7 are still free, but this argument is variadic, so it must
         // land on the stack per the SHC ABI.
-        $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+        $storage = $convention->takeArgumentStorage(ArgumentType::General);
         $this->assertInstanceOf(StackOffset::class, $storage);
         $this->assertSame(0, $storage->offset);
 
-        $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+        $storage = $convention->takeArgumentStorage(ArgumentType::General);
         $this->assertInstanceOf(StackOffset::class, $storage);
         $this->assertSame(4, $storage->offset);
     }
@@ -50,21 +50,21 @@ class DefaultCallingConventionTest extends TestCase
     {
         // Fixed args can mix int/float; the cutoff is a total argument
         // position, not per-register-pool.
-        $convention = new DefaultCallingConvention(variadicFixed: 2);
+        $convention = (new DefaultCallingConvention())->variadic(2);
 
-        $this->assertSame(GeneralRegister::R4, $convention->getNextArgumentStorage(ArgumentType::General));
-        $this->assertSame(FloatingPointRegister::FR4, $convention->getNextArgumentStorage(ArgumentType::FloatingPoint));
+        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorage(ArgumentType::General));
+        $this->assertSame(FloatingPointRegister::FR4, $convention->takeArgumentStorage(ArgumentType::FloatingPoint));
 
-        $storage = $convention->getNextArgumentStorage(ArgumentType::FloatingPoint);
+        $storage = $convention->takeArgumentStorage(ArgumentType::FloatingPoint);
         $this->assertInstanceOf(StackOffset::class, $storage);
         $this->assertSame(0, $storage->offset);
     }
 
     public function testZeroVariadicPutsAllArgumentsOnStack(): void
     {
-        $convention = new DefaultCallingConvention(variadicFixed: 0);
+        $convention = (new DefaultCallingConvention())->variadic(0);
 
-        $storage = $convention->getNextArgumentStorage(ArgumentType::General);
+        $storage = $convention->takeArgumentStorage(ArgumentType::General);
         $this->assertInstanceOf(StackOffset::class, $storage);
         $this->assertSame(0, $storage->offset);
     }

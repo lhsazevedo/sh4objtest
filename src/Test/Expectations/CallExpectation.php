@@ -19,6 +19,8 @@ class CallExpectation extends AbstractExpectation
 
     public ?CallingConvention $convention = null;
 
+    public ?int $variadicFixed = null;
+
     public function __construct(
         public ?string $name,
         public int $address,
@@ -45,6 +47,12 @@ class CallExpectation extends AbstractExpectation
     public function using(CallingConvention $convention): self
     {
         $this->convention = $convention;
+        return $this;
+    }
+
+    public function variadic(int $fixed): self
+    {
+        $this->variadicFixed = $fixed;
         return $this;
     }
 }
