@@ -9,63 +9,77 @@ use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class DefaultCallingConventionTest extends TestCase
 {
-    public function testNonVariadicFillsAllGeneralRegistersBeforeStack(): void
+    /**
+     * @param array<array{ArgumentType, GeneralRegister|FloatingPointRegister|int}> $steps Each step is
+     * [type, expected], where expected is a register, or a stack offset (int) for a StackOffset.
+     */
+    #[DataProvider('argumentSequenceProvider')]
+    public function testArgumentSequence(?int $variadicFixed, array $steps): void
     {
         $convention = new DefaultCallingConvention();
+        if ($variadicFixed !== null) {
+            $convention->variadic($variadicFixed);
+        }
 
-        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R5, $convention->takeArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R6, $convention->takeArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R7, $convention->takeArgumentStorage(ArgumentType::General));
+        foreach ($steps as [$type, $expected]) {
+            $storage = $convention->takeArgumentStorage($type);
 
-        $storage = $convention->takeArgumentStorage(ArgumentType::General);
-        $this->assertInstanceOf(StackOffset::class, $storage);
-        $this->assertSame(0, $storage->offset);
+            if (is_int($expected)) {
+                $this->assertInstanceOf(StackOffset::class, $storage);
+                $this->assertSame($expected, $storage->offset);
+            } else {
+                $this->assertSame($expected, $storage);
+            }
+        }
     }
 
-    public function testVariadicArgumentsGoOnStackEvenWithFreeRegisters(): void
+    /** @return array<string, array{?int, array<array{ArgumentType, GeneralRegister|FloatingPointRegister|int}>}> */
+    public static function argumentSequenceProvider(): array
     {
-        // e.g. sprintf(buf, fmt, ...): 2 fixed args, rest variadic.
-        $convention = (new DefaultCallingConvention())->variadic(2);
-
-        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorage(ArgumentType::General));
-        $this->assertSame(GeneralRegister::R5, $convention->takeArgumentStorage(ArgumentType::General));
-
-        // R6/R7 are still free, but this argument is variadic, so it must
-        // land on the stack per the SHC ABI.
-        $storage = $convention->takeArgumentStorage(ArgumentType::General);
-        $this->assertInstanceOf(StackOffset::class, $storage);
-        $this->assertSame(0, $storage->offset);
-
-        $storage = $convention->takeArgumentStorage(ArgumentType::General);
-        $this->assertInstanceOf(StackOffset::class, $storage);
-        $this->assertSame(4, $storage->offset);
-    }
-
-    public function testVariadicCutoffCountsAcrossGeneralAndFloatArguments(): void
-    {
-        // Fixed args can mix int/float; the cutoff is a total argument
-        // position, not per-register-pool.
-        $convention = (new DefaultCallingConvention())->variadic(2);
-
-        $this->assertSame(GeneralRegister::R4, $convention->takeArgumentStorage(ArgumentType::General));
-        $this->assertSame(FloatingPointRegister::FR4, $convention->takeArgumentStorage(ArgumentType::FloatingPoint));
-
-        $storage = $convention->takeArgumentStorage(ArgumentType::FloatingPoint);
-        $this->assertInstanceOf(StackOffset::class, $storage);
-        $this->assertSame(0, $storage->offset);
-    }
-
-    public function testZeroVariadicPutsAllArgumentsOnStack(): void
-    {
-        $convention = (new DefaultCallingConvention())->variadic(0);
-
-        $storage = $convention->takeArgumentStorage(ArgumentType::General);
-        $this->assertInstanceOf(StackOffset::class, $storage);
-        $this->assertSame(0, $storage->offset);
+        return [
+            'non-variadic fills all general registers before stack' => [
+                null,
+                [
+                    [ArgumentType::General, GeneralRegister::R4],
+                    [ArgumentType::General, GeneralRegister::R5],
+                    [ArgumentType::General, GeneralRegister::R6],
+                    [ArgumentType::General, GeneralRegister::R7],
+                    [ArgumentType::General, 0],
+                ],
+            ],
+            'variadic arguments go on stack even with free registers' => [
+                // e.g. sprintf(buf, fmt, ...): 2 fixed args, rest variadic. R6/R7
+                // are still free, but variadic args must land on the stack per
+                // the SHC ABI.
+                2,
+                [
+                    [ArgumentType::General, GeneralRegister::R4],
+                    [ArgumentType::General, GeneralRegister::R5],
+                    [ArgumentType::General, 0],
+                    [ArgumentType::General, 4],
+                ],
+            ],
+            'variadic cutoff counts across general and float arguments' => [
+                // Fixed args can mix int/float; the cutoff is a total argument
+                // position, not per-register-pool.
+                2,
+                [
+                    [ArgumentType::General, GeneralRegister::R4],
+                    [ArgumentType::FloatingPoint, FloatingPointRegister::FR4],
+                    [ArgumentType::FloatingPoint, 0],
+                ],
+            ],
+            'zero fixed arguments puts everything on stack' => [
+                0,
+                [
+                    [ArgumentType::General, 0],
+                ],
+            ],
+        ];
     }
 }
