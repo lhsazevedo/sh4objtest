@@ -7,10 +7,7 @@ namespace Lhsazevedo\Sh4ObjTest\Test;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
-use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\VariadicCallingConvention;
-use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
-use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
@@ -20,21 +17,11 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
-use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
-use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
-use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
-use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 
 class Run
 {
     private ?string $disasm = null;
-
-    /** @var \Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation[] */
-    private array $expectations;
-
-    /** @var \Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation[] */
-    private array $pendingExpectations;
 
     /** @var string[] */
     private array $registerLog = [];
@@ -42,12 +29,9 @@ class Run
     /** @var string[] */
     private array $messages = [];
 
-    private SymbolTable $symbols;
-
     private CoverageTracker $coverage;
 
-    /** @var \Lhsazevedo\Sh4ObjTest\Parser\Chunks\ExternalRelocation[] */
-    private array $unresolvedRelocations = [];
+    private ExpectationMatcher $matcher;
 
     private ?BranchOperation $delayedBranch = null;
 
@@ -61,8 +45,6 @@ class Run
         private ReturnValueVerifier $returnValueVerifier = new ReturnValueVerifier(),
     )
     {
-        $this->expectations = $testCase->expectations;
-        $this->pendingExpectations = $testCase->expectations;
         $this->coverage = new CoverageTracker();
     }
 
@@ -76,8 +58,17 @@ class Run
         $program = $this->testCase->linkedProgram;
         $memory->writeBytes(0, $program->image);
 
-        $this->symbols = $program->symbols;
-        $this->unresolvedRelocations = $program->unresolvedRelocations;
+        $this->matcher = new ExpectationMatcher(
+            $this->testCase->expectations,
+            $program->symbols,
+            $this->testCase->testRelocations,
+            $this->testCase->defaultCallbacks,
+            $this->testCase->defaultConventions,
+            $program->unresolvedRelocations,
+            $this->argumentVerifier,
+            $this->fulfilled(...),
+            $this->logInfo(...),
+        );
 
         // Initializations (FIXME: bad name)
         foreach ($this->testCase->initializations as $initialization) {
@@ -107,7 +98,7 @@ class Run
         $simulator->onDisasm($this->disasm(...));
         $simulator->onAddLog($this->addLog(...));
 
-        $command = reset($this->pendingExpectations);
+        $command = $this->matcher->peek();
         if (!$command instanceof CallCommand) {
             throw new \Exception("First step must be a call command", 1);
         }
@@ -124,14 +115,14 @@ class Run
         do {
             $this->running = true;
 
-            $command = reset($this->pendingExpectations);
+            $command = $this->matcher->peek();
             if (!($command instanceof CallCommand)) {
                 throw new \Exception(
                     "First or after return must be a call command", 1
                 );
             }
             $this->setupArguments($simulator, $convention, $command->arguments);
-            array_shift($this->pendingExpectations);
+            $this->matcher->shift();
 
             while ($this->running || $simulator->nextIsDelaySlot()) {
                 // By hadling the returned instruction instead of the actual
@@ -155,53 +146,57 @@ class Run
                 if ($instruction instanceof BranchOperation) {
                     $this->delayedBranch = $instruction;
                 } else if ($instruction instanceof WriteOperation) {
-                    $this->onWrite($simulator, $instruction);
+                    $this->coverage->logWrite($instruction->target->value, (int) $instruction->value::BIT_COUNT / 8);
+                    $this->matcher->matchWrite($simulator, $instruction);
                 } else if ($instruction instanceof ReadOperation) {
-                    $this->onRead($simulator, $instruction);
+                    $this->coverage->logRead($instruction->source->value, $instruction->value::BIT_COUNT / 8);
+                    $this->matcher->matchRead($simulator, $instruction);
                 }
 
                 $this->outputMessages();
 
                 // Stop on RTS
                 if ($instruction->opcode === 0x000B) {
-                    $this->logInfo($simulator, "Program returned");
+                    $this->logInfo("Program returned");
                     $this->stop();
                     // TODO: Add return expectation check here,
                     // but we'll need to wait for the delayed return.
                 }
 
                 if ($delayedBranch) {
-                    // Call onBranch only if the delayed branch is not an RTS
+                    // Call matchBranch only if the delayed branch is not an RTS
                     if ($delayedBranch->opcode !== 0x000B) {
-                        $this->onBranch($simulator, $delayedBranch);
+                        if ($this->matcher->matchBranch($simulator, $delayedBranch)) {
+                            $this->stop();
+                        }
                     }
                     $this->delayedBranch = null;
                 }
 
                 $this->outputMessages();
 
-                if ($this->testCase->shouldStopWhenFulfilled && !$this->pendingExpectations) {
+                if ($this->testCase->shouldStopWhenFulfilled && $this->matcher->isEmpty()) {
                     break;
                 }
             }
 
-            $returnExpectation = reset($this->pendingExpectations);
+            $returnExpectation = $this->matcher->peek();
             if ($returnExpectation && ($returnExpectation instanceof ReturnExpectation)) {
-                array_shift($this->pendingExpectations);
+                $this->matcher->shift();
 
                 $message = $this->returnValueVerifier->verify($simulator, $returnExpectation->value);
-                $this->fulfilled($simulator, $message);
+                $this->fulfilled($message);
             }
-        } while (reset($this->pendingExpectations) instanceof CallCommand);
+        } while ($this->matcher->peek() instanceof CallCommand);
 
-        if ($this->pendingExpectations) {
-            $names = array_map(fn ($e) => $e::class, $this->pendingExpectations);
+        if (!$this->matcher->isEmpty()) {
+            $names = array_map(fn ($e) => $e::class, $this->matcher->remaining());
             throw new \Exception("Pending expectations: " . implode(', ', $names), 1);
         }
 
         $this->outputMessages();
 
-        $count = count($this->expectations);
+        $count = count($this->testCase->expectations);
 
         $name = self::humanizeName($this->testCase->name);
 
@@ -356,12 +351,12 @@ class Run
         $this->registerLog = [];
     }
 
-    private function fulfilled(Simulator $simulator, string $message): void {
-        $this->handleMessage($simulator, "<fg=green>✔ Fulfilled: $message</>");
+    private function fulfilled(string $message): void {
+        $this->handleMessage("<fg=green>✔ Fulfilled: $message</>");
     }
 
-    private function logInfo(Simulator $simulator, string $str): void {
-        $this->handleMessage($simulator, "<fg=blue>$str</>");
+    private function logInfo(string $str): void {
+        $this->handleMessage("<fg=blue>$str</>");
     }
 
     private function addLog(Simulator $simulator, string $str): void {
@@ -371,270 +366,13 @@ class Run
     /**
      * Either output message or store it for later when in disasm mode
      */
-    private function handleMessage(Simulator $simulator, string $message): void
+    private function handleMessage(string $message): void
     {
         if (!$this->shouldOutputDisasm) {
             return;
         }
 
         $this->messages[] = $message;
-    }
-
-    private function onBranch(Simulator $simulator, BranchOperation $instruction): void
-    {
-        // Branch to symbols are calls and must be expected
-        if ($this->symbols->getSymbolAtAddress($instruction->target)) {
-            $this->assertCall($simulator, $instruction->target->value);
-
-            if ($instruction->isCall()) {
-                $simulator->setPc($simulator->getPr());
-                $simulator->cancelDelayedBranch();
-            } else {
-                // Program jumped to another symbol.
-                $this->logInfo($simulator, "Program jumped to symbol at " . $instruction->target->hex());
-                $this->stop();
-            }
-            return;
-        }
-
-        // Branch to non-symbol are checked only
-        // if the address matches the expectation
-        $expectation = reset($this->pendingExpectations);
-        if ($expectation instanceof CallExpectation && $instruction->target->equals($expectation->address)) {
-            $this->assertCall($simulator, $instruction->target->value);
-
-            if ($instruction->isCall()) {
-                $simulator->setPc($simulator->getPr());
-                $simulator->cancelDelayedBranch();
-            }
-            // Stop execution on dynamic tail calls
-            else {
-                $this->logInfo($simulator, "Program jumped to address " . $instruction->target->hex());
-                $this->stop();
-            }
-        }
-    }
-
-    private function onWrite(Simulator $simulator, WriteOperation $instruction): void
-    {
-        $address = $instruction->target->value;
-        $value = $instruction->value;
-        $this->coverage->logWrite(
-            $address, (int) $instruction->value::BIT_COUNT / 8
-        );
-
-        $expectation = reset($this->pendingExpectations);
-        $readableAddress = '0x' . dechex($address);
-        $readableValue = $value->readable();
-
-        // TODO: I really don't like how we need to keep checking for the expectation type here.
-
-        // Stack write
-        if ($address >= $simulator->getRegister(15)->value) {
-            // Unexpected stack writes are allowed
-            if (!($expectation instanceof WriteExpectation
-                    || $expectation instanceof StringWriteExpectation)
-                || $expectation->address !== $address
-            ) {
-                $this->logInfo($simulator, "Allowed stack write of $readableValue to $readableAddress");
-                return;
-            }
-        } else if (!($expectation instanceof WriteExpectation || $expectation instanceof StringWriteExpectation)) {
-            throw new ExpectationException("Unexpected write of " . $readableValue . " to " . $readableAddress . "\n");
-        }
-
-        if ($symbol = $this->getSymbolNameAt($address)) {
-            $readableAddress = "$symbol($readableAddress)";
-        }
-
-        $readableExpectedAddress = '0x' . dechex($expectation->address);
-        if ($symbol = $this->getSymbolNameAt($expectation->address)) {
-            $readableExpectedAddress = "$symbol($readableExpectedAddress)";
-        }
-
-        // Handle char* writes
-        if (is_string($expectation->value)) {
-            if (!($expectation instanceof StringWriteExpectation)) {
-                throw new ExpectationException("Unexpected char* write of $readableValue to $readableAddress, expecting int write of $readableExpectedAddress");
-            }
-
-            if ($value::BIT_COUNT !== 32) {
-                throw new ExpectationException("Unexpected non 32bit char* write of $readableValue to $readableAddress");
-            }
-
-            $actual = $simulator->getMemory()->readString($value->value);
-            $readableValue = $actual . ' (' . bin2hex($actual) . ')';
-            $readableExpectedValue = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
-
-            if ($expectation->address !== $address) {
-                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress");
-            }
-
-            if ($actual !== $expectation->value) {
-                throw new ExpectationException("Unexpected char* write value $readableValue to $readableAddress, expecting $readableExpectedValue");
-            }
-
-            $this->fulfilled($simulator, "Wrote string $readableValue to $readableAddress");
-        }
-        // Hanlde int writes
-        else {
-            if (!($expectation instanceof WriteExpectation)) {
-                throw new ExpectationException("Unexpected int write of $readableValue to $readableAddress, expecting char* write of $readableExpectedAddress");
-            }
-
-            if ($value::BIT_COUNT !== $expectation->size) {
-                throw new ExpectationException("Unexpected " . $value::BIT_COUNT . " bit write of $readableValue to $readableAddress, expecting $expectation->size bit write");
-            }
-
-            $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
-            if ($expectation->address !== $address) {
-                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress");
-            }
-
-            if ($value->lessThan(0)) {
-                throw new ExpectationException("Unexpected negative write value $readableValue to $readableAddress");
-            }
-
-            if (!$value->equals($expectation->value)) {
-                throw new ExpectationException("Unexpected write value $readableValue to $readableAddress, expecting value $readableExpectedValue");
-            }
-
-            $this->fulfilled($simulator, "Wrote $readableValue to $readableAddress");
-        }
-
-        array_shift($this->pendingExpectations);
-    }
-
-    private function onRead(Simulator $simulator, ReadOperation $instruction): void
-    {
-        $this->coverage->logRead(
-            $instruction->source->value, $instruction->value::BIT_COUNT / 8
-        );
-
-        foreach ($this->unresolvedRelocations as $relocation) {
-            if ($relocation->linkedAddress !== $instruction->source->value) {
-                continue;
-            }
-
-            throw new \Exception(
-                "Trying to read from unresolved relocation $relocation->name",
-                1
-            );
-        }
-
-        $displacedAddr = $instruction->source->value;
-
-        $readableAddress = '0x' . dechex($displacedAddr);
-        if ($symbol = $this->getSymbolNameAt($displacedAddr)) {
-            $readableAddress = "$symbol($readableAddress)";
-        }
-
-        $expectation = reset($this->pendingExpectations);
-
-        $value = $instruction->value;
-        $readableValue = $value . ' (0x' . dechex($value->value) . ')';
-
-        $size = $instruction->value::BIT_COUNT;
-
-        // Handle read expectations
-        if ($expectation instanceof ReadExpectation && $expectation->address === $displacedAddr) {
-            $readableExpected = $expectation->value . ' (0x' . dechex($expectation->value) . ')';
-
-            if ($size !== $expectation->size) {
-                throw new ExpectationException("Unexpected read size $size from $readableAddress. Expecting size $expectation->size");
-            }
-
-            if (!$value->equals($expectation->value)) {
-                throw new ExpectationException("Unexpected read of $readableValue from $readableAddress. Expecting value $readableExpected");
-            }
-
-            $this->fulfilled($simulator, "Read $readableExpected from $readableAddress");
-            array_shift($this->pendingExpectations);
-        }
-    }
-
-    private function assertCall(Simulator $simulator, int $target): void
-    {
-        $name = null;
-        $readableName = "<NO_SYMBOL>";
-
-        if ($export = $this->symbols->getSymbolAtAddress(U32::of($target))) {
-            $name = $export->name;
-            $readableName = "$name (" . U32::of($target)->hex() . ")";
-        } elseif ($resolution = $this->getResolutionAt($target)) {
-            $name = $resolution->name;
-            $readableName = "$name (" . U32::of($target)->hex() . ")";
-        }
-
-        /** @var Expectations\AbstractExpectation */
-        $expectation = array_shift($this->pendingExpectations);
-
-        if (!($expectation instanceof CallExpectation)) {
-            throw new ExpectationException("Unexpected function call to $readableName at " . dechex($simulator->getPc()));
-        }
-
-        if ($name !== $expectation->name) {
-            throw new ExpectationException("Unexpected call to $readableName at " . dechex($simulator->getPc()) . ", expecting $expectation->name");
-        }
-
-        if ($expectation->parameters) {
-            $convention = $expectation->convention
-                ?? ($name !== null ? ($this->testCase->defaultConventions[$name] ?? null) : null)
-                ?? new DefaultCallingConvention();
-
-            if ($expectation->variadicFixed !== null) {
-                if (!$convention instanceof VariadicCallingConvention) {
-                    throw new \Exception(get_class($convention) . " does not support variadic arguments, but variadic() was set on the expectation for $readableName");
-                }
-                $convention->variadic($expectation->variadicFixed);
-            }
-
-            foreach ($expectation->parameters as $expected) {
-                $this->argumentVerifier->verify($simulator, $convention, $expected, $readableName);
-            }
-        }
-
-        // TODO: Temporary hack to modify write during runtime
-        $callback = $expectation->callback
-            ?? ($name !== null ? ($this->testCase->defaultCallbacks[$name] ?? null) : null);
-
-        if ($callback) {
-            $callback = \Closure::bind($callback, $simulator, $simulator);
-            $callback($expectation->parameters);
-        }
-
-        if ($expectation->return !== null) {
-            match (gettype($expectation->return)) {
-                "integer" => $simulator->setRegister(0, U32::of($expectation->return & 0xffffffff)),
-                "double" => $simulator->setFloatRegister(0, $expectation->return),
-            };
-        }
-
-        $this->fulfilled($simulator, "Called " . $readableName . '(0x'. dechex($target) . ")");
-    }
-
-    private function getResolutionAt(int $address): ?TestRelocation
-    {
-        foreach ($this->testCase->testRelocations as $relocation) {
-            if ($relocation->address === $address) {
-                return $relocation;
-            }
-        }
-
-        return null;
-    }
-
-    private function getSymbolNameAt(int $address): ?string
-    {
-        if ($relocation = $this->getResolutionAt($address)) {
-            return $relocation->name;
-        }
-
-        if ($export = $this->symbols->getSymbolAtAddress(U32::of($address))) {
-            return $export->name;
-        }
-
-        return null;
     }
 
     private function stop(): void
