@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
-use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
-use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\ArgumentType;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
-use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\StackOffset;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\VariadicCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
@@ -60,6 +57,8 @@ class Run
         private EventListener $events,
         private TestCaseDTO $testCase,
         private bool $shouldOutputDisasm,
+        private ArgumentVerifier $argumentVerifier = new ArgumentVerifier(),
+        private ReturnValueVerifier $returnValueVerifier = new ReturnValueVerifier(),
     )
     {
         $this->expectations = $testCase->expectations;
@@ -190,25 +189,8 @@ class Run
             if ($returnExpectation && ($returnExpectation instanceof ReturnExpectation)) {
                 array_shift($this->pendingExpectations);
 
-                $expectedReturn = $returnExpectation->value;
-                $actualReturn = $simulator->getRegister(0);
-                if (is_int($expectedReturn)) {
-                    if (!$actualReturn->equals($expectedReturn)) {
-                        throw new ExpectationException("Unexpected return value $actualReturn, expecting $expectedReturn");
-                    }
-
-                    $this->fulfilled($simulator, "Returned $expectedReturn");
-                } else {
-                    $actualFloatReturn = $simulator->getFloatRegister(0);
-                    $expectedDecRepresentation = unpack('L', pack('f', $expectedReturn))[1];
-                    $actualDecRepresentation = unpack('L', pack('f', $actualFloatReturn))[1];
-
-                    if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                        throw new ExpectationException("Unexpected return value $actualFloatReturn, expecting $expectedReturn");
-                    }
-
-                    $this->fulfilled($simulator, "Returned float $expectedReturn");
-                }
+                $message = $this->returnValueVerifier->verify($simulator, $returnExpectation->value);
+                $this->fulfilled($simulator, $message);
             }
         } while (reset($this->pendingExpectations) instanceof CallCommand);
 
@@ -608,133 +590,7 @@ class Run
             }
 
             foreach ($expectation->parameters as $expected) {
-                if ($expected instanceof WildcardArgument) {
-                    // FIXME: Allow wildcard float arguments?
-                    $convention->takeArgumentStorage(ArgumentType::General);
-                    continue;
-                }
-
-                // TODO: No tests are using this
-                // if ($expected instanceof LocalArgument) {
-                //     // FIXME: Why increment here!?
-                //     $args++;
-
-                //     if ($args <= 4) {
-                //         $register = $args + 4 - 1;
-                //         $actual = $this->registers[$register];
-
-                //         if ($actual < $this->registers[15]) {
-                //             throw new ExpectationException("Unexpected local argument for $readableName in r$register. $actual is not in the stack");
-                //         }
-
-                //         continue;
-                //     }
-
-                //     throw new \Exception("Stack arguments stored in stack are not supported at the moment", 1);
-                // }
-
-                if (is_int($expected)) {
-                    $storage = $convention->takeArgumentStorage(ArgumentType::General);
-                    $expected &= 0xffffffff;
-
-                    if ($storage instanceof GeneralRegister) {
-                        $register = $storage->index();
-                        $actual = $simulator->getRegister($register);
-                        $actualHex = dechex($actual->value);
-                        $expectedHex = dechex($expected);
-                        if (!$actual->equals($expected)) {
-                            throw new ExpectationException("Unexpected argument for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
-                        }
-
-                        continue;
-                    }
-
-                    if ($storage instanceof StackOffset) { 
-                        $offset = $storage->offset;
-
-                        $address = $simulator->getRegister(15)->value + $offset;
-                        $actual = $simulator->getMemory()->readUInt32($address);
-
-                        if (!$actual->equals($expected)) {
-                            throw new ExpectationException("Unexpected argument for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
-                        }
-
-                        continue;
-                    }
-
-                    throw new \Exception("Unexpected argument storage type", 1);
-                }
-
-                if (is_float($expected)) {
-                    $storage = $convention->takeArgumentStorage(ArgumentType::FloatingPoint);
-
-                    if ($storage instanceof FloatingPointRegister) {
-                        $register = $storage->index();
-                        $actual = $simulator->getFloatRegister($register);
-                        $actualDecRepresentation = unpack('L', pack('f', $actual))[1];
-                        $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
-                        if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                            throw new ExpectationException("Unexpected float argument for $readableName in fr$register. Expected $expected, got $actual");
-                        }
-    
-                        continue;
-                    }
-
-                    if ($storage instanceof StackOffset) {
-                        $offset = $storage->offset;
-
-                        $address = $simulator->getRegister(15)->value + $offset;
-                        $actualDecRepresentation = $simulator->getMemory()->readUInt32($address);
-                        $actual = unpack('f', pack('L', $actualDecRepresentation))[1];
-                        $expectedDecRepresentation = unpack('L', pack('f', $expected))[1];
-
-                        if ($actualDecRepresentation !== $expectedDecRepresentation) {
-                            throw new ExpectationException("Unexpected float argument for $readableName in stack offset $offset ($address). Expected $expected, got $actual");
-                        }
-    
-                        continue;
-                    }
-
-                    throw new \Exception("Unexpected argument storage type", 1);
-                }
-
-                if (is_string($expected)) {
-                    $storage = $convention->takeArgumentStorage(ArgumentType::General);
-
-                    if ($storage instanceof GeneralRegister) {
-                        $register = $storage->index();
-                        $address = $simulator->getRegister($register);
-
-                        $actual = $simulator->getMemory()->readString($address->value);
-                        if ($actual !== $expected) {
-                            $actualHex = bin2hex($actual);
-                            $expectedHex = bin2hex($expected);
-                            throw new ExpectationException("Unexpected char* argument for $readableName in r$register. Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
-                        }
-
-                        continue;
-                    }
-
-                    if ($storage instanceof StackOffset) {
-                        $offset = $storage->offset;
-
-                        $stackAddress = $simulator->getRegister(15)->value + $offset;
-                        $address = $simulator->getMemory()->readUInt32($stackAddress);
-
-                        $actual = $simulator->getMemory()->readString($address->value);
-                        if ($actual !== $expected) {
-                            $actualHex = bin2hex($actual);
-                            $expectedHex = bin2hex($expected);
-                            throw new ExpectationException("Unexpected char* argument for $readableName in stack offset $offset ($stackAddress). Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
-                        }
-
-                        continue;
-                    }
-
-                    throw new \Exception("Unexpected argument storage type", 1);
-                }
-
-                throw new \Exception("Unexpected argument type", 1);
+                $this->argumentVerifier->verify($simulator, $convention, $expected, $readableName);
             }
         }
 
