@@ -715,7 +715,23 @@ class Run
                         continue;
                     }
 
-                    throw new \Exception("String literal stack arguments are not supported at the moment", 1);
+                    if ($storage instanceof StackOffset) {
+                        $offset = $storage->offset;
+
+                        $stackAddress = $simulator->getRegister(15)->value + $offset;
+                        $address = $simulator->getMemory()->readUInt32($stackAddress);
+
+                        $actual = $simulator->getMemory()->readString($address->value);
+                        if ($actual !== $expected) {
+                            $actualHex = bin2hex($actual);
+                            $expectedHex = bin2hex($expected);
+                            throw new ExpectationException("Unexpected char* argument for $readableName in stack offset $offset ($stackAddress). Expected $expected (0x$expectedHex), got $actual (0x$actualHex)");
+                        }
+
+                        continue;
+                    }
+
+                    throw new \Exception("Unexpected argument storage type", 1);
                 }
 
                 throw new \Exception("Unexpected argument type", 1);
