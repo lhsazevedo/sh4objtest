@@ -410,6 +410,17 @@ class Simulator
                 $this->writeRegister($n, $this->registers[$n]->bxor($this->registers[$m]));
                 return new GenericOperation($instruction, $opcode);
 
+            // MULS.W <REG_M>,<REG_N>
+            case 0x200f:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("MULS.W", ["R$m", "R$n"]);
+                $result = $this->registers[$n]->trunc16()->signedValue()
+                    * $this->registers[$m]->trunc16()->signedValue();
+                $macl = U32::of($result & U32::MAX_VALUE);
+                $this->macl = $macl->value;
+                $this->emitAddLog("MACL={$macl->readable()}");
+                return new GenericOperation($instruction, $opcode);
+
             // CMP/EQ <REG_M>,<REG_N>
             case 0x3000:
                 [$n, $m] = getNM($instruction);

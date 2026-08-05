@@ -111,4 +111,34 @@ class SimulatorTest extends TestCase
             'negative index wraps' => [0x100, -4 & 0xffffffff, 0xfc],
         ];
     }
+
+    #[DataProvider('mulsWProvider')]
+    public function testMulsW(int $rn, int $rm, int $expectedMacl): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+
+        $simulator->setRegister(2, U32::of($rn));
+        $simulator->setRegister(1, U32::of($rm));
+
+        // MULS.W R1,R2 (0010nnnnmmmm1111, n=2, m=1)
+        $simulator->executeInstruction(U16::of(0x221f));
+
+        // STS MACL,R3 (0000nnnn00011010, n=3): store MACL into R3 so we can observe it.
+        $simulator->executeInstruction(U16::of(0x031a));
+
+        $this->assertSame($expectedMacl, $simulator->getRegister(3)->value);
+    }
+
+    /** @return array<string, array{int, int, int}> */
+    public static function mulsWProvider(): array
+    {
+        return [
+            'positive times positive' => [100, 200, 20000],
+            'negative times negative' => [-5 & 0xffffffff, -3 & 0xffffffff, 15],
+            'positive times negative' => [1000, -2 & 0xffffffff, -2000 & 0xffffffff],
+            // Only the low 16 bits of each register feed the multiply.
+            'high bits of register are ignored' => [0x12340005, 0x00000002, 10],
+            'largest magnitude operands' => [0xffff8000, 0xffff8000, 1073741824],
+        ];
+    }
 }
