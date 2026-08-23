@@ -74,7 +74,7 @@ class SuiteCommand extends Command
         // failures are shown, plus a progress line and a final summary.
         $events = match (true) {
             $format === 'json' => new NullEventListener(),
-            $output->isVerbose() => new ConsoleEventListener($output),
+            $output->isVerbose() || $disasm => new ConsoleEventListener($output),
             default => new CompactEventListener($output),
         };
 
