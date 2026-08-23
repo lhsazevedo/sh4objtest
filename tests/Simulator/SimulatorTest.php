@@ -112,6 +112,33 @@ class SimulatorTest extends TestCase
         ];
     }
 
+    #[DataProvider('dtProvider')]
+    public function testDt(int $value, int $expectedValue, int $expectedT): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+
+        $simulator->setRegister(2, U32::of($value));
+
+        // DT R2 (0100nnnn00010000, n=2)
+        $simulator->executeInstruction(U16::of(0x4210));
+
+        // MOVT R3 (0000nnnn00101001, n=3): store T into R3 so we can observe it.
+        $simulator->executeInstruction(U16::of(0x0329));
+
+        $this->assertSame($expectedValue, $simulator->getRegister(2)->value);
+        $this->assertSame($expectedT, $simulator->getRegister(3)->value);
+    }
+
+    /** @return array<string, array{int, int, int}> */
+    public static function dtProvider(): array
+    {
+        return [
+            'decrement to nonzero clears T' => [5, 4, 0],
+            'decrement to zero sets T' => [1, 0, 1],
+            'decrement from zero wraps' => [0, 0xffffffff, 0],
+        ];
+    }
+
     #[DataProvider('mulsWProvider')]
     public function testMulsW(int $rn, int $rm, int $expectedMacl): void
     {

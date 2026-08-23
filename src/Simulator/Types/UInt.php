@@ -81,11 +81,15 @@ abstract readonly class UInt
     /**
      * @param static|int $other
      */
-    public function sub(self|int $other): static
+    public function sub(self|int $other, bool $allowOverflow = false): static
     {
         $other = $this->other($other);
         $result = $this->value - $other->value;
-        self::checkOverflow($result);
+
+        if (!$allowOverflow) {
+            self::checkOverflow($result);
+        }
+
         return new static($result & static::MAX_VALUE);
     }
 

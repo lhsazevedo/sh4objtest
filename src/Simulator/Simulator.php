@@ -1080,6 +1080,15 @@ class Simulator
                 $this->delayedPc = $newpc;
                 return new BranchOperation($instruction, $opcode, U32::of($newpc));
 
+            // DT <REG_N>
+            case 0x4010:
+                $n = getN($instruction);
+                $this->emitDisasm("DT", ["R$n"]);
+                $result = $this->registers[$n]->sub(1, allowOverflow: true);
+                $this->srT = $result->value === 0 ? 1 : 0;
+                $this->writeRegister($n, $result);
+                return new GenericOperation($instruction, $opcode);
+
             // CMP/PZ <REG_N>
             case 0x4011:
                 $n = getN($instruction);
