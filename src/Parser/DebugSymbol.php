@@ -59,6 +59,8 @@ class DebugSymbol
 
     public int $lineNumber;
 
+    public bool $variadic = false;
+
     /**
      * True for a symbol with a internal linkable address
      */
@@ -158,8 +160,9 @@ class DebugSymbol
         if ($this->type === Stype::Tag) {
             $reader->readUInt8(); // magic
         }
+
         if ($this->type === Stype::Parameter) {
-            $reader->readUInt8();
+            $this->variadic = $reader->readUInt8() === 1;
             $flags = $reader->readUInt8();
 
             if ($flags & 0x80) {

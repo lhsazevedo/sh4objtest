@@ -26,6 +26,15 @@ class DebugSymbolTest extends TestCase
         $this->assertSame(Stype::Parameter, $symbol->type);
         $this->assertSame('task', $symbol->name);
         $this->assertNull($symbol->register);
+        $this->assertFalse($symbol->variadic);
+    }
+
+    public function testVariadicParameter(): void
+    {
+        $symbol = new DebugSymbol(new BinaryReader(self::AUTO_PARAM . "\x01\x00"));
+
+        $this->assertTrue($symbol->variadic);
+        $this->assertNull($symbol->register);
     }
 
     public function testParameterFlagBit7CarriesArrivalRegister(): void
