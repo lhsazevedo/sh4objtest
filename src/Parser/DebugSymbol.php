@@ -158,13 +158,13 @@ class DebugSymbol
         if ($this->type === Stype::Tag) {
             $reader->readUInt8(); // magic
         }
-
-        // Parameter records carry a trailing 2-byte field that the grammar we
-        // have does not describe (always observed as 0x0000, for both register-
-        // and stack-allocated parameters). Consume it so the record is fully
-        // accounted for.
         if ($this->type === Stype::Parameter) {
-            $reader->readUInt16BE();
+            $reader->readUInt8();
+            $flags = $reader->readUInt8();
+
+            if ($flags & 0x80) {
+                $this->register = $reader->readBytes($reader->readUInt8());
+            }
         }
     }
 }
