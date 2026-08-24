@@ -375,7 +375,8 @@ class TestCase
             throw new \RuntimeException("Symbol $name already allocated");
         }
 
-        if ($this->parsedObject->unit->findExportedSymbol($name)) {
+        if ($this->parsedObject->unit->findExportedSymbol($name)
+            || $this->parsedObject->unit->findDebugSymbolAddress($name) !== null) {
             throw new \RuntimeException("Cannot allocate symbol $name, it is already defined in the object file");
         }
 
@@ -396,6 +397,10 @@ class TestCase
 
         if ($symbol = $this->parsedObject->unit->findExportedSymbol($name)) {
             return $symbol->linkedAddress;
+        }
+
+        if (($address = $this->parsedObject->unit->findDebugSymbolAddress($name)) !== null) {
+            return $address;
         }
 
         $address = $this->alloc(4);

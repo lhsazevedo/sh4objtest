@@ -86,12 +86,9 @@ class Linker
                 continue;
             }
 
-            // Static symbols lack an external name.
-            $linkedName = $debugSymbol->externalName ?? ('_' . $debugSymbol->name);
+            $linkedName = $debugSymbol->linkedName();
 
-            if (isset($entryPoints[$linkedName])
-                || $debugSymbol->section === null
-                || $debugSymbol->address === null) {
+            if (isset($entryPoints[$linkedName]) || !$debugSymbol->isStaticDefinition()) {
                 continue;
             }
 

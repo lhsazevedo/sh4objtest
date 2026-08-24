@@ -101,4 +101,22 @@ class UnitHeader extends Base
 
         return null;
     }
+
+    public function findDebugSymbolAddress(string $linkedName): ?int
+    {
+        foreach ($this->debugSymbols as $debugSymbol) {
+            if (!$debugSymbol->isStaticDefinition() || $debugSymbol->linkedName() !== $linkedName) {
+                continue;
+            }
+
+            $section = $this->sections[$debugSymbol->section] ?? null;
+            if ($section === null) {
+                continue;
+            }
+
+            return $section->linkedAddress + $debugSymbol->address;
+        }
+
+        return null;
+    }
 }

@@ -59,6 +59,25 @@ class DebugSymbol
 
     public int $lineNumber;
 
+    /**
+     * True for a symbol with a internal linkable address
+     */
+    public function isStaticDefinition(): bool
+    {
+        return in_array($this->ainfo, [
+            self::AINFO_STATIC_EXT_DEF,
+            self::AINFO_STATIC_INT,
+            self::AINFO_STATIC_COM,
+        ], true)
+            && $this->section !== null
+            && $this->address !== null;
+    }
+
+    public function linkedName(): string
+    {
+        return $this->externalName ?? ('_' . $this->name);
+    }
+
     public function __construct(BinaryReader $reader)
     {
         $typeByte = $reader->readUInt8();
