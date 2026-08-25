@@ -180,7 +180,7 @@ class Simulator
         // Default state
         $this->pc = 0;
         for ($i = 0; $i < 16; $i++) {
-            $this->registers[$i] = U32::of(0);
+            $this->registers[$i] = U32::of(random_int(0, U32::MAX_VALUE));
         }
 
         // Stack pointer

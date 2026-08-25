@@ -13,6 +13,27 @@ use PHPUnit\Framework\TestCase;
 
 class SimulatorTest extends TestCase
 {
+    public function testGeneralRegistersStartRandomized(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+
+        $allZero = true;
+        for ($i = 0; $i < 15; $i++) {
+            if ($simulator->getRegister($i)->value !== 0) {
+                $allZero = false;
+                break;
+            }
+        }
+        $this->assertFalse($allZero, 'Registers R0-R14 should not all start at zero');
+    }
+
+    public function testStackPointerStartsAtTopOfMemory(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024 * 1024 * 16, randomize: false));
+
+        $this->assertSame(1024 * 1024 * 16 - 4, $simulator->getRegister(15)->value);
+    }
+
     #[DataProvider('shldProvider')]
     public function testShld(int $value, int $shiftAmount, int $expected): void
     {
