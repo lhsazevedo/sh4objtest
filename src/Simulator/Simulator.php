@@ -1161,6 +1161,13 @@ class Simulator
                 $this->writeRegister($n, $this->registers[$n]->shiftLeft(16));
                 return new GenericOperation($instruction, $opcode);
 
+            // SHLR16 Rn;
+            case 0x4029:
+                $n = getN($instruction);
+                $this->emitDisasm("SHLR16", ["R$n"]);
+                $this->writeRegister($n, $this->registers[$n]->shiftRight(16));
+                return new GenericOperation($instruction, $opcode);
+
             // JMP
             case 0x402b:
                 $n = getN($instruction);
