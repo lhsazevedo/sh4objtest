@@ -651,6 +651,13 @@ class Simulator
                 $this->writeRegister($n, $this->registers[$m]->trunc8()->extend32());
                 return new GenericOperation($instruction, $opcode);
 
+            // EXTS.W <REG_M>,<REG_N>
+            case 0x600f:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("EXTS.W", ["R$m","R$n"]);
+                $this->writeRegister($n, $this->registers[$m]->trunc16()->extend32());
+                return new GenericOperation($instruction, $opcode);
+
             // FADD <FREG_M>,<FREG_N>
             case 0xf000:
                 // if (fpscr.PR == 0)
