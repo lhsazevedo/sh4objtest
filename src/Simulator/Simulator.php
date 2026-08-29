@@ -1000,6 +1000,13 @@ class Simulator
 
         // f0ff
         switch ($opcode = $instruction & 0xf0ff) {
+            // PREF @<REG_N>
+            case 0x0083:
+                $n = getN($instruction);
+                $this->emitDisasm("PREF", ["@R$n"]);
+                // Cache prefetch hint; no architectural effect.
+                return new GenericOperation($instruction, $opcode);
+
             // STS MACL,<REG_N>
             case 0x001a:
                 $n = getN($instruction);
