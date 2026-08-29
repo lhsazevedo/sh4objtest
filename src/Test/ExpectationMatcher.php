@@ -10,12 +10,14 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\StoreQueueFlushExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 
@@ -158,6 +160,32 @@ class ExpectationMatcher
             ($this->onFulfilled)("Wrote $readableValue to $readableAddress");
         }
 
+        $this->shift();
+    }
+
+    public function matchStoreQueueFlush(Simulator $simulator, StoreQueueFlushOperation $instruction): void
+    {
+        $address = $instruction->target->value;
+        $readableAddress = '0x' . dechex($address);
+        if ($symbol = $this->getSymbolNameAt($address)) {
+            $readableAddress = "$symbol($readableAddress)";
+        }
+
+        $expectation = $this->peek();
+        if (!($expectation instanceof StoreQueueFlushExpectation)) {
+            throw new ExpectationException("Unexpected store queue flush (PREF) at $readableAddress");
+        }
+
+        if ($expectation->address !== $address) {
+            $readableExpectedAddress = '0x' . dechex($expectation->address);
+            if ($symbol = $this->getSymbolNameAt($expectation->address)) {
+                $readableExpectedAddress = "$symbol($readableExpectedAddress)";
+            }
+
+            throw new ExpectationException("Unexpected store queue flush (PREF) at $readableAddress, expecting $readableExpectedAddress");
+        }
+
+        ($this->onFulfilled)("Flushed store queue (PREF) at $readableAddress");
         $this->shift();
     }
 

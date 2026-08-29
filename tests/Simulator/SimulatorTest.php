@@ -6,6 +6,9 @@ namespace Lhsazevedo\Sh4ObjTest\Tests\Simulator;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -188,5 +191,42 @@ class SimulatorTest extends TestCase
             'high bits of register are ignored' => [0x12340005, 0x00000002, 10],
             'largest magnitude operands' => [0xffff8000, 0xffff8000, 1073741824],
         ];
+    }
+
+    public function testPrefIsNoopOutsideStoreQueueRange(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(5, U32::of(0x8c010000));
+
+        // PREF @R5 (0000nnnn10000011, n=5)
+        $operation = $simulator->executeInstruction(U16::of(0x0583));
+
+        $this->assertInstanceOf(GenericOperation::class, $operation);
+    }
+
+    public function testPrefTriggersStoreQueueFlushInsideStoreQueueRange(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(5, U32::of(0xe0001020));
+
+        // PREF @R5 (0000nnnn10000011, n=5)
+        $operation = $simulator->executeInstruction(U16::of(0x0583));
+
+        $this->assertInstanceOf(StoreQueueFlushOperation::class, $operation);
+        $this->assertSame(0xe0001020, $operation->target->value);
+    }
+
+    public function testStoreToStoreQueueRangeIsObservableAsAWriteButNotPersisted(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(2, U32::of(0xe0001000));
+        $simulator->setRegister(1, U32::of(0xdeadbeef));
+
+        // MOV.L R1,@R2 (0010nnnnmmmm0010, n=2, m=1)
+        $operation = $simulator->executeInstruction(U16::of(0x2212));
+
+        $this->assertInstanceOf(WriteOperation::class, $operation);
+        $this->assertSame(0xe0001000, $operation->target->value);
+        $this->assertSame(0xdeadbeef, $operation->value->value);
     }
 }

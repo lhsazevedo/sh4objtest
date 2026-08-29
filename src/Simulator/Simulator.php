@@ -17,6 +17,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ControlFlowOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 
 function getN(int $instr): int
@@ -128,6 +129,22 @@ function s16tos32(int $value): int
 
 class Simulator
 {
+    /**
+     * Store-queue address range (P4/area 7 window). Ordinary stores into it
+     * (staging the 32-byte burst) and to QACR0/QACR1 (0xFF00003C/0x40, which
+     * pick the burst's external destination) are just memory writes and are
+     * matched as such; only the destination itself isn't backed by our
+     * memory image (nothing in a test can read it back, so we don't model
+     * it). PREF @Rn with Rn in this range is what actually triggers the
+     * burst, and is the only part of this that needs to become an
+     * observable event of its own.
+     */
+    public const STORE_QUEUE_MASK = 0xfc000000;
+    public const STORE_QUEUE_BASE = 0xe0000000;
+
+    public const QACR0_ADDRESS = 0xff00003c;
+    public const QACR1_ADDRESS = 0xff000040;
+
     private int $pc;
 
     private ?int $delayedPc = null;
@@ -1011,7 +1028,13 @@ class Simulator
             case 0x0083:
                 $n = getN($instruction);
                 $this->emitDisasm("PREF", ["@R$n"]);
-                // Cache prefetch hint; no architectural effect.
+                $addr = $this->registers[$n]->value;
+
+                if (self::isStoreQueueAddress($addr)) {
+                    return new StoreQueueFlushOperation($instruction, $opcode, U32::of($addr));
+                }
+
+                // Cache prefetch hint outside the store-queue range; no architectural effect.
                 return new GenericOperation($instruction, $opcode);
 
             // STS MACL,<REG_N>
@@ -1474,12 +1497,29 @@ class Simulator
         // 32-bit modular: a negative index (e.g. 0xfffffffc) wraps back below base.
         $displacedAddr = ($addr + $offset) & 0xffffffff;
 
+        // The store-queue burst destination and QACR0/QACR1 are MMIO, not
+        // addressable memory backed by our (much smaller) memory image, and
+        // nothing reads them back; the stores themselves are still matched
+        // as ordinary writes below (via the WriteOperation each opcode
+        // handler returns), just not persisted to memory.
+        if (self::isStoreQueueAddress($displacedAddr)
+            || $displacedAddr === self::QACR0_ADDRESS
+            || $displacedAddr === self::QACR1_ADDRESS
+        ) {
+            return;
+        }
+
         match (get_class($value)) {
             U8::class => $this->memory->writeUInt8($displacedAddr, $value),
             U16::class => $this->memory->writeUInt16($displacedAddr, $value),
             U32::class => $this->memory->writeUInt32($displacedAddr, $value),
             default => throw new \Exception("Unsupported write size " . $value::BIT_COUNT, 1),
         };
+    }
+
+    public static function isStoreQueueAddress(int $addr): bool
+    {
+        return ($addr & self::STORE_QUEUE_MASK) === self::STORE_QUEUE_BASE;
     }
 
     protected function writeUInt8(int $addr, int $offset, U8 $value): void

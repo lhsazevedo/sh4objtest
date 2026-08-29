@@ -11,11 +11,13 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Test\ArgumentVerifier;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\StoreQueueFlushExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\ExpectationMatcher;
@@ -98,6 +100,34 @@ class ExpectationMatcherTest extends TestCase
         $matcher->matchWrite($simulator, new WriteOperation(0, 0, U32::of(100), U32::of(200)));
 
         $this->assertTrue($matcher->isEmpty());
+    }
+
+    public function testOnStoreQueueFlushFulfillsMatchingExpectationAndShifts(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new StoreQueueFlushExpectation(0xe0001000)]);
+
+        $matcher->matchStoreQueueFlush($simulator, new StoreQueueFlushOperation(0, 0, U32::of(0xe0001000)));
+
+        $this->assertTrue($matcher->isEmpty());
+    }
+
+    public function testOnStoreQueueFlushThrowsOnMismatchedAddress(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new StoreQueueFlushExpectation(0xe0001000)]);
+
+        $this->expectException(ExpectationException::class);
+        $matcher->matchStoreQueueFlush($simulator, new StoreQueueFlushOperation(0, 0, U32::of(0xe0002000)));
+    }
+
+    public function testOnStoreQueueFlushThrowsWhenUnexpected(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([]);
+
+        $this->expectException(ExpectationException::class);
+        $matcher->matchStoreQueueFlush($simulator, new StoreQueueFlushOperation(0, 0, U32::of(0xe0001000)));
     }
 
     public function testOnReadFulfillsMatchingExpectationAndShifts(): void

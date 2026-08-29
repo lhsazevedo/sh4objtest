@@ -12,6 +12,7 @@ use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\StoreQueueFlushExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\MemoryInitialization;
@@ -216,6 +217,18 @@ class TestCase
     {
         $address = $this->addressOf($name);
         return $this->shouldWriteString($address, $value);
+    }
+
+    /**
+     * Expects a PREF @Rn to trigger a store-queue burst, i.e. Rn holding
+     * $address (a store-queue range address) at the time of the PREF.
+     */
+    protected function shouldFlushStoreQueue(int $address): StoreQueueFlushExpectation
+    {
+        $expectation = new StoreQueueFlushExpectation($address);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
     }
 
     protected function shouldReadSymbolOffset(string $name, int $offset, int $value): ReadExpectation
