@@ -21,6 +21,7 @@ class Sh4ObjTestReadWritePropertiesExtension implements ReadWritePropertiesExten
                 'entry',
                 'randomizeMemory',
                 'forceStop',
+                'callBlocklist',
             ]);
     }
 

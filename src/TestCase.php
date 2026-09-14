@@ -47,6 +47,9 @@ class TestCase
     /** @var array<string, CallingConvention> */
     private array $defaultConventions = [];
 
+    /** @var string[]|null */
+    private ?array $callBlocklist = null;
+
     public function __construct()
     {
         $this->entry = new Entry();
@@ -87,6 +90,17 @@ class TestCase
     protected function setDefaultConvention(string $symbol, CallingConvention $convention): void
     {
         $this->defaultConventions[$symbol] = $convention;
+    }
+
+    /**
+     * Regexes matching assembler labels that aren't functions, so branching
+     * to them isn't a call. Replaces the suite's callBlocklist.
+     *
+     * @param string[] $patterns
+     */
+    protected function setCallBlocklist(array $patterns): void
+    {
+        $this->callBlocklist = $patterns;
     }
 
     protected function shouldRead(int $address, int $value): ReadExpectation
@@ -388,8 +402,7 @@ class TestCase
             throw new \RuntimeException("Symbol $name already allocated");
         }
 
-        if ($this->parsedObject->unit->findExportedSymbol($name)
-            || $this->parsedObject->unit->findDebugSymbolAddress($name) !== null) {
+        if ($this->parsedObject->unit->findSymbolAddress($name) !== null) {
             throw new \RuntimeException("Cannot allocate symbol $name, it is already defined in the object file");
         }
 
@@ -408,11 +421,7 @@ class TestCase
             return $relocation->address;
         }
 
-        if ($symbol = $this->parsedObject->unit->findExportedSymbol($name)) {
-            return $symbol->linkedAddress;
-        }
-
-        if (($address = $this->parsedObject->unit->findDebugSymbolAddress($name)) !== null) {
+        if (($address = $this->parsedObject->unit->findSymbolAddress($name)) !== null) {
             return $address;
         }
 

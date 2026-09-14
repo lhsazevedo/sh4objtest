@@ -239,8 +239,8 @@ class ExpectationMatcher
      */
     public function matchBranch(Simulator $simulator, BranchOperation $instruction): bool
     {
-        // Branch to symbols are calls and must be expected
-        if ($this->symbols->getSymbolAtAddress($instruction->target)) {
+        // Branch to callable symbols are calls and must be expected
+        if ($this->symbols->getSymbolAtAddress($instruction->target)?->callable) {
             $this->assertCall($simulator, $instruction->target->value);
 
             if ($instruction->isCall()) {
@@ -294,13 +294,13 @@ class ExpectationMatcher
             throw new ExpectationException("Unexpected function call to $readableName at " . dechex($simulator->getPc()));
         }
 
-        if ($name !== $expectation->name) {
+        if ($target !== $expectation->address) {
             throw new ExpectationException("Unexpected call to $readableName at " . dechex($simulator->getPc()) . ", expecting $expectation->name");
         }
 
         if ($expectation->parameters) {
             $convention = $expectation->convention
-                ?? ($name !== null ? ($this->defaultConventions[$name] ?? null) : null)
+                ?? ($expectation->name !== null ? ($this->defaultConventions[$expectation->name] ?? null) : null)
                 ?? new DefaultCallingConvention();
 
             if ($expectation->variadicFixed !== null) {
@@ -317,7 +317,7 @@ class ExpectationMatcher
 
         // TODO: Temporary hack to modify write during runtime
         $callback = $expectation->callback
-            ?? ($name !== null ? ($this->defaultCallbacks[$name] ?? null) : null);
+            ?? ($expectation->name !== null ? ($this->defaultCallbacks[$expectation->name] ?? null) : null);
 
         if ($callback) {
             $callback = \Closure::bind($callback, $simulator, $simulator);

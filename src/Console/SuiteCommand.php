@@ -47,7 +47,9 @@ class SuiteCommand extends Command
         }
 
         $suiteDir = dirname($suiteFile);
-        $sourcePaths = (require $suiteFile)['sourcePaths'] ?? [];
+        $suite = require $suiteFile;
+        $sourcePaths = $suite['sourcePaths'] ?? [];
+        $callBlocklist = $suite['callBlocklist'] ?? [];
 
         $format = $input->getOption('format');
         if (!in_array($format, ['pretty', 'json'], true)) {
@@ -89,13 +91,14 @@ class SuiteCommand extends Command
             }
 
             $workItems = Runner::collectWorkItems($suiteFile, $testCaseFilter);
-            $controller = new Controller($events, $binPath, $workerCount, $shouldTrackCoverage, $failFast);
+            $controller = new Controller($events, $binPath, $workerCount, $shouldTrackCoverage, $failFast, $callBlocklist);
             $result = $controller->run($workItems);
         } else {
             $runner = new Runner(
                 events: $events,
                 shouldOutputDisasm: $disasm,
                 failFast: $failFast,
+                callBlocklist: $callBlocklist,
             );
 
             $result = $runner->runSuite($suiteFile, $testCaseFilter);

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Test;
 
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\SectionHeader;
+use Lhsazevedo\Sh4ObjTest\Parser\Chunks\UnitHeader;
+use Lhsazevedo\Sh4ObjTest\Parser\DebugSymbol;
 use Lhsazevedo\Sh4ObjTest\Parser\ParsedObject;
 use Lhsazevedo\Sh4ObjTest\Parser\Stype;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
@@ -22,8 +25,9 @@ class Linker
 {
     /**
      * @param TestRelocation[] $testRelocations
+     * @param string[] $callBlocklist Regexes for assembler labels that aren't functions
      */
-    public function link(ParsedObject $object, string $linkedCode, array $testRelocations): LinkedProgram
+    public function link(ParsedObject $object, string $linkedCode, array $testRelocations, array $callBlocklist = []): LinkedProgram
     {
         $memory = new BinaryMemory(strlen($linkedCode), randomize: false);
         $memory->writeBytes(0, $linkedCode);
@@ -41,6 +45,13 @@ class Linker
                 $addend = $internal->addend ?? $memory->readUInt32($site)->value;
 
                 $memory->writeUInt32($site, U32::of($targetSection->linkedAddress + $addend));
+            }
+        }
+
+        foreach ($object->unit->sections as $section) {
+            foreach ($section->exports as $export) {
+                $symbols->addSymbol(new Symbol($export->name, U32::of($export->linkedAddress), callable: true));
+                $entryPoints[$export->name] ??= $export->offset;
             }
         }
 
@@ -66,29 +77,12 @@ class Linker
 
                 $resolved = U32::of($resolution->address + $relocation->addend + $offset);
                 $memory->writeUInt32($relocation->linkedAddress, $resolved);
-                $symbols->addSymbol(new Symbol($relocation->name, $resolved));
+                $symbols->addSymbol(new Symbol($relocation->name, $resolved, callable: true));
             }
         }
 
-        foreach ($object->unit->sections as $section) {
-            foreach ($section->exports as $export) {
-                $symbols->addSymbol(new Symbol($export->name, U32::of($export->linkedAddress)));
-                $entryPoints[$export->name] ??= $export->offset;
-            }
-        }
-
-        // Static (internal-linkage) functions have no Exports entry, but the
-        // compiler still emits their name via debug info when built with -debug.
-        // Debug symbol names are bare source identifiers; the linker name (as
-        // used by Exports/relocations, and thus by test cases) prepends "_".
         foreach ($object->unit->debugSymbols as $debugSymbol) {
-            if ($debugSymbol->type !== Stype::Func && $debugSymbol->type !== Stype::Proc) {
-                continue;
-            }
-
-            $linkedName = $debugSymbol->linkedName();
-
-            if (isset($entryPoints[$linkedName]) || !$debugSymbol->isStaticDefinition()) {
+            if (!$debugSymbol->isStaticDefinition()) {
                 continue;
             }
 
@@ -97,11 +91,18 @@ class Linker
                 continue;
             }
 
-            $entryPoints[$linkedName] = $debugSymbol->address;
+            $linkedName = $object->unit->linkedNameOf($debugSymbol);
+            $isCode = $section->contents === SectionHeader::CONTENTS_CODE;
+
             $symbols->addSymbol(new Symbol(
                 $linkedName,
                 U32::of($section->linkedAddress + $debugSymbol->address),
+                $isCode && $this->isCallable($object->unit, $debugSymbol, $linkedName, $callBlocklist),
             ));
+
+            if ($isCode) {
+                $entryPoints[$linkedName] ??= $debugSymbol->address;
+            }
         }
 
         return new LinkedProgram(
@@ -110,6 +111,28 @@ class Linker
             $unresolved,
             $entryPoints,
         );
+    }
+
+    /**
+     * @param string[] $callBlocklist
+     */
+    private function isCallable(UnitHeader $unit, DebugSymbol $symbol, string $linkedName, array $callBlocklist): bool
+    {
+        if ($symbol->type === Stype::Func || $symbol->type === Stype::Proc) {
+            return true;
+        }
+
+        if ($symbol->type !== Stype::Label || $unit->isCompiled()) {
+            return false;
+        }
+
+        foreach ($callBlocklist as $pattern) {
+            if (preg_match($pattern, $linkedName) === 1) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

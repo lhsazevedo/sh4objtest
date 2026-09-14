@@ -11,5 +11,7 @@ readonly class Symbol
         public string $name,
         // public string $type,
         public U32 $address,
+        /** Indicates branching to this symbol is a call that must be expected. */ 
+        public bool $callable,
     ) {}
 }

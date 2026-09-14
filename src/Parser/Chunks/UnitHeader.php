@@ -101,11 +101,34 @@ class UnitHeader extends Base
 
         return null;
     }
+    
+    /** 
+     * Prefers exported symbols over debug symbols, which may carry colliding local names.
+     */
+    public function findSymbolAddress(string $linkedName): ?int
+    {
+        return $this->findExportedSymbol($linkedName)->linkedAddress
+            ?? $this->findDebugSymbolAddress($linkedName);
+    }
 
-    public function findDebugSymbolAddress(string $linkedName): ?int
+    public function isCompiled(): bool
+    {
+        return $this->toolName === 'C_SH';
+    }
+
+    /**
+     * Prefixes an underscore to the symbol name for compiled objects.
+     */
+    public function linkedNameOf(DebugSymbol $symbol): string
+    {
+        return $symbol->externalName
+            ?? ($this->isCompiled() ? '_' . $symbol->name : $symbol->name);
+    }
+
+    private function findDebugSymbolAddress(string $linkedName): ?int
     {
         foreach ($this->debugSymbols as $debugSymbol) {
-            if (!$debugSymbol->isStaticDefinition() || $debugSymbol->linkedName() !== $linkedName) {
+            if (!$debugSymbol->isStaticDefinition() || $this->linkedNameOf($debugSymbol) !== $linkedName) {
                 continue;
             }
 

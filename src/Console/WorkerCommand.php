@@ -59,6 +59,7 @@ class WorkerCommand extends Command
                 (string) $message['objectFile'],
                 (bool) ($message['coverage'] ?? false),
                 (bool) ($message['failFast'] ?? false),
+                (array) ($message['callBlocklist'] ?? []),
             );
         }
 
@@ -67,12 +68,14 @@ class WorkerCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function runItem(string $testFile, string $objectFile, bool $trackCoverage, bool $failFast): void
+    /** @param string[] $callBlocklist */
+    private function runItem(string $testFile, string $objectFile, bool $trackCoverage, bool $failFast, array $callBlocklist): void
     {
         $runner = new Runner(
             events: new NullEventListener(),
             shouldOutputDisasm: false,
             failFast: $failFast,
+            callBlocklist: $callBlocklist,
         );
 
         try {

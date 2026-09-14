@@ -162,7 +162,7 @@ class ExpectationMatcherTest extends TestCase
     public function testOnBranchFulfillsCallToKnownSymbolAndDoesNotStop(): void
     {
         $symbols = new SymbolTable();
-        $symbols->addSymbol(new Symbol('sprintf', U32::of(0x1000)));
+        $symbols->addSymbol(new Symbol('sprintf', U32::of(0x1000), callable: true));
 
         $simulator = $this->simulator();
         $matcher = $this->matcher([new CallExpectation('sprintf', 0x1000)], $symbols);
@@ -177,7 +177,7 @@ class ExpectationMatcherTest extends TestCase
     public function testOnBranchThrowsOnUnexpectedCall(): void
     {
         $symbols = new SymbolTable();
-        $symbols->addSymbol(new Symbol('sprintf', U32::of(0x1000)));
+        $symbols->addSymbol(new Symbol('sprintf', U32::of(0x1000), callable: true));
 
         $simulator = $this->simulator();
         $matcher = $this->matcher([new CallExpectation('memcpy', 0x2000)], $symbols);
@@ -189,7 +189,7 @@ class ExpectationMatcherTest extends TestCase
     public function testOnBranchStopsWhenJumpingToSymbolInsteadOfCalling(): void
     {
         $symbols = new SymbolTable();
-        $symbols->addSymbol(new Symbol('sprintf', U32::of(0x1000)));
+        $symbols->addSymbol(new Symbol('sprintf', U32::of(0x1000), callable: true));
 
         $simulator = $this->simulator();
         $matcher = $this->matcher([new CallExpectation('sprintf', 0x1000)], $symbols);

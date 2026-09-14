@@ -12,12 +12,16 @@ class SymbolTable {
     private array $symbols = [];
 
     /**
-     * Add a symbol to the map.
+     * Add a symbol to the map. The first symbol added at an address wins.
      *
      * @param Symbol $symbol The symbol to add.
      */
     public function addSymbol(Symbol $symbol): void {
         $address = $symbol->address->value;
+        if (isset($this->symbols[$address])) {
+            return;
+        }
+
         $this->symbols[$address] = $symbol;
         ksort($this->symbols); // Ensure symbols are sorted by address
     }

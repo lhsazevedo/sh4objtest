@@ -75,11 +75,6 @@ class DebugSymbol
             && $this->address !== null;
     }
 
-    public function linkedName(): string
-    {
-        return $this->externalName ?? ('_' . $this->name);
-    }
-
     public function __construct(BinaryReader $reader)
     {
         $typeByte = $reader->readUInt8();

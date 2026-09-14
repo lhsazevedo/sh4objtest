@@ -22,6 +22,8 @@ class Controller
         private int $workerCount,
         private bool $shouldTrackCoverage,
         private bool $failFast,
+        /** @var string[] */
+        private array $callBlocklist,
     ) {
     }
 
@@ -225,6 +227,7 @@ class Controller
             'objectFile' => $item['objectFile'],
             'coverage' => $this->shouldTrackCoverage,
             'failFast' => $this->failFast,
+            'callBlocklist' => $this->callBlocklist,
         ]) . "\n");
     }
 
