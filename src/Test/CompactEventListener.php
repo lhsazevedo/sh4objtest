@@ -132,7 +132,7 @@ class CompactEventListener implements EventListener
         }
 
         $line = $this->total > 0
-            ? "  {$this->done}/{$this->total} files"
+            ? sprintf('  %3d%% %d/%d files', intdiv($this->done * 100, $this->total), $this->done, $this->total)
             : "  {$this->done} files";
 
         if ($this->failed > 0) {
