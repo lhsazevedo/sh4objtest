@@ -229,4 +229,35 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xe0001000, $operation->target->value);
         $this->assertSame(0xdeadbeef, $operation->value->value);
     }
+
+    public function testMovLPreDecrementStoreIsAWrite(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(4, U32::of(0x100));
+        $simulator->setRegister(1, U32::of(0xdeadbeef));
+
+        // MOV.L R1,@-R4 (0010nnnnmmmm0110, n=4, m=1)
+        $operation = $simulator->executeInstruction(U16::of(0x2416));
+
+        $this->assertInstanceOf(WriteOperation::class, $operation);
+        $this->assertSame(0xfc, $operation->target->value);
+        $this->assertSame(0xdeadbeef, $operation->value->value);
+        $this->assertSame(0xfc, $simulator->getRegister(4)->value);
+        $this->assertSame(0xdeadbeef, $simulator->getMemory()->readUInt32(0xfc)->value);
+    }
+
+    public function testFmovSPreDecrementStoreIsAWrite(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(4, U32::of(0x100));
+        $simulator->setFloatRegister(1, 1.0);
+
+        // FMOV.S FR1,@-R4 (1111nnnnmmmm1011, n=4, m=1)
+        $operation = $simulator->executeInstruction(U16::of(0xf41b));
+
+        $this->assertInstanceOf(WriteOperation::class, $operation);
+        $this->assertSame(0xfc, $operation->target->value);
+        $this->assertSame(0x3f800000, $operation->value->value);
+        $this->assertSame(0xfc, $simulator->getRegister(4)->value);
+    }
 }

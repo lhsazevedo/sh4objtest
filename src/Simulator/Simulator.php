@@ -389,10 +389,11 @@ class Simulator
                 $n = getN($instruction);
                 $m = getM($instruction);
                 $this->emitDisasm("MOV.L", ["R$m", "@-R$n"]);   
-                $addr = $this->registers[$n]->value - 4;
-                $this->memory->writeUInt32($addr, $this->registers[$m]);
-                $this->writeRegister($n, U32::of($addr));
-                return new GenericOperation($instruction, $opcode);
+                $addr = $this->registers[$n]->sub(4);
+                $value = $this->registers[$m];
+                $this->writeUInt32($addr->value, 0, $value);
+                $this->writeRegister($n, $addr);
+                return new WriteOperation($instruction, $opcode, $addr, $value);
 
             // TST Rm,Rn
             case 0x2008:
@@ -851,13 +852,13 @@ class Simulator
                     [$n, $m] = getNM($instruction);
                     $this->emitDisasm("FMOV.S", ["FR$m", "@-R$n"]);
                     $addr = $this->registers[$n]->sub(4);
-                    $value = unpack('L', pack('f', $this->fregisters[$m]))[1];
-                    $this->memory->writeUInt32($addr->value, U32::of($value));
+                    $value = U32::of(unpack('L', pack('f', $this->fregisters[$m]))[1]);
+                    $this->writeUInt32($addr->value, 0, $value);
                     $this->writeRegister($n, $addr);
                 // } else {
                     // ...
                 // }
-                return new GenericOperation($instruction, $opcode);
+                return new WriteOperation($instruction, $opcode, $addr, $value);
 
             // FMOV <FREG_M>,<FREG_N>
             case 0xf00c:
