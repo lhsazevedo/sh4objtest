@@ -1227,6 +1227,16 @@ class Simulator
                 $this->delayedPc = $newpc;
                 return new BranchOperation($instruction, $opcode, U32::of($newpc));
 
+            // LDS.L @<REG_N>+,FPUL
+            case 0x4056:
+                $n = getN($instruction);
+                $this->emitDisasm("LDS.L", ["@R$n+", "FPUL"]);
+                $source = $this->registers[$n];
+                $value = $this->readUInt32($source->value);
+                $this->fpul = $value->value;
+                $this->registers[$n] = $source->add(4);
+                return new ReadOperation($instruction, $opcode, $source, $value);
+
             // LDS <REG_M>,FPUL
             case 0x405a:
                 $n = getN($instruction);

@@ -276,4 +276,21 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xfffffffe, $simulator->getRegister(4)->value);
         $this->assertSame(0x102, $simulator->getRegister(13)->value);
     }
+
+    public function testLdsLPostIncrementLoadsFpul(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->getMemory()->writeUInt32(0x100, U32::of(0x3f800000));
+        $simulator->setRegister(0, U32::of(0x100));
+
+        // LDS.L @R0+,FPUL
+        $operation = $simulator->executeInstruction(U16::of(0x4056));
+        // STS FPUL,R1
+        $simulator->executeInstruction(U16::of(0x015a));
+
+        $this->assertInstanceOf(ReadOperation::class, $operation);
+        $this->assertSame(0x100, $operation->source->value);
+        $this->assertSame(0x3f800000, $simulator->getRegister(1)->value);
+        $this->assertSame(0x104, $simulator->getRegister(0)->value);
+    }
 }
