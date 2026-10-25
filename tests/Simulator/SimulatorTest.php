@@ -293,4 +293,18 @@ class SimulatorTest extends TestCase
         $this->assertSame(0x3f800000, $simulator->getRegister(1)->value);
         $this->assertSame(0x104, $simulator->getRegister(0)->value);
     }
+
+    public function testRotlRotatesTopBitIntoBitZeroAndT(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(0, U32::of(0x80000003));
+
+        // ROTL R0
+        $simulator->executeInstruction(U16::of(0x4004));
+        // MOVT R1
+        $simulator->executeInstruction(U16::of(0x0129));
+
+        $this->assertSame(0x00000007, $simulator->getRegister(0)->value);
+        $this->assertSame(1, $simulator->getRegister(1)->value);
+    }
 }
