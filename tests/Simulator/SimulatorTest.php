@@ -7,6 +7,7 @@ namespace Lhsazevedo\Sh4ObjTest\Tests\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\BinaryMemory;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
@@ -259,5 +260,20 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xfc, $operation->target->value);
         $this->assertSame(0x3f800000, $operation->value->value);
         $this->assertSame(0xfc, $simulator->getRegister(4)->value);
+    }
+
+    public function testMovWPostIncrementLoadSignExtends(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->getMemory()->writeUInt32(0x100, U32::of(0x0000fffe));
+        $simulator->setRegister(13, U32::of(0x100));
+
+        // MOV.W @R13+,R4 (0110nnnnmmmm0101, n=4, m=13)
+        $operation = $simulator->executeInstruction(U16::of(0x64d5));
+
+        $this->assertInstanceOf(ReadOperation::class, $operation);
+        $this->assertSame(0x100, $operation->source->value);
+        $this->assertSame(0xfffffffe, $simulator->getRegister(4)->value);
+        $this->assertSame(0x102, $simulator->getRegister(13)->value);
     }
 }

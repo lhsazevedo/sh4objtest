@@ -629,6 +629,18 @@ class Simulator
                 }
                 return new ReadOperation($instruction, $opcode, $source, $value);
 
+            // MOV.W @<REG_M>+,<REG_N>
+            case 0x6005:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("MOV.W", ["@R$m+","R$n"]);
+                $source = $this->registers[$m];
+                $value = $this->readUInt16($source->value)->extend32();
+                $this->writeRegister($n, $value);
+                if ($n != $m) {
+                    $this->registers[$m] = $this->registers[$m]->add(2);
+                }
+                return new ReadOperation($instruction, $opcode, $source, $value);
+
             // MOV @<REG_M>+,<REG_N>
             case 0x6006:
                 [$n, $m] = getNM($instruction);
