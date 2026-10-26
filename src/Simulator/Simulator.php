@@ -1112,6 +1112,14 @@ class Simulator
                 $this->writeRegister($n, $this->registers[$n]->shiftLeft()->bor($this->srT));
                 return new GenericOperation($instruction, $opcode);
 
+            // ROTR <REG_N>
+            case 0x4005:
+                $n = getN($instruction);
+                $this->emitDisasm("ROTR", ["R$n"]);
+                $this->srT = $this->registers[$n]->band(0x1)->value;
+                $this->writeRegister($n, $this->registers[$n]->shiftRight()->bor($this->srT << 31));
+                return new GenericOperation($instruction, $opcode);
+
             // SHLL2 Rn
             case 0x4008:
                 $n = getN($instruction);
