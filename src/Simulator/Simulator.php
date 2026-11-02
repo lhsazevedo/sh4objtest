@@ -179,7 +179,7 @@ class Simulator
     private int $pr = 0;
 
     /* TODO: Implement SR correctly */
-    private int $srT = 0;
+    private int $sr = 0;
 
     private int $macl = 0;
 
@@ -411,9 +411,9 @@ class Simulator
                 $this->emitDisasm("TST", ["R$m","R$n"]);
                 $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->band($this->registers[$m])->value !== 0) {
-                    $this->srT = 0;
+                    $this->setT(0);
                 } else {
-                    $this->srT = 1;
+                    $this->setT(1);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -455,9 +455,9 @@ class Simulator
                 $this->emitDisasm("CMP/EQ", ["R$m","R$n"]);
                 $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->equals($this->registers[$m])) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -468,9 +468,9 @@ class Simulator
                 $this->logRegisters([$m, $n]);
                 // TODO: Double check signed to unsigned convertion
                 if ($this->registers[$n]->greaterThanOrEqual($this->registers[$m])) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
 
                 return new GenericOperation($instruction, $opcode);
@@ -481,9 +481,9 @@ class Simulator
                 $this->emitDisasm("CMP/HI", ["R$m","R$n"]);
                 $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->greaterThan($this->registers[$m])) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
 
                 return new GenericOperation($instruction, $opcode);
@@ -495,9 +495,9 @@ class Simulator
                 $this->logRegisters([$m, $n]);
                 // TODO: Create SInt value object
                 if ($this->registers[$n]->signedValue() >= $this->registers[$m]->signedValue()) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
 
                 return new GenericOperation($instruction, $opcode);
@@ -508,9 +508,9 @@ class Simulator
                 $this->emitDisasm("CMP/GT", ["R$m","R$n"]);
                 $this->logRegisters([$m, $n]);
                 if ($this->registers[$n]->signedValue() > $this->registers[$m]->signedValue()) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -537,14 +537,14 @@ class Simulator
                 $this->emitDisasm("ADDC", ["R$m","R$n"]);
                 $tmp1 = $this->registers[$n]->add($this->registers[$m], allowOverflow: true);
                 $tmp0 = U32::of($this->registers[$n]->value);
-                $this->writeRegister($n, $tmp1->add($this->srT, allowOverflow: true));
+                $this->writeRegister($n, $tmp1->add($this->t(), allowOverflow: true));
                 if ($tmp0->greaterThan($tmp1)) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 if ($tmp1->greaterThan($this->registers[$n])) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -782,9 +782,9 @@ class Simulator
                     $this->emitDisasm("FCMP/EQ", ["FR$m", "FR$n"]);
 
                     if ($this->fregisters[$n] === $this->fregisters[$m]) {
-                        $this->srT = 1;
+                        $this->setT(1);
                     } else {
-                        $this->srT = 0;
+                        $this->setT(0);
                     }
                 // }
                 // else
@@ -800,9 +800,9 @@ class Simulator
                     $this->emitDisasm("FCMP/GT", ["FR$m", "FR$n"]);
 
                     if ($this->fregisters[$n] > $this->fregisters[$m]) {
-                        $this->srT = 1;
+                        $this->setT(1);
                     } else {
-                        $this->srT = 0;
+                        $this->setT(0);
                     }
 
                 // }
@@ -965,9 +965,9 @@ class Simulator
                 $this->emitDisasm("CMP/EQ", ["#{$imm->hitachiSignedHex()}", "R0"]);
                 $this->logRegister(0);
                 if ($this->registers[0]->equals($imm->extend32())) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -975,7 +975,7 @@ class Simulator
             case 0x8900:
                 $target = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BT", ["H'" . dechex($target)]);
-                if ($this->srT !== 0) {
+                if ($this->t() !== 0) {
                     $this->pc = $target;
                 }
                 return new ControlFlowOperation($instruction, $opcode);
@@ -984,7 +984,7 @@ class Simulator
             case 0x8b00:
                 $target = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BF", ["H'" . dechex($target)]);
-                if ($this->srT === 0) {
+                if ($this->t() === 0) {
                     $this->pc = $target;
                 }
                 return new ControlFlowOperation($instruction, $opcode);
@@ -993,7 +993,7 @@ class Simulator
             case 0x8d00:
                 $newpc = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BT/S", ["H'" . dechex($newpc) . ""]);
-                if ($this->srT !== 0) {
+                if ($this->t() !== 0) {
                     $this->delayedPc = $newpc;
                 }
                 return new ControlFlowOperation($instruction, $opcode);
@@ -1002,7 +1002,7 @@ class Simulator
             case 0x8f00:
                 $newpc = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BF/S", ["H'" . dechex($newpc) . ""]);
-                if ($this->srT === 0) {
+                if ($this->t() === 0) {
                     $this->delayedPc = $newpc;
                 }
                 return new ControlFlowOperation($instruction, $opcode);
@@ -1024,9 +1024,9 @@ class Simulator
                 $this->emitDisasm("TST", ["#H'{$imm->hex()}", "R0"]);
                 $this->logRegister(0);
                 if ($this->registers[0]->band($imm)->equals(0)) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -1089,7 +1089,7 @@ class Simulator
             case 0x0029:
                 $n = getN($instruction);
                 $this->emitDisasm("MOVT", ["R$n"]);
-                $this->writeRegister($n, U32::of($this->srT));
+                $this->writeRegister($n, U32::of($this->t()));
                 return new GenericOperation($instruction, $opcode);
 
             // STS FPUL,<REG_N>
@@ -1109,7 +1109,7 @@ class Simulator
             case 0x4000:
                 $n = getN($instruction);
                 $this->emitDisasm("SHLL", ["R$n"]);
-                $this->srT = $this->registers[$n]->shiftRight(31)->value;
+                $this->setT($this->registers[$n]->shiftRight(31)->value);
                 $this->writeRegister($n, $this->registers[$n]->shiftLeft());
                 return new GenericOperation($instruction, $opcode);
 
@@ -1117,7 +1117,7 @@ class Simulator
             case 0x4001:
                 $n = getN($instruction);
                 $this->emitDisasm("SHLR", ["R$n"]);
-                $this->srT = $this->registers[$n]->band(0x1)->value;
+                $this->setT($this->registers[$n]->band(0x1)->value);
                 $this->writeRegister($n, $this->registers[$n]->shiftRight());
                 return new GenericOperation($instruction, $opcode);
 
@@ -1125,16 +1125,16 @@ class Simulator
             case 0x4004:
                 $n = getN($instruction);
                 $this->emitDisasm("ROTL", ["R$n"]);
-                $this->srT = $this->registers[$n]->shiftRight(31)->value;
-                $this->writeRegister($n, $this->registers[$n]->shiftLeft()->bor($this->srT));
+                $this->setT($this->registers[$n]->shiftRight(31)->value);
+                $this->writeRegister($n, $this->registers[$n]->shiftLeft()->bor($this->t()));
                 return new GenericOperation($instruction, $opcode);
 
             // ROTCL <REG_N>
             case 0x4024:
                 $n = getN($instruction);
                 $this->emitDisasm("ROTCL", ["R$n"]);
-                $t = $this->srT;
-                $this->srT = $this->registers[$n]->shiftRight(31)->value;
+                $t = $this->t();
+                $this->setT($this->registers[$n]->shiftRight(31)->value);
                 $this->writeRegister($n, $this->registers[$n]->shiftLeft()->bor($t));
                 return new GenericOperation($instruction, $opcode);
 
@@ -1142,8 +1142,8 @@ class Simulator
             case 0x4005:
                 $n = getN($instruction);
                 $this->emitDisasm("ROTR", ["R$n"]);
-                $this->srT = $this->registers[$n]->band(0x1)->value;
-                $this->writeRegister($n, $this->registers[$n]->shiftRight()->bor($this->srT << 31));
+                $this->setT($this->registers[$n]->band(0x1)->value);
+                $this->writeRegister($n, $this->registers[$n]->shiftRight()->bor($this->t() << 31));
                 return new GenericOperation($instruction, $opcode);
 
             // SHLL2 Rn
@@ -1177,7 +1177,7 @@ class Simulator
                 $n = getN($instruction);
                 $this->emitDisasm("DT", ["R$n"]);
                 $result = $this->registers[$n]->sub(1, allowOverflow: true);
-                $this->srT = $result->value === 0 ? 1 : 0;
+                $this->setT($result->value === 0 ? 1 : 0);
                 $this->writeRegister($n, $result);
                 return new GenericOperation($instruction, $opcode);
 
@@ -1187,9 +1187,9 @@ class Simulator
                 $this->emitDisasm("CMP/PZ", ["R$n"]);
                 $this->logRegister($n);
                 if ($this->registers[$n]->signedValue() >= 0) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -1199,9 +1199,9 @@ class Simulator
                 $this->emitDisasm("CMP/PL", ["R$n"]);
                 $this->logRegister($n);
                 if ($this->registers[$n]->signedValue() > 0) {
-                    $this->srT = 1;
+                    $this->setT(1);
                 } else {
-                    $this->srT = 0;
+                    $this->setT(0);
                 }
                 return new GenericOperation($instruction, $opcode);
 
@@ -1223,7 +1223,7 @@ class Simulator
             case 0x4021:
                 $n = getN($instruction);
                 $this->emitDisasm("SHAR", ["R$n"]);
-                $this->srT = $this->registers[$n]->band(0x1)->value;
+                $this->setT($this->registers[$n]->band(0x1)->value);
                 $sign = $this->registers[$n]->band(0x80000000);
                 $this->writeRegister($n, $this->registers[$n]->shiftRight()->bor($sign));
                 return new GenericOperation($instruction, $opcode);
@@ -1416,6 +1416,16 @@ class Simulator
     public function setPc(int $pc): void
     {
         $this->pc = $pc;
+    }
+
+    private function t(): int
+    {
+        return $this->sr & 1;
+    }
+
+    private function setT(int $t): void
+    {
+        $this->sr = ($this->sr & ~1) | $t;
     }
 
     private function writeRegister(int $n, U32|ExternalRelocation $value): void
