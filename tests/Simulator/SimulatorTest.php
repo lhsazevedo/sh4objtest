@@ -347,4 +347,38 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xffff0f5a, $simulator->getRegister(1)->value);
         $this->assertSame(0x0000f0a5, $simulator->getRegister(2)->value);
     }
+
+    public function testRotclShiftsTInAndTopBitOut(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(0, U32::of(0x80000002));
+        $simulator->setRegister(2, U32::of(1));
+
+        // SHLR R2 (T = 1)
+        $simulator->executeInstruction(U16::of(0x4201));
+        // ROTCL R0
+        $simulator->executeInstruction(U16::of(0x4024));
+        // MOVT R1
+        $simulator->executeInstruction(U16::of(0x0129));
+
+        $this->assertSame(0x00000005, $simulator->getRegister(0)->value);
+        $this->assertSame(1, $simulator->getRegister(1)->value);
+    }
+
+    public function testRotclWithTClear(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(0, U32::of(0x00000003));
+        $simulator->setRegister(2, U32::of(2));
+
+        // SHLR R2 (T = 0)
+        $simulator->executeInstruction(U16::of(0x4201));
+        // ROTCL R0
+        $simulator->executeInstruction(U16::of(0x4024));
+        // MOVT R1
+        $simulator->executeInstruction(U16::of(0x0129));
+
+        $this->assertSame(0x00000006, $simulator->getRegister(0)->value);
+        $this->assertSame(0, $simulator->getRegister(1)->value);
+    }
 }
