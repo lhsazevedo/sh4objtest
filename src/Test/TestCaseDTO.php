@@ -32,6 +32,8 @@ readonly class TestCaseDTO
 
         public bool $shouldRandomizeMemory,
 
+        public int $sr,
+
         public bool $shouldStopWhenFulfilled,
     )
     { }

@@ -94,7 +94,7 @@ class Run
             }
         }
 
-        $simulator = new Simulator($memory);
+        $simulator = new Simulator($memory, $this->testCase->sr);
 
         $simulator->onDisasm($this->disasm(...));
         $simulator->onAddLog($this->addLog(...));

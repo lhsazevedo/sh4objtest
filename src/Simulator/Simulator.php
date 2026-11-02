@@ -178,8 +178,10 @@ class Simulator
 
     private int $pr = 0;
 
-    /* TODO: Implement SR correctly */
-    private int $sr = 0;
+    private int $sr;
+
+    /* MD, RB, BL, FD, M, Q, IMASK, S, T */
+    private const SR_MASK = 0x700083f3;
 
     private int $macl = 0;
 
@@ -192,10 +194,12 @@ class Simulator
 
     public function __construct(
         private BinaryMemory $memory,
+        int $sr = 0,
     )
     {
         // Default state
         $this->pc = 0;
+        $this->sr = $sr & self::SR_MASK;
         for ($i = 0; $i < 16; $i++) {
             $this->registers[$i] = U32::of(random_int(0, U32::MAX_VALUE));
         }
@@ -1065,6 +1069,20 @@ class Simulator
                 }
 
                 // Cache prefetch hint outside the store-queue range; no architectural effect.
+                return new GenericOperation($instruction, $opcode);
+
+            // STC SR,<REG_N>
+            case 0x0002:
+                $n = getN($instruction);
+                $this->emitDisasm("STC", ["SR", "R$n"]);
+                $this->writeRegister($n, U32::of($this->sr));
+                return new GenericOperation($instruction, $opcode);
+
+            // LDC <REG_M>,SR
+            case 0x400e:
+                $n = getN($instruction);
+                $this->emitDisasm("LDC", ["R$n", "SR"]);
+                $this->sr = $this->registers[$n]->value & self::SR_MASK;
                 return new GenericOperation($instruction, $opcode);
 
             // STS MACL,<REG_N>

@@ -102,6 +102,7 @@ class Runner
                 defaultCallbacks: $reflectedBaseTestCase->getProperty('defaultCallbacks')->getValue($currentTestCase),
                 defaultConventions: $reflectedBaseTestCase->getProperty('defaultConventions')->getValue($currentTestCase),
                 shouldRandomizeMemory: $reflectedBaseTestCase->getProperty('randomizeMemory')->getValue($currentTestCase),
+                sr: $reflectedBaseTestCase->getProperty('sr')->getValue($currentTestCase),
                 shouldStopWhenFulfilled: $reflectedBaseTestCase->getProperty('forceStop')->getValue($currentTestCase),
             );
 

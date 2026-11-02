@@ -137,6 +137,45 @@ class SimulatorTest extends TestCase
         ];
     }
 
+    public function testStcSrReadsTAndTheRestOfSr(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false), sr: 0x40000000);
+
+        // STC SR,R1 (0000nnnn00000010, n=1)
+        $simulator->executeInstruction(U16::of(0x0102));
+        $this->assertSame(0x40000000, $simulator->getRegister(1)->value);
+
+        // CMP/EQ R1,R1 (0011nnnnmmmm0000) sets T, then STC SR,R2
+        $simulator->executeInstruction(U16::of(0x3110));
+        $simulator->executeInstruction(U16::of(0x0202));
+        $this->assertSame(0x40000001, $simulator->getRegister(2)->value);
+    }
+
+    public function testLdcSrRoundTripsItsBitsAndSetsT(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+
+        $simulator->setRegister(3, U32::of(0xffffffff));
+        // LDC R3,SR (0100mmmm00001110, m=3)
+        $simulator->executeInstruction(U16::of(0x430e));
+        // STC SR,R4
+        $simulator->executeInstruction(U16::of(0x0402));
+        // MOVT R5
+        $simulator->executeInstruction(U16::of(0x0529));
+
+        $this->assertSame(0x700083f3, $simulator->getRegister(4)->value);
+        $this->assertSame(1, $simulator->getRegister(5)->value);
+
+        // IMASK changed, T cleared
+        $simulator->setRegister(3, U32::of(0x400000f0));
+        $simulator->executeInstruction(U16::of(0x430e));
+        $simulator->executeInstruction(U16::of(0x0402));
+        $simulator->executeInstruction(U16::of(0x0529));
+
+        $this->assertSame(0x400000f0, $simulator->getRegister(4)->value);
+        $this->assertSame(0, $simulator->getRegister(5)->value);
+    }
+
     #[DataProvider('dtProvider')]
     public function testDt(int $value, int $expectedValue, int $expectedT): void
     {

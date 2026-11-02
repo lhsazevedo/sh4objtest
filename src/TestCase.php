@@ -33,6 +33,8 @@ class TestCase
 
     private bool $randomizeMemory = true;
 
+    private int $sr = 0;
+
     private int $currentAlloc = 1024 * 1024 * 8;
 
     /** @var TestRelocation[] */
@@ -374,6 +376,11 @@ class TestCase
     protected function initUint32(int $address, int $value): void
     {
         $this->initUint($address, $value, 32);
+    }
+
+    protected function initSr(int $value): void
+    {
+        $this->sr = $value;
     }
 
     public function setObjectFile(string $path): void
