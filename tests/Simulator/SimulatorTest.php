@@ -458,4 +458,26 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xfffffffd, $simulator->getRegister(2)->value);
         $this->assertSame(0x00000003, $simulator->getRegister(5)->value);
     }
+
+    public function testShadRightShiftKeepsSign(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(0, U32::of(0x80000010));
+        $simulator->setRegister(1, U32::of(-22 & 0xffffffff));
+        $simulator->setRegister(2, U32::of(0x80000000));
+        $simulator->setRegister(3, U32::of(0xffffffe0));
+        $simulator->setRegister(4, U32::of(0x40000000));
+        $simulator->setRegister(5, U32::of(-22 & 0xffffffff));
+
+        // SHAD R1,R0 (by -22)
+        $simulator->executeInstruction(U16::of(0x401c));
+        // SHAD R3,R2 (full right shift)
+        $simulator->executeInstruction(U16::of(0x423c));
+        // SHAD R5,R4 (by -22, positive value)
+        $simulator->executeInstruction(U16::of(0x445c));
+
+        $this->assertSame(0xfffffe00, $simulator->getRegister(0)->value);
+        $this->assertSame(0xffffffff, $simulator->getRegister(2)->value);
+        $this->assertSame(0x00000100, $simulator->getRegister(4)->value);
+    }
 }

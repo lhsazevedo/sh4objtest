@@ -565,13 +565,12 @@ class Simulator
                 }
                 // Full right shift (sign bit is set, shift is 0)
                 elseif ($shiftRegister->band(0x1f)->isZero()) {
-                    // FIXME: Signed shift right
-                    $this->writeRegister($n, $valueRegister->shiftRight(31));
+                    $this->writeRegister($n, $valueRegister->shiftRightArithmetic(31));
                 }
                 // Right shift (sign bit is set, shift is not 0)
                 else {
                     $shift = (~$shiftRegister->value & 0x1f) + 1;
-                    $this->writeRegister($n, $valueRegister->shiftRight($shift));
+                    $this->writeRegister($n, $valueRegister->shiftRightArithmetic($shift));
                 }
                 return new GenericOperation($instruction, $opcode);
 

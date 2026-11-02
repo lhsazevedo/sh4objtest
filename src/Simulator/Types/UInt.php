@@ -183,6 +183,12 @@ abstract readonly class UInt
         return new static($result);
     }
 
+    public function shiftRightArithmetic(int $shift = 1): static
+    {
+        $result = $this->signedValue() >> $shift;
+        return new static($result & static::MAX_VALUE);
+    }
+
     public function equals(self|int $other): bool
     {
         $other = $this->other($other);
