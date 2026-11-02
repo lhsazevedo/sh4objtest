@@ -657,7 +657,7 @@ class Simulator
             case 0x600b:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("NEG", ["R$m","R$n"]);
-                $this->writeRegister($n, $this->registers[$m]->invert());
+                $this->writeRegister($n, $this->registers[$m]->negate());
                 return new GenericOperation($instruction, $opcode);
 
             // EXTU.B <REG_M>,<REG_N>

@@ -115,7 +115,7 @@ abstract readonly class UInt
         return new static($result & static::MAX_VALUE);
     }
 
-    public function invert(): static
+    public function negate(): static
     {
         return new static((~$this->value + 1) & static::MAX_VALUE);
     }
