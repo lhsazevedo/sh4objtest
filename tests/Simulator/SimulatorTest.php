@@ -335,4 +335,16 @@ class SimulatorTest extends TestCase
         $this->assertSame(0x40000001, $simulator->getRegister(0)->value);
         $this->assertSame(0, $simulator->getRegister(1)->value);
     }
+
+    public function testNotComplementsEveryBit(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(2, U32::of(0x0000f0a5));
+
+        // NOT R2,R1
+        $simulator->executeInstruction(U16::of(0x6127));
+
+        $this->assertSame(0xffff0f5a, $simulator->getRegister(1)->value);
+        $this->assertSame(0x0000f0a5, $simulator->getRegister(2)->value);
+    }
 }

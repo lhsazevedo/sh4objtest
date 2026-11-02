@@ -157,6 +157,11 @@ abstract readonly class UInt
         return new static($result);
     }
 
+    public function bnot(): static
+    {
+        return new static(~$this->value & static::MAX_VALUE);
+    }
+
     public function shiftLeft(int $shift = 1): static
     {
         $result = $this->value << $shift;

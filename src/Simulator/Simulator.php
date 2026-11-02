@@ -653,6 +653,13 @@ class Simulator
                 }
                 return new ReadOperation($instruction, $opcode, $source, $value);
 
+            // NOT <REG_M>,<REG_N>
+            case 0x6007:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("NOT", ["R$m","R$n"]);
+                $this->writeRegister($n, $this->registers[$m]->bnot());
+                return new GenericOperation($instruction, $opcode);
+
             // NEG <REG_M>,<REG_N>
             case 0x600b:
                 [$n, $m] = getNM($instruction);
