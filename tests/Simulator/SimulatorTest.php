@@ -247,6 +247,23 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xdeadbeef, $simulator->getMemory()->readUInt32(0xfc)->value);
     }
 
+    public function testMovBPreDecrementStoreIsAWrite(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->getMemory()->writeUInt32(0xfc, U32::of(0x11223344));
+        $simulator->setRegister(7, U32::of(0x100));
+        $simulator->setRegister(3, U32::of(0xdeadbeef));
+
+        // MOV.B R3,@-R7 (0010nnnnmmmm0100, n=7, m=3)
+        $operation = $simulator->executeInstruction(U16::of(0x2734));
+
+        $this->assertInstanceOf(WriteOperation::class, $operation);
+        $this->assertSame(0xff, $operation->target->value);
+        $this->assertSame(0xef, $operation->value->value);
+        $this->assertSame(0xff, $simulator->getRegister(7)->value);
+        $this->assertSame(0xef223344, $simulator->getMemory()->readUInt32(0xfc)->value);
+    }
+
     public function testFmovSPreDecrementStoreIsAWrite(): void
     {
         $simulator = new Simulator(new BinaryMemory(1024, randomize: false));

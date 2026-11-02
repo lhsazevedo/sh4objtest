@@ -384,6 +384,16 @@ class Simulator
                 $this->writeUInt32($this->registers[$n]->value, 0, $this->registers[$m]);
                 return new WriteOperation($instruction, $opcode, $this->registers[$n], $this->registers[$m]);
 
+            // MOV.B Rm,@-Rn
+            case 0x2004:
+                [$n, $m] = getNM($instruction);
+                $this->emitDisasm("MOV.B", ["R$m", "@-R$n"]);
+                $addr = $this->registers[$n]->sub(1);
+                $value = $this->registers[$m]->trunc8();
+                $this->writeUInt8($addr->value, 0, $value);
+                $this->writeRegister($n, $addr);
+                return new WriteOperation($instruction, $opcode, $addr, $value);
+
             // MOV.L Rm,@-Rn
             case 0x2006:
                 $n = getN($instruction);
