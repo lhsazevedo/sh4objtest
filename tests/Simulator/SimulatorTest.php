@@ -437,4 +437,25 @@ class SimulatorTest extends TestCase
         $this->assertSame(0x00000006, $simulator->getRegister(0)->value);
         $this->assertSame(0, $simulator->getRegister(1)->value);
     }
+
+    public function testMulLKeepsLow32BitsOfOverflowingProduct(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(0, U32::of(0xffffffff));
+        $simulator->setRegister(1, U32::of(3));
+        $simulator->setRegister(3, U32::of(0xfffffffd));
+        $simulator->setRegister(4, U32::of(0xffffffff));
+
+        // MUL.L R1,R0
+        $simulator->executeInstruction(U16::of(0x0017));
+        // STS MACL,R2
+        $simulator->executeInstruction(U16::of(0x021a));
+        // MUL.L R4,R3
+        $simulator->executeInstruction(U16::of(0x0347));
+        // STS MACL,R5
+        $simulator->executeInstruction(U16::of(0x051a));
+
+        $this->assertSame(0xfffffffd, $simulator->getRegister(2)->value);
+        $this->assertSame(0x00000003, $simulator->getRegister(5)->value);
+    }
 }

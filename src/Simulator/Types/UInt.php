@@ -96,9 +96,18 @@ abstract readonly class UInt
     /**
      * @param static|int $other
      */
-    public function mul(self|int $other): static
+    public function mul(self|int $other, bool $allowOverflow = false): static
     {
         $other = $this->other($other);
+
+        if ($allowOverflow) {
+            // Halves keep the product within PHP's int range
+            $a = $this->value;
+            $b = $other->value;
+            $result = ($a & 0xffff) * $b + (((($a >> 16) * $b) & 0xffff) << 16);
+            return new static($result & static::MAX_VALUE);
+        }
+
         $result = $this->value * $other->value;
         self::checkOverflow($result);
         return new static($result & static::MAX_VALUE);

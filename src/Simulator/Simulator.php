@@ -332,7 +332,7 @@ class Simulator
             case 0x0007:
                 [$n, $m] = getNM($instruction);
                 $this->emitDisasm("MUL.L", ["R$m","R$n"]);
-                $result = $this->registers[$n]->mul($this->registers[$m]);
+                $result = $this->registers[$n]->mul($this->registers[$m], allowOverflow: true);
                 $this->macl = $result->value;
                 $this->emitAddLog("MACL={$result->readable()}");
                 return new GenericOperation($instruction, $opcode);
