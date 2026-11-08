@@ -238,7 +238,7 @@ class Run
         array $arguments,
     ): void
     {
-        $stackPointer = $simulator->getRegister(15);
+        $stack = [];
         foreach ($arguments as $argument) {
             $storage = $convention->takeArgumentStorageForValue($argument);
 
@@ -252,10 +252,14 @@ class Run
                 continue;
             }
 
-            // FIXME: Stack offset must be controlled by the calling convention.
-            $stackPointer = $stackPointer->sub(4);
+            $stack[$storage->offset] = $argument;
+        }
+
+        // The first stack argument sits at @(0,R15)
+        $stackPointer = $simulator->getRegister(15)->sub(4 * count($stack));
+        foreach ($stack as $offset => $argument) {
             $simulator->getMemory()
-                ->writeUInt32($stackPointer->value, U32::of($argument & U32::MAX_VALUE));
+                ->writeUInt32($stackPointer->value + $offset, U32::of($argument & U32::MAX_VALUE));
         }
         $simulator->setRegister(15, $stackPointer);
     }
