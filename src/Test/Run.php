@@ -99,16 +99,6 @@ class Run
         $simulator->onDisasm($this->disasm(...));
         $simulator->onAddLog($this->addLog(...));
 
-        $command = $this->matcher->peek();
-        if (!$command instanceof CallCommand) {
-            throw new \Exception("First step must be a call command", 1);
-        }
-        $entrySymbolName = $command->symbol;
-
-        $entryAddress = $program->resolveEntryAddress($entrySymbolName);
-        if ($entryAddress === null) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
-        $simulator->setPc($entryAddress);
-
         $stackPointer = U32::of(1024 * 1024 * 16 - 4);
         $simulator->setRegister(15, $stackPointer);
 
@@ -121,6 +111,13 @@ class Run
                     "First or after return must be a call command", 1
                 );
             }
+
+            $entryAddress = $program->resolveEntryAddress($command->symbol);
+            if ($entryAddress === null) {
+                throw new \Exception("Entry symbol {$command->symbol} not found.", 1);
+            }
+            $simulator->setPc($entryAddress);
+
             $convention = new DefaultCallingConvention();
             if ($command->variadicFixed !== null) {
                 $convention->variadic($command->variadicFixed);

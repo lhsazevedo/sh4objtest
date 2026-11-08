@@ -54,6 +54,7 @@ class RunTest extends TestCase
 
         // MOV.L @R15,R0; RTS; NOP
         $this->runExpectations(
+            ['_f' => 0],
             [0x60f2, 0x000b, 0x0009],
             (new CallCommand('_f'))->with(2.5)->variadic(0),
             new ReturnExpectation(0x40200000),
@@ -84,11 +85,35 @@ class RunTest extends TestCase
 
         // MOV R4,R0; RTS; NOP
         $this->runExpectations(
+            ['_f' => 0],
             [0x6043, 0x000b, 0x0009],
             (new CallCommand('_f'))->with(1, 2, 3, 4),
             new ReturnExpectation(1),
             (new CallCommand('_f'))->with(5),
             new ReturnExpectation(5),
+        );
+    }
+
+    public function testEachEntryCallStartsAtItsEntry(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runExpectations(
+            ['_f' => 0, '_g' => 6],
+            [
+                0xe009, // _f: MOV #9,R0
+                0x000b, // RTS
+                0x0009, // NOP
+                0x6043, // _g: MOV R4,R0
+                0x000b, // RTS
+                0x0009, // NOP
+            ],
+            (new CallCommand('_g'))->with(1),
+            new ReturnExpectation(1),
+            (new CallCommand('_g'))->with(5),
+            new ReturnExpectation(5),
+            new CallCommand('_f'),
+            new ReturnExpectation(9),
         );
     }
 
@@ -98,6 +123,7 @@ class RunTest extends TestCase
 
         // MOV.L @R15,R0; ADD R4,R0; RTS; NOP
         $this->runExpectations(
+            ['_f' => 0],
             [0x60f2, 0x304c, 0x000b, 0x0009],
             (new CallCommand('_f'))->with(10, 20)->variadic(1),
             new ReturnExpectation(30),
@@ -111,6 +137,7 @@ class RunTest extends TestCase
     private function runProgram(array $code, array $arguments, int|float $return): void
     {
         $this->runExpectations(
+            ['_f' => 0],
             $code,
             (new CallCommand('_f'))->with(...$arguments),
             new ReturnExpectation($return),
@@ -118,15 +145,16 @@ class RunTest extends TestCase
     }
 
     /**
+     * @param array<string, int> $entries
      * @param int[] $code
      */
-    private function runExpectations(array $code, AbstractExpectation ...$expectations): void
+    private function runExpectations(array $entries, array $code, AbstractExpectation ...$expectations): void
     {
         $program = new LinkedProgram(
             pack('v*', ...$code),
             new SymbolTable(),
             [],
-            ['_f' => 0],
+            $entries,
         );
 
         (new Run(
