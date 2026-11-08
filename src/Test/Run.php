@@ -240,7 +240,7 @@ class Run
             $storage = $convention->takeArgumentStorageForValue($argument);
 
             if ($storage instanceof GeneralRegister) {
-                $simulator->setRegister($storage->index(), U32::of($argument));
+                $simulator->setRegister($storage->index(), U32::of($argument & U32::MAX_VALUE));
                 continue;
             }
 
@@ -252,7 +252,7 @@ class Run
             // FIXME: Stack offset must be controlled by the calling convention.
             $stackPointer = $stackPointer->sub(4);
             $simulator->getMemory()
-                ->writeUInt32($stackPointer->value, U32::of($argument));
+                ->writeUInt32($stackPointer->value, U32::of($argument & U32::MAX_VALUE));
         }
         $simulator->setRegister(15, $stackPointer);
     }
