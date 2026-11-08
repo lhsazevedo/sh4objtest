@@ -25,12 +25,12 @@ class ArgumentVerifierTest extends TestCase
 
     public function testIntVerifyPassesOnMatchingRegister(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $simulator->setRegister(4, U32::of(42));
 
         (new ArgumentVerifier())->verify($simulator, new DefaultCallingConvention(), 42, 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testIntVerifyThrowsOnMismatchedRegister(): void
@@ -44,6 +44,8 @@ class ArgumentVerifierTest extends TestCase
 
     public function testIntVerifyPassesOnStackWhenRegistersExhausted(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $convention = new DefaultCallingConvention();
         // Fill R4-R7 so the 5th int argument spills to the stack.
@@ -58,18 +60,16 @@ class ArgumentVerifierTest extends TestCase
         $verifier->verify($simulator, $convention, 3, 'fn');
         $verifier->verify($simulator, $convention, 4, 'fn');
         $verifier->verify($simulator, $convention, 5, 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testFloatVerifyPassesOnMatchingRegister(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $simulator->setFloatRegister(4, 1.5);
 
         (new ArgumentVerifier())->verify($simulator, new DefaultCallingConvention(), 1.5, 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testFloatVerifyThrowsOnMismatchedRegister(): void
@@ -83,12 +83,12 @@ class ArgumentVerifierTest extends TestCase
 
     public function testFloatVerifyPassesOnStack(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $simulator->getMemory()->writeUInt32(512, U32::of(unpack('L', pack('f', 12.375))[1]));
 
         (new ArgumentVerifier())->verify($simulator, (new DefaultCallingConvention())->variadic(0), 12.375, 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testFloatVerifyThrowsOnMismatchedStack(): void
@@ -103,13 +103,13 @@ class ArgumentVerifierTest extends TestCase
 
     public function testStringVerifyPassesOnMatchingRegister(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $simulator->getMemory()->writeBytes(100, "hello\0");
         $simulator->setRegister(4, U32::of(100));
 
         (new ArgumentVerifier())->verify($simulator, new DefaultCallingConvention(), 'hello', 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testStringVerifyThrowsOnMismatchedRegister(): void
@@ -124,18 +124,20 @@ class ArgumentVerifierTest extends TestCase
 
     public function testStringVerifyPassesOnStack(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $simulator->getMemory()->writeBytes(100, "hello\0");
         $convention = (new DefaultCallingConvention())->variadic(0);
         $simulator->getMemory()->writeUInt32(512, U32::of(100));
 
         (new ArgumentVerifier())->verify($simulator, $convention, 'hello', 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testWildcardConsumesArgumentSlotWithoutVerifying(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $simulator = $this->simulator();
         $convention = new DefaultCallingConvention();
 
@@ -144,8 +146,6 @@ class ArgumentVerifierTest extends TestCase
         // The wildcard must have consumed R4, so the next int argument lands in R5.
         $simulator->setRegister(5, U32::of(7));
         (new ArgumentVerifier())->verify($simulator, $convention, 7, 'fn');
-
-        $this->addToAssertionCount(1);
     }
 
     public function testVerifyThrowsForUnsupportedType(): void

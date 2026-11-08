@@ -17,16 +17,18 @@ class RunTest extends TestCase
 {
     public function testNegativeRegisterArgumentIsTwosComplement(): void
     {
+        $this->expectNotToPerformAssertions();
+
         // MOV R4,R0; RTS; NOP
         $this->runProgram([0x6043, 0x000b, 0x0009], [-2], 0xfffffffe);
-        $this->addToAssertionCount(1);
     }
 
     public function testNegativeStackArgumentIsTwosComplement(): void
     {
+        $this->expectNotToPerformAssertions();
+
         // MOV.L @R15,R0; RTS; NOP
         $this->runProgram([0x60f2, 0x000b, 0x0009], [0, 0, 0, 0, -2], 0xfffffffe);
-        $this->addToAssertionCount(1);
     }
 
     /**
