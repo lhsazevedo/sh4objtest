@@ -12,13 +12,17 @@ class SymbolTable {
     private array $symbols = [];
 
     /**
-     * Add a symbol to the map. The first symbol added at an address wins.
+     * Add a symbol to the map. The first symbol added at an address wins, but
+     * a function wins over a label.
+     *
+     * TODO: Keep every symbol at an address and choose when reading.
      *
      * @param Symbol $symbol The symbol to add.
      */
     public function addSymbol(Symbol $symbol): void {
         $address = $symbol->address->value;
-        if (isset($this->symbols[$address])) {
+        $current = $this->symbols[$address] ?? null;
+        if ($current !== null && ($current->callable || !$symbol->callable)) {
             return;
         }
 

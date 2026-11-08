@@ -22,4 +22,17 @@ class SymbolTableTest extends TestCase
         $this->assertSame('_ReplayCodecInit', $symbol?->name);
         $this->assertTrue($symbol->callable);
     }
+
+    public function testCallableSymbolTakesOverALabel(): void
+    {
+        $symbols = new SymbolTable();
+        $symbols->addSymbol(new Symbol('PSG', U32::of(0x100), callable: false));
+        $symbols->addSymbol(new Symbol('_njLightPow', U32::of(0x100), callable: true));
+        $symbols->addSymbol(new Symbol('L1', U32::of(0x100), callable: false));
+
+        $symbol = $symbols->getSymbolAtAddress(U32::of(0x100));
+
+        $this->assertSame('_njLightPow', $symbol?->name);
+        $this->assertTrue($symbol->callable);
+    }
 }
