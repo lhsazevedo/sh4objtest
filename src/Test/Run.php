@@ -252,14 +252,15 @@ class Run
                 continue;
             }
 
-            $stack[$storage->offset] = $argument;
+            $stack[$storage->offset] = is_float($argument)
+                ? unpack('L', pack('f', $argument))[1]
+                : $argument & U32::MAX_VALUE;
         }
 
         // The first stack argument sits at @(0,R15)
         $stackPointer = $simulator->getRegister(15)->sub(4 * count($stack));
-        foreach ($stack as $offset => $argument) {
-            $simulator->getMemory()
-                ->writeUInt32($stackPointer->value + $offset, U32::of($argument & U32::MAX_VALUE));
+        foreach ($stack as $offset => $value) {
+            $simulator->getMemory()->writeUInt32($stackPointer->value + $offset, U32::of($value));
         }
         $simulator->setRegister(15, $stackPointer);
     }

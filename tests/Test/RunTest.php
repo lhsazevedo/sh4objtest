@@ -48,6 +48,18 @@ class RunTest extends TestCase
         $this->runProgram([0x50f1, 0x000b, 0x0009], [1, 2, 3, 4, 5, 6], 6);
     }
 
+    public function testStackFloatArgumentIsWrittenAsBits(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        // MOV.L @R15,R0; RTS; NOP
+        $this->runExpectations(
+            [0x60f2, 0x000b, 0x0009],
+            (new CallCommand('_f'))->with(2.5)->variadic(0),
+            new ReturnExpectation(0x40200000),
+        );
+    }
+
     public function testEachEntryCallStartsFromTheFirstArgumentRegister(): void
     {
         $this->expectNotToPerformAssertions();
