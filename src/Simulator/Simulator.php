@@ -171,7 +171,7 @@ class Simulator
         0.0,
     ];
 
-    private int $pr = 0;
+    private int $pr;
 
     private int $sr;
 
@@ -198,6 +198,7 @@ class Simulator
         for ($i = 0; $i < 16; $i++) {
             $this->registers[$i] = U32::of(random_int(0, U32::MAX_VALUE));
         }
+        $this->pr = random_int(0, U32::MAX_VALUE);
 
         // Stack pointer
         $this->registers[15] = U32::of(1024 * 1024 * 16 - 4);
