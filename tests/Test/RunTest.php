@@ -46,6 +46,18 @@ class RunTest extends TestCase
         );
     }
 
+    public function testVariadicEntryPutsTheRestOnTheStack(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        // MOV.L @R15,R0; ADD R4,R0; RTS; NOP
+        $this->runExpectations(
+            [0x60f2, 0x304c, 0x000b, 0x0009],
+            (new CallCommand('_f'))->with(10, 20)->variadic(1),
+            new ReturnExpectation(30),
+        );
+    }
+
     /**
      * @param int[] $code
      * @param array<int|float> $arguments

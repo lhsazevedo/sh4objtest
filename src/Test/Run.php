@@ -121,7 +121,11 @@ class Run
                     "First or after return must be a call command", 1
                 );
             }
-            $this->setupArguments($simulator, new DefaultCallingConvention(), $command->arguments);
+            $convention = new DefaultCallingConvention();
+            if ($command->variadicFixed !== null) {
+                $convention->variadic($command->variadicFixed);
+            }
+            $this->setupArguments($simulator, $convention, $command->arguments);
             $this->matcher->shift();
 
             while ($this->running || $simulator->nextIsDelaySlot()) {
