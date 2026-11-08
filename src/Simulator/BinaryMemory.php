@@ -12,17 +12,22 @@ class BinaryMemory {
 
     private string $memory;
 
+    /**
+     * On-chip P4 area.
+     *
+     * @var array<int, string>
+     */
+    private array $p4 = [];
+
+    private const P4_BASE = 0xe0000000;
+
     /** Size of the random tile repeated across memory when randomizing (see below). */
     private const RANDOM_TILE_SIZE = 65536;
 
     public function __construct(int $size, bool $randomize = true)
     {
         if ($randomize) {
-            // random_bytes() over the full (typically 16MB) region dominated
-            // suite runtime (CSPRNG throughput, not memory bandwidth). Tests
-            // only need non-zero "garbage" to catch code relying on
-            // zero-initialized memory, not cryptographic randomness, so tile
-            // a small random chunk instead.
+            // Randomize a small tile instead of the full 16MB region.
             $tile = random_bytes(self::RANDOM_TILE_SIZE);
             $reps = intdiv($size, self::RANDOM_TILE_SIZE);
             $remainder = $size % self::RANDOM_TILE_SIZE;
@@ -37,35 +42,17 @@ class BinaryMemory {
 
     public function readUInt8(int $address): U8
     {
-        // TODO
-        if ($address >= strlen($this->memory)) {
-            throw new \Exception("Out of bounds memory access at " . dechex($address), 1);
-        }
-
-        $data = substr($this->memory, $address, 1);
-        return U8::unpack($data);
+        return U8::unpack($this->read($address, 1));
     }
 
     public function readUInt16(int $address): U16
     {
-        // TODO
-        if ($address >= strlen($this->memory)) {
-            throw new \Exception("Out of bounds memory access at " . dechex($address), 1);
-        }
-
-        $data = substr($this->memory, $address, 2);
-        return U16::unpack($data);
+        return U16::unpack($this->read($address, 2));
     }
 
     public function readUInt32(int $address): U32
     {
-        // TODO
-        if ($address >= strlen($this->memory)) {
-            throw new \Exception("Out of bounds memory access at " . dechex($address), 1);
-        }
-
-        $data = substr($this->memory, $address, 4);
-        return U32::unpack($data);
+        return U32::unpack($this->read($address, 4));
     }
 
     public function readString(int $address): string
@@ -81,23 +68,17 @@ class BinaryMemory {
 
     public function writeUInt8(int $address, U8 $value): void
     {
-        $this->memory[$address] = $value->bytes();
+        $this->write($address, $value->bytes());
     }
 
     public function writeUInt16(int $address, U16 $value): void
     {
-        $data = $value->bytes();
-        $this->memory[$address + 0] = $data[0] ?? "\0";
-        $this->memory[$address + 1] = $data[1] ?? "\0";
+        $this->write($address, $value->bytes());
     }
 
     public function writeUInt32(int $address, U32 $value): void
     {
-        $data = $value->bytes();
-        $this->memory[$address + 0] = $data[0] ?? "\0";
-        $this->memory[$address + 1] = $data[1] ?? "\0";
-        $this->memory[$address + 2] = $data[2] ?? "\0";
-        $this->memory[$address + 3] = $data[3] ?? "\0";
+        $this->write($address, $value->bytes());
     }
 
     public function readBytes(int $address, int $length): string
@@ -110,5 +91,42 @@ class BinaryMemory {
         for ($i = 0; $i < strlen($data); $i++) { 
             $this->memory[$address + $i] = $data[$i];
         }
+    }
+
+    private static function isP4Address(int $address): bool
+    {
+        return $address >= self::P4_BASE;
+    }
+
+    private function read(int $address, int $length): string
+    {
+        if (self::isP4Address($address)) {
+            $data = '';
+            for ($i = 0; $i < $length; $i++) {
+                $data .= $this->p4[$address + $i]
+                    ?? throw new \Exception("Read of unset on-chip address " . dechex($address + $i) . "; init it first", 1);
+            }
+
+            return $data;
+        }
+
+        // TODO
+        if ($address >= strlen($this->memory)) {
+            throw new \Exception("Out of bounds memory access at " . dechex($address), 1);
+        }
+
+        return substr($this->memory, $address, $length);
+    }
+
+    private function write(int $address, string $data): void
+    {
+        if (self::isP4Address($address)) {
+            for ($i = 0; $i < strlen($data); $i++) {
+                $this->p4[$address + $i] = $data[$i];
+            }
+            return;
+        }
+
+        $this->writeBytes($address, $data);
     }
 }

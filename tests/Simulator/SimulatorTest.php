@@ -256,7 +256,7 @@ class SimulatorTest extends TestCase
         $this->assertSame(0xe0001020, $operation->target->value);
     }
 
-    public function testStoreToStoreQueueRangeIsObservableAsAWriteButNotPersisted(): void
+    public function testStoreToStoreQueueRangeIsAWrite(): void
     {
         $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
         $simulator->setRegister(2, U32::of(0xe0001000));
@@ -268,6 +268,56 @@ class SimulatorTest extends TestCase
         $this->assertInstanceOf(WriteOperation::class, $operation);
         $this->assertSame(0xe0001000, $operation->target->value);
         $this->assertSame(0xdeadbeef, $operation->value->value);
+    }
+
+    /** @return array<string, array{int}> */
+    public static function qacrAddresses(): array
+    {
+        return ['QACR0' => [0xff000038], 'QACR1' => [0xff00003c]];
+    }
+
+    #[DataProvider('qacrAddresses')]
+    public function testQacrStoreIsAWriteAndReadsBack(int $qacr): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(2, U32::of($qacr));
+        $simulator->setRegister(1, U32::of(0x1c));
+
+        // MOV.L R1,@R2 (0010nnnnmmmm0010, n=2, m=1)
+        $operation = $simulator->executeInstruction(U16::of(0x2212));
+
+        $this->assertInstanceOf(WriteOperation::class, $operation);
+        $this->assertSame($qacr, $operation->target->value);
+        $this->assertSame(0x1c, $operation->value->value);
+
+        // MOV.L @R2,R3 (0110nnnnmmmm0010, n=3, m=2)
+        $simulator->executeInstruction(U16::of(0x6322));
+
+        $this->assertSame(0x1c, $simulator->getRegister(3)->value);
+    }
+
+    public function testReadOfUnsetOnChipAddressThrows(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->setRegister(2, U32::of(0xff00001c));
+
+        $this->expectExceptionMessage('Read of unset on-chip address ff00001c');
+
+        // MOV.L @R2,R3
+        $simulator->executeInstruction(U16::of(0x6322));
+    }
+
+    public function testOnChipAddressCanBeInitialized(): void
+    {
+        $memory = new BinaryMemory(1024, randomize: false);
+        $memory->writeUInt32(0xffd8000c, U32::of(0x1234));
+        $simulator = new Simulator($memory);
+        $simulator->setRegister(2, U32::of(0xffd8000c));
+
+        // MOV.L @R2,R3
+        $simulator->executeInstruction(U16::of(0x6322));
+
+        $this->assertSame(0x1234, $simulator->getRegister(3)->value);
     }
 
     public function testMovLPreDecrementStoreIsAWrite(): void
