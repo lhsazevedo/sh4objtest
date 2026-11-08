@@ -152,24 +152,7 @@ class Simulator
 
     // TODO: Handle float and system registers
     /** @var float[] */
-    private array $fregisters = [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-    ];
+    private array $fregisters = [];
 
     private int $pr;
 
@@ -197,6 +180,8 @@ class Simulator
         $this->sr = $sr & self::SR_MASK;
         for ($i = 0; $i < 16; $i++) {
             $this->registers[$i] = U32::of(random_int(0, U32::MAX_VALUE));
+            // Any bit pattern, NaN and denormals included
+            $this->fregisters[$i] = unpack('f', pack('L', random_int(0, U32::MAX_VALUE)))[1];
         }
         $this->pr = random_int(0, U32::MAX_VALUE);
 

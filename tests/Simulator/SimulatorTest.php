@@ -31,6 +31,18 @@ class SimulatorTest extends TestCase
         $this->assertFalse($allZero, 'Registers R0-R14 should not all start at zero');
     }
 
+    public function testFloatRegistersStartRandomized(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+
+        $bits = array_map(
+            fn ($i) => unpack('L', pack('f', $simulator->getFloatRegister($i)))[1],
+            range(0, 15),
+        );
+
+        $this->assertNotSame(array_fill(0, 16, 0), $bits, 'FR0-FR15 should not all start at zero');
+    }
+
     public function testStackPointerStartsAtTopOfMemory(): void
     {
         $simulator = new Simulator(new BinaryMemory(1024 * 1024 * 16, randomize: false));
