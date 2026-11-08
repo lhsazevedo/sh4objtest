@@ -60,6 +60,24 @@ class RunTest extends TestCase
         );
     }
 
+    public function testUnmockedLocalCallReturnsToTheEntry(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runProgram([
+            0x4f22, // STS.L PR,@-R15
+            0xb004, // BSR 0x0e
+            0x0009, // NOP
+            0x4f26, // LDS.L @R15+,PR
+            0x000b, // RTS
+            0x7001, // ADD #1,R0
+            0x0009, // NOP
+            0xe029, // 0x0e: MOV #41,R0
+            0x000b, // RTS
+            0x0009, // NOP
+        ], [], 42);
+    }
+
     public function testEachEntryCallStartsFromTheFirstArgumentRegister(): void
     {
         $this->expectNotToPerformAssertions();

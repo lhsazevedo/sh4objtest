@@ -127,6 +127,8 @@ class Run
             }
             $this->setupArguments($simulator, $convention, $command->arguments);
             $this->matcher->shift();
+            // An unmocked local call runs, and its RTS returns elsewhere
+            $returnAddress = $simulator->getPr();
 
             while ($this->running || $simulator->nextIsDelaySlot()) {
                 // By hadling the returned instruction instead of the actual
@@ -161,8 +163,11 @@ class Run
 
                 $this->outputMessages();
 
-                // Stop on RTS
-                if ($instruction->opcode === 0x000B) {
+                // Stop on the entry's RTS
+                if ($instruction instanceof BranchOperation
+                    && $instruction->opcode === 0x000B
+                    && $instruction->target->value === $returnAddress
+                ) {
                     $this->logInfo("Program returned");
                     $this->stop();
                     // TODO: Add return expectation check here,
