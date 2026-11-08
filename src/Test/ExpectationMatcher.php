@@ -125,7 +125,7 @@ class ExpectationMatcher
             $readableExpectedValue = $expectation->value . ' (' . bin2hex($expectation->value) . ')';
 
             if ($expectation->address !== $address) {
-                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress");
+                throw new ExpectationException("Unexpected write of $readableValue to $readableAddress. Expecting writing of $readableExpectedValue to $readableExpectedAddress");
             }
 
             if ($actual !== $expectation->value) {
@@ -146,7 +146,7 @@ class ExpectationMatcher
 
             $readableExpectedValue = $expectation->value . '(0x' . dechex($expectation->value) . ')';
             if ($expectation->address !== $address) {
-                throw new ExpectationException("Unexpected write address $readableAddress. Expecting writring of $readableExpectedValue to $readableExpectedAddress");
+                throw new ExpectationException("Unexpected write of $readableValue to $readableAddress. Expecting writing of $readableExpectedValue to $readableExpectedAddress");
             }
 
             if ($value->lessThan(0)) {

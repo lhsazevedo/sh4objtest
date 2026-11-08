@@ -71,6 +71,16 @@ class ExpectationMatcherTest extends TestCase
         $matcher->matchWrite($simulator, new WriteOperation(0, 0, U32::of(100), U32::of(1)));
     }
 
+    public function testOnWriteAtWrongAddressNamesTheValue(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new WriteExpectation(100, 42, 32)]);
+
+        $this->expectException(ExpectationException::class);
+        $this->expectExceptionMessage('Unexpected write of 7 (0x00000007) to 0x68');
+        $matcher->matchWrite($simulator, new WriteOperation(0, 0, U32::of(104), U32::of(7)));
+    }
+
     public function testOnWriteThrowsOnUnexpectedNonStackWrite(): void
     {
         $simulator = $this->simulator();
