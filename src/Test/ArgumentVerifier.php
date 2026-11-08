@@ -82,7 +82,7 @@ class ArgumentVerifier
             $address = $simulator->getRegister(15)->value + $offset;
             $storage = "stack offset $offset ($address)";
 
-            $actualDecRepresentation = $simulator->getMemory()->readUInt32($address);
+            $actualDecRepresentation = $simulator->getMemory()->readUInt32($address)->value;
             $actual = unpack('f', pack('L', $actualDecRepresentation))[1];
         } else {
             throw new \Exception("Unexpected argument storage type", 1);

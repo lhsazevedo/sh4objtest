@@ -81,6 +81,26 @@ class ArgumentVerifierTest extends TestCase
         (new ArgumentVerifier())->verify($simulator, new DefaultCallingConvention(), 2.0, 'fn');
     }
 
+    public function testFloatVerifyPassesOnStack(): void
+    {
+        $simulator = $this->simulator();
+        $simulator->getMemory()->writeUInt32(512, U32::of(unpack('L', pack('f', 12.375))[1]));
+
+        (new ArgumentVerifier())->verify($simulator, (new DefaultCallingConvention())->variadic(0), 12.375, 'fn');
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testFloatVerifyThrowsOnMismatchedStack(): void
+    {
+        $simulator = $this->simulator();
+        $simulator->getMemory()->writeUInt32(512, U32::of(unpack('L', pack('f', 1.0))[1]));
+
+        $this->expectException(ExpectationException::class);
+        $this->expectExceptionMessage('Expected 2, got 1');
+        (new ArgumentVerifier())->verify($simulator, (new DefaultCallingConvention())->variadic(0), 2.0, 'fn');
+    }
+
     public function testStringVerifyPassesOnMatchingRegister(): void
     {
         $simulator = $this->simulator();
