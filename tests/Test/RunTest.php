@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Lhsazevedo\Sh4ObjTest\Tests\Test;
 
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\LinkedProgram;
@@ -31,11 +32,37 @@ class RunTest extends TestCase
         $this->runProgram([0x60f2, 0x000b, 0x0009], [0, 0, 0, 0, -2], 0xfffffffe);
     }
 
+    public function testEachEntryCallStartsFromTheFirstArgumentRegister(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        // MOV R4,R0; RTS; NOP
+        $this->runExpectations(
+            [0x6043, 0x000b, 0x0009],
+            (new CallCommand('_f'))->with(1, 2, 3, 4),
+            new ReturnExpectation(1),
+            (new CallCommand('_f'))->with(5),
+            new ReturnExpectation(5),
+        );
+    }
+
     /**
      * @param int[] $code
      * @param array<int|float> $arguments
      */
     private function runProgram(array $code, array $arguments, int|float $return): void
+    {
+        $this->runExpectations(
+            $code,
+            (new CallCommand('_f'))->with(...$arguments),
+            new ReturnExpectation($return),
+        );
+    }
+
+    /**
+     * @param int[] $code
+     */
+    private function runExpectations(array $code, AbstractExpectation ...$expectations): void
     {
         $program = new LinkedProgram(
             pack('v*', ...$code),
@@ -52,10 +79,7 @@ class RunTest extends TestCase
                 linkedProgram: $program,
                 initializations: [],
                 testRelocations: [],
-                expectations: [
-                    (new CallCommand('_f'))->with(...$arguments),
-                    new ReturnExpectation($return),
-                ],
+                expectations: $expectations,
                 defaultCallbacks: [],
                 defaultConventions: [],
                 shouldRandomizeMemory: false,

@@ -109,7 +109,6 @@ class Run
         if ($entryAddress === null) throw new \Exception("Entry symbol {$entrySymbolName} not found.", 1);
         $simulator->setPc($entryAddress);
 
-        $convention = new DefaultCallingConvention();
         $stackPointer = U32::of(1024 * 1024 * 16 - 4);
         $simulator->setRegister(15, $stackPointer);
 
@@ -122,7 +121,7 @@ class Run
                     "First or after return must be a call command", 1
                 );
             }
-            $this->setupArguments($simulator, $convention, $command->arguments);
+            $this->setupArguments($simulator, new DefaultCallingConvention(), $command->arguments);
             $this->matcher->shift();
 
             while ($this->running || $simulator->nextIsDelaySlot()) {
