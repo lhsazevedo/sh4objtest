@@ -26,16 +26,19 @@ class RunnerTest extends TestCase
         $this->assertSame("\2\2\2\2\0\0\0\0\1\1\1\1", $image);
     }
 
-    public function testUninitialisedSectionKeepsItsLength(): void
+    public function testUninitialisedSectionGoesPastTheImage(): void
     {
         $unit = self::unit();
         $unit->addSection(self::section('B', 12));
         $unit->addSection(self::section('D', 4, "\1\1\1\1"));
+        $unit->addSection(self::section('C', 4, "\2\2\2\2"));
 
         $image = Runner::linkObject(new ParsedObject($unit));
 
-        $this->assertSame(12, $unit->sections[1]->linkedAddress);
-        $this->assertSame(str_repeat("\0", 12) . "\1\1\1\1", $image);
+        $this->assertSame(0, $unit->sections[1]->linkedAddress);
+        $this->assertSame(4, $unit->sections[2]->linkedAddress);
+        $this->assertSame(8, $unit->sections[0]->linkedAddress);
+        $this->assertSame("\1\1\1\1\2\2\2\2", $image);
     }
 
     private static function unit(): UnitHeader

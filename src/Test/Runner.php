@@ -223,20 +223,26 @@ class Runner
     }
 
     public static function linkObject(ParsedObject $object): string {
-        $linkedCode = '';
         // TODO: Handle multiple units?
-        foreach ($object->unit->sections as $section) {
-            // Align
-            $remainder = strlen($linkedCode) % $section->alignment;
+        $linkedCode = '';
+        $address = 0;
+        $sections = $object->unit->sections;
+        // Link initialised sections first
+        $initialised = array_filter($sections, fn ($section) => $section->objectDataEntries !== []);
+        $uninitialised = array_diff_key($sections, $initialised);
+        foreach ([...$initialised, ...$uninitialised] as $section) {
+            $remainder = $address % $section->alignment;
             if ($remainder) {
-                $linkedCode .= str_repeat("\0", $section->alignment - $remainder);
+                $address += $section->alignment - $remainder;
             }
 
-            $section->rellocate(strlen($linkedCode));
+            $section->rellocate($address);
+            $address += $section->length;
 
-            $linkedCode .= $section->assembleObjectData();
-            // Uninitialised sections (BSS) and trailing zeros carry no data
-            $linkedCode = str_pad($linkedCode, $section->linkedAddress + $section->length, "\0");
+            if ($section->objectDataEntries !== []) {
+                $linkedCode = str_pad($linkedCode, $section->linkedAddress, "\0")
+                    . $section->assembleObjectData();
+            }
         }
 
         return $linkedCode;
