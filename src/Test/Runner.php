@@ -235,6 +235,8 @@ class Runner
             $section->rellocate(strlen($linkedCode));
 
             $linkedCode .= $section->assembleObjectData();
+            // Uninitialised sections (BSS) and trailing zeros carry no data
+            $linkedCode = str_pad($linkedCode, $section->linkedAddress + $section->length, "\0");
         }
 
         return $linkedCode;
