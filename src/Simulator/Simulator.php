@@ -1051,6 +1051,13 @@ class Simulator
                 // Cache prefetch hint outside the store-queue range; no architectural effect.
                 return new GenericOperation($instruction, $opcode);
 
+            // MOVCA.L R0,@<REG_N>
+            case 0x00c3:
+                $n = getN($instruction);
+                $this->emitDisasm("MOVCA.L", ["R0", "@R$n"]);
+                $this->writeUInt32($this->registers[$n]->value, 0, $this->registers[0]);
+                return new WriteOperation($instruction, $opcode, $this->registers[$n], $this->registers[0]);
+
             // STC SR,<REG_N>
             case 0x0002:
                 $n = getN($instruction);
