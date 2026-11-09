@@ -9,6 +9,8 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockAction;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U16;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
@@ -266,6 +268,36 @@ class SimulatorTest extends TestCase
 
         $this->assertInstanceOf(StoreQueueFlushOperation::class, $operation);
         $this->assertSame(0xe0001020, $operation->target->value);
+    }
+
+    public function testOcbiIsObservableAndKeepsMemory(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->getMemory()->writeUInt32(0x100, U32::of(0xdeadbeef));
+        $simulator->setRegister(7, U32::of(0x100));
+
+        // OCBI @R7 (0000nnnn10010011, n=7)
+        $operation = $simulator->executeInstruction(U16::of(0x0793));
+
+        $this->assertInstanceOf(CacheBlockOperation::class, $operation);
+        $this->assertSame(CacheBlockAction::Invalidate, $operation->action);
+        $this->assertSame(0x100, $operation->target->value);
+        $this->assertSame(0xdeadbeef, $simulator->getMemory()->readUInt32(0x100)->value);
+    }
+
+    public function testOcbwbIsObservableAndKeepsMemory(): void
+    {
+        $simulator = new Simulator(new BinaryMemory(1024, randomize: false));
+        $simulator->getMemory()->writeUInt32(0x100, U32::of(0xdeadbeef));
+        $simulator->setRegister(7, U32::of(0x100));
+
+        // OCBWB @R7 (0000nnnn10110011, n=7)
+        $operation = $simulator->executeInstruction(U16::of(0x07b3));
+
+        $this->assertInstanceOf(CacheBlockOperation::class, $operation);
+        $this->assertSame(CacheBlockAction::WriteBack, $operation->action);
+        $this->assertSame(0x100, $operation->target->value);
+        $this->assertSame(0xdeadbeef, $simulator->getMemory()->readUInt32(0x100)->value);
     }
 
     public function testStoreToStoreQueueRangeIsAWrite(): void

@@ -9,6 +9,8 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Arguments\WildcardArgument;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\CallingConvention;
 use Lhsazevedo\Sh4ObjTest\Test\Entry;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockAction;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CacheBlockExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
@@ -242,6 +244,24 @@ class TestCase
     protected function shouldFlushStoreQueue(int $address): StoreQueueFlushExpectation
     {
         $expectation = new StoreQueueFlushExpectation($address);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    /** Expects an OCBI @Rn with Rn holding $address. */
+    protected function shouldInvalidateCacheBlock(int $address): CacheBlockExpectation
+    {
+        $expectation = new CacheBlockExpectation(CacheBlockAction::Invalidate, $address);
+        $this->expectations[] = $expectation;
+
+        return $expectation;
+    }
+
+    /** Expects an OCBWB @Rn with Rn holding $address. */
+    protected function shouldWriteBackCacheBlock(int $address): CacheBlockExpectation
+    {
+        $expectation = new CacheBlockExpectation(CacheBlockAction::WriteBack, $address);
         $this->expectations[] = $expectation;
 
         return $expectation;

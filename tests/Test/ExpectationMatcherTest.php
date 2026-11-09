@@ -12,12 +12,15 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockAction;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Test\ArgumentVerifier;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StoreQueueFlushExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CacheBlockExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StringWriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\WriteExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\ExpectationMatcher;
@@ -110,6 +113,46 @@ class ExpectationMatcherTest extends TestCase
         $matcher->matchWrite($simulator, new WriteOperation(0, 0, U32::of(100), U32::of(200)));
 
         $this->assertTrue($matcher->isEmpty());
+    }
+
+    public function testOnCacheBlockFulfillsMatchingExpectationAndShifts(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new CacheBlockExpectation(CacheBlockAction::Invalidate, 0x100)]);
+
+        $matcher->matchCacheBlock($simulator, new CacheBlockOperation(0, 0, CacheBlockAction::Invalidate, U32::of(0x100)));
+
+        $this->assertTrue($matcher->isEmpty());
+    }
+
+    public function testOnCacheBlockThrowsOnMismatchedAddress(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new CacheBlockExpectation(CacheBlockAction::Invalidate, 0x100)]);
+
+        $this->expectException(ExpectationException::class);
+        $this->expectExceptionMessage('Unexpected OCBI at 0x120, expecting OCBI at 0x100');
+        $matcher->matchCacheBlock($simulator, new CacheBlockOperation(0, 0, CacheBlockAction::Invalidate, U32::of(0x120)));
+    }
+
+    public function testOnCacheBlockThrowsOnMismatchedAction(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new CacheBlockExpectation(CacheBlockAction::WriteBack, 0x100)]);
+
+        $this->expectException(ExpectationException::class);
+        $this->expectExceptionMessage('Unexpected OCBI at 0x100, expecting OCBWB at 0x100');
+        $matcher->matchCacheBlock($simulator, new CacheBlockOperation(0, 0, CacheBlockAction::Invalidate, U32::of(0x100)));
+    }
+
+    public function testOnCacheBlockThrowsWhenUnexpected(): void
+    {
+        $simulator = $this->simulator();
+        $matcher = $this->matcher([new WriteExpectation(100, 1, 32)]);
+
+        $this->expectException(ExpectationException::class);
+        $this->expectExceptionMessage('Unexpected OCBI at 0x100');
+        $matcher->matchCacheBlock($simulator, new CacheBlockOperation(0, 0, CacheBlockAction::Invalidate, U32::of(0x100)));
     }
 
     public function testOnStoreQueueFlushFulfillsMatchingExpectationAndShifts(): void

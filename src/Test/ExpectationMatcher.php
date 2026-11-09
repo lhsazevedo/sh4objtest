@@ -11,10 +11,12 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CacheBlockExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReadExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\StoreQueueFlushExpectation;
@@ -189,6 +191,24 @@ class ExpectationMatcher
         $this->shift();
     }
 
+    public function matchCacheBlock(Simulator $simulator, CacheBlockOperation $instruction): void
+    {
+        $actual = $instruction->action->value . ' at ' . $this->readableAddress($instruction->target->value);
+
+        $expectation = $this->peek();
+        if (!($expectation instanceof CacheBlockExpectation)) {
+            throw new ExpectationException("Unexpected $actual");
+        }
+
+        if ($expectation->action !== $instruction->action || $expectation->address !== $instruction->target->value) {
+            $expected = $expectation->action->value . ' at ' . $this->readableAddress($expectation->address);
+            throw new ExpectationException("Unexpected $actual, expecting $expected");
+        }
+
+        ($this->onFulfilled)($actual);
+        $this->shift();
+    }
+
     public function matchRead(Simulator $simulator, ReadOperation $instruction): void
     {
         foreach ($this->unresolvedRelocations as $relocation) {
@@ -343,6 +363,14 @@ class ExpectationMatcher
         }
 
         return null;
+    }
+
+    private function readableAddress(int $address): string
+    {
+        $hex = '0x' . dechex($address);
+        $symbol = $this->getSymbolNameAt($address);
+
+        return $symbol ? "$symbol($hex)" : $hex;
     }
 
     private function getSymbolNameAt(int $address): ?string

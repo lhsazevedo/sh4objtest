@@ -18,6 +18,8 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ControlFlowOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockAction;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 
 function getN(int $instr): int
@@ -1050,6 +1052,18 @@ class Simulator
 
                 // Cache prefetch hint outside the store-queue range; no architectural effect.
                 return new GenericOperation($instruction, $opcode);
+
+            // OCBI @<REG_N>
+            case 0x0093:
+                $n = getN($instruction);
+                $this->emitDisasm("OCBI", ["@R$n"]);
+                return new CacheBlockOperation($instruction, $opcode, CacheBlockAction::Invalidate, $this->registers[$n]);
+
+            // OCBWB @<REG_N>
+            case 0x00b3:
+                $n = getN($instruction);
+                $this->emitDisasm("OCBWB", ["@R$n"]);
+                return new CacheBlockOperation($instruction, $opcode, CacheBlockAction::WriteBack, $this->registers[$n]);
 
             // MOVCA.L R0,@<REG_N>
             case 0x00c3:

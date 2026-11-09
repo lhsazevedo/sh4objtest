@@ -16,6 +16,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\WriteOperation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
@@ -156,6 +157,8 @@ class Run
                     $this->matcher->matchRead($simulator, $instruction);
                 } else if ($instruction instanceof StoreQueueFlushOperation) {
                     $this->matcher->matchStoreQueueFlush($simulator, $instruction);
+                } else if ($instruction instanceof CacheBlockOperation) {
+                    $this->matcher->matchCacheBlock($simulator, $instruction);
                 }
 
                 $this->outputMessages();
