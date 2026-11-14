@@ -29,9 +29,14 @@ class Controller
 
     public static function detectCoreCount(): int
     {
-        $nproc = trim((string) @shell_exec('nproc 2>/dev/null'));
-        if ($nproc !== '' && ctype_digit($nproc)) {
-            return max(1, (int) $nproc);
+        $count = match (PHP_OS_FAMILY) {
+            'Windows' => (string) getenv('NUMBER_OF_PROCESSORS'),
+            'Darwin' => (string) @shell_exec('sysctl -n hw.logicalcpu 2>/dev/null'),
+            default => (string) @shell_exec('nproc 2>/dev/null'),
+        };
+        $count = trim($count);
+        if ($count !== '' && ctype_digit($count)) {
+            return max(1, (int) $count);
         }
 
         return 1;
@@ -180,7 +185,8 @@ class Controller
     /** @return array{proc: resource, stdin: resource, stdout: resource, stderr: resource, busy: bool} */
     private function spawnWorker(): array
     {
-        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        // Windows can't select on or unblock pipes; sockets work everywhere.
+        $descriptors = [0 => ['socket'], 1 => ['socket'], 2 => ['socket']];
 
         // A phpmicro self-executable embeds the script and has an empty
         // PHP_BINARY, so it's run directly; a plain PHAR needs the interpreter.
