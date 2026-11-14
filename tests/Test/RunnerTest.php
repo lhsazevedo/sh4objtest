@@ -41,6 +41,24 @@ class RunnerTest extends TestCase
         $this->assertSame("\1\1\1\1\2\2\2\2", $image);
     }
 
+    public function testObjectPathIsTheOneTheSuiteWrote(): void
+    {
+        $dir = sys_get_temp_dir() . '/runner-test-' . uniqid();
+        mkdir($dir);
+        touch("$dir/a.php");
+        file_put_contents("$dir/suite.php", '<?php return ["groups" => [["tests" => ["a.php"], "objects" => ["out/a.obj"]]]];');
+
+        try {
+            $items = Runner::collectWorkItems("$dir/suite.php", null);
+        } finally {
+            unlink("$dir/suite.php");
+            unlink("$dir/a.php");
+            rmdir($dir);
+        }
+
+        $this->assertSame("$dir/out/a.obj", $items[0]['objectFile']);
+    }
+
     private static function unit(): UnitHeader
     {
         return new UnitHeader(new BinaryReader(

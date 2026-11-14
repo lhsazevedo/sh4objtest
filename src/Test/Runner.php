@@ -213,7 +213,9 @@ class Runner
                         continue;
                     }
 
-                    $objectPath = realpath("$suiteDir/$object");
+                    // As the suite wrote it: tests may inspect the path,
+                    // and realpath() would turn it native.
+                    $objectPath = "$suiteDir/$object";
                     $items[] = ['testFile' => $filePath, 'objectFile' => $objectPath];
                 }
             }
