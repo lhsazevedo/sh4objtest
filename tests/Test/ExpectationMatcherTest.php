@@ -9,7 +9,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
 use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ControlFlowOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockAction;
@@ -221,7 +221,7 @@ class ExpectationMatcherTest extends TestCase
         $matcher = $this->matcher([new CallExpectation('sprintf', 0x1000)], $symbols);
 
         // BSR opcode (0xB000) marks a call.
-        $shouldStop = $matcher->matchBranch($simulator, new BranchOperation(0, 0xB000, U32::of(0x1000)));
+        $shouldStop = $matcher->matchBranch($simulator, new ControlFlowOperation(0, 0xB000, U32::of(0x1000)));
 
         $this->assertFalse($shouldStop);
         $this->assertTrue($matcher->isEmpty());
@@ -236,7 +236,7 @@ class ExpectationMatcherTest extends TestCase
         $matcher = $this->matcher([new CallExpectation('memcpy', 0x2000)], $symbols);
 
         $this->expectException(ExpectationException::class);
-        $matcher->matchBranch($simulator, new BranchOperation(0, 0xB000, U32::of(0x1000)));
+        $matcher->matchBranch($simulator, new ControlFlowOperation(0, 0xB000, U32::of(0x1000)));
     }
 
     public function testOnBranchStopsWhenJumpingToSymbolInsteadOfCalling(): void
@@ -248,7 +248,7 @@ class ExpectationMatcherTest extends TestCase
         $matcher = $this->matcher([new CallExpectation('sprintf', 0x1000)], $symbols);
 
         // BRA opcode (0xA000): a jump, not a call.
-        $shouldStop = $matcher->matchBranch($simulator, new BranchOperation(0, 0xA000, U32::of(0x1000)));
+        $shouldStop = $matcher->matchBranch($simulator, new ControlFlowOperation(0, 0xA000, U32::of(0x1000)));
 
         $this->assertTrue($shouldStop);
     }
@@ -258,7 +258,7 @@ class ExpectationMatcherTest extends TestCase
         $simulator = $this->simulator();
         $matcher = $this->matcher([]);
 
-        $shouldStop = $matcher->matchBranch($simulator, new BranchOperation(0, 0xB000, U32::of(0x1000)));
+        $shouldStop = $matcher->matchBranch($simulator, new ControlFlowOperation(0, 0xB000, U32::of(0x1000)));
 
         $this->assertFalse($shouldStop);
     }

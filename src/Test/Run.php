@@ -13,7 +13,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\GeneralRegister;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\FloatingPointRegister;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ControlFlowOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
@@ -35,7 +35,7 @@ class Run
 
     private ExpectationMatcher $matcher;
 
-    private ?BranchOperation $delayedBranch = null;
+    private ?ControlFlowOperation $delayedBranch = null;
 
     private bool $running = true;
 
@@ -147,8 +147,12 @@ class Run
                 }
 
                 // TODO: Refactor to match expression
-                if ($instruction instanceof BranchOperation) {
-                    $this->delayedBranch = $instruction;
+                if ($instruction instanceof ControlFlowOperation && $instruction->taken) {
+                    if ($instruction->hasDelaySlot()) {
+                        $this->delayedBranch = $instruction;
+                    } elseif ($this->matcher->matchBranch($simulator, $instruction)) {
+                        $this->stop();
+                    }
                 } else if ($instruction instanceof WriteOperation) {
                     $this->coverage->logWrite($instruction->target->value, (int) $instruction->value::BIT_COUNT / 8);
                     $this->matcher->matchWrite($simulator, $instruction);
@@ -164,7 +168,7 @@ class Run
                 $this->outputMessages();
 
                 // Stop on the entry's RTS
-                if ($instruction instanceof BranchOperation
+                if ($instruction instanceof ControlFlowOperation
                     && $instruction->opcode === 0x000B
                     && $instruction->target->value === $returnAddress
                 ) {

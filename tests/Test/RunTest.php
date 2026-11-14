@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Tests\Test;
 
+use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
+use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\AbstractExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallCommand;
+use Lhsazevedo\Sh4ObjTest\Test\Expectations\CallExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\Expectations\ReturnExpectation;
 use Lhsazevedo\Sh4ObjTest\Test\LinkedProgram;
 use Lhsazevedo\Sh4ObjTest\Test\NullEventListener;
@@ -117,6 +120,70 @@ class RunTest extends TestCase
         );
     }
 
+    public function testTakenBtOntoAFunctionIsATailCall(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runExpectations(
+            ['_f' => 0, '_g' => 10],
+            [
+                0xe000, // MOV #0,R0
+                0x2008, // TST R0,R0
+                0x8901, // BT _g
+                0x000b, // RTS
+                0x0009, // NOP
+                0xe005, // _g: MOV #5,R0
+                0x000b, // RTS
+                0x0009, // NOP
+            ],
+            new CallCommand('_f'),
+            new CallExpectation('_g', 10),
+        );
+    }
+
+    public function testTakenBfsOntoAFunctionIsATailCall(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runExpectations(
+            ['_f' => 0, '_g' => 12],
+            [
+                0xe001, // MOV #1,R0
+                0x2008, // TST R0,R0
+                0x8f02, // BF/S _g
+                0x0009, // NOP
+                0x000b, // RTS
+                0x0009, // NOP
+                0xe005, // _g: MOV #5,R0
+                0x000b, // RTS
+                0x0009, // NOP
+            ],
+            new CallCommand('_f'),
+            new CallExpectation('_g', 12),
+        );
+    }
+
+    public function testUntakenBtOntoAFunctionFallsThrough(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runExpectations(
+            ['_f' => 0, '_g' => 10],
+            [
+                0xe001, // MOV #1,R0
+                0x2008, // TST R0,R0
+                0x8901, // BT _g
+                0x000b, // RTS
+                0x0009, // NOP
+                0xe005, // _g: MOV #5,R0
+                0x000b, // RTS
+                0x0009, // NOP
+            ],
+            new CallCommand('_f'),
+            new ReturnExpectation(1),
+        );
+    }
+
     public function testVariadicEntryPutsTheRestOnTheStack(): void
     {
         $this->expectNotToPerformAssertions();
@@ -150,9 +217,14 @@ class RunTest extends TestCase
      */
     private function runExpectations(array $entries, array $code, AbstractExpectation ...$expectations): void
     {
+        $symbols = new SymbolTable();
+        foreach ($entries as $name => $address) {
+            $symbols->addSymbol(new Symbol($name, U32::of($address), callable: true));
+        }
+
         $program = new LinkedProgram(
             pack('v*', ...$code),
-            new SymbolTable(),
+            $symbols,
             [],
             $entries,
         );

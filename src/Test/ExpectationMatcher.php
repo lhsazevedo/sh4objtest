@@ -8,7 +8,7 @@ use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\DefaultCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\CallingConventions\VariadicCallingConvention;
 use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Simulator;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
+use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ControlFlowOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\StoreQueueFlushOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\CacheBlockOperation;
@@ -257,7 +257,7 @@ class ExpectationMatcher
      * Handles a delayed branch. Returns whether the run loop should stop
      * (the program jumped away rather than performing an expected call).
      */
-    public function matchBranch(Simulator $simulator, BranchOperation $instruction): bool
+    public function matchBranch(Simulator $simulator, ControlFlowOperation $instruction): bool
     {
         // Branch to callable symbols are calls and must be expected
         if ($this->symbols->getSymbolAtAddress($instruction->target)?->callable) {

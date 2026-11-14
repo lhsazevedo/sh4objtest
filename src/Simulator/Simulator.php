@@ -13,7 +13,6 @@ use Lhsazevedo\Sh4ObjTest\Simulator\Types\U4;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U8;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\UInt;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\AbstractOperation;
-use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\BranchOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ControlFlowOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\GenericOperation;
 use Lhsazevedo\Sh4ObjTest\Simulator\SuperH4\Operations\ReadOperation;
@@ -232,7 +231,7 @@ class Simulator
             case 0x000b:
                 $this->emitDisasm("RTS");
                 $this->delayedPc = $this->pr;
-                return new BranchOperation($instruction, $instruction, U32::of($this->pr));
+                return new ControlFlowOperation($instruction, $instruction, U32::of($this->pr));
         }
 
         switch ($opcode = $instruction & 0xf000) {
@@ -961,37 +960,41 @@ class Simulator
             case 0x8900:
                 $target = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BT", ["H'" . dechex($target)]);
-                if ($this->t() !== 0) {
+                $taken = $this->t() !== 0;
+                if ($taken) {
                     $this->pc = $target;
                 }
-                return new ControlFlowOperation($instruction, $opcode);
+                return new ControlFlowOperation($instruction, $opcode, U32::of($target), $taken);
 
             // BF <bdisp8>
             case 0x8b00:
                 $target = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BF", ["H'" . dechex($target)]);
-                if ($this->t() === 0) {
+                $taken = $this->t() === 0;
+                if ($taken) {
                     $this->pc = $target;
                 }
-                return new ControlFlowOperation($instruction, $opcode);
+                return new ControlFlowOperation($instruction, $opcode, U32::of($target), $taken);
 
             // BT/S        <bdisp8>
             case 0x8d00:
                 $newpc = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BT/S", ["H'" . dechex($newpc) . ""]);
-                if ($this->t() !== 0) {
+                $taken = $this->t() !== 0;
+                if ($taken) {
                     $this->delayedPc = $newpc;
                 }
-                return new ControlFlowOperation($instruction, $opcode);
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc), $taken);
 
             // BF/S <bdisp8>
             case 0x8f00:
                 $newpc = branchTargetS8($instruction, $this->pc);
                 $this->emitDisasm("BF/S", ["H'" . dechex($newpc) . ""]);
-                if ($this->t() === 0) {
+                $taken = $this->t() === 0;
+                if ($taken) {
                     $this->delayedPc = $newpc;
                 }
-                return new ControlFlowOperation($instruction, $opcode);
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc), $taken);
 
             // MOVA @(<disp>,PC),R0
             case 0xc700:
@@ -1102,7 +1105,7 @@ class Simulator
                 //WARN : r[n] can change here
 
                 $this->delayedPc = $newpc;
-                return new ControlFlowOperation($instruction, $opcode);
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc));
 
             // MOVT <REG_N>
             case 0x0029:
@@ -1189,7 +1192,7 @@ class Simulator
 
                 $this->pr = $newpr;
                 $this->delayedPc = $newpc;
-                return new BranchOperation($instruction, $opcode, U32::of($newpc));
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc));
 
             // DT <REG_N>
             case 0x4010:
@@ -1286,7 +1289,7 @@ class Simulator
                 $newpc = $this->registers[$n]->value;
 
                 $this->delayedPc = $newpc;
-                return new BranchOperation($instruction, $opcode, U32::of($newpc));
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc));
 
             // LDS.L @<REG_N>+,FPUL
             case 0x4056:
@@ -1379,7 +1382,7 @@ class Simulator
                 $this->emitDisasm("BRA", ["H'$newpcHex"]);
 
                 $this->delayedPc = $newpc;
-                return new BranchOperation($instruction, $opcode, U32::of($newpc));
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc));
 
             // BSR <bdisp12>
             case 0xb000:
@@ -1390,7 +1393,7 @@ class Simulator
 
                 $this->pr = $newpr;
                 $this->delayedPc = $newpc;
-                return new BranchOperation($instruction, $opcode, U32::of($newpc));
+                return new ControlFlowOperation($instruction, $opcode, U32::of($newpc));
 
             // MOV.L @(<disp>,PC),<REG_N>
             case 0xd000:
