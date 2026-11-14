@@ -8,12 +8,22 @@ on:
       - main
   workflow_call:
 
+env:
+  # Windows micro builds are only published for 8.4.
+  MICRO_VERSION: 8.4.22
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout code
@@ -22,7 +32,31 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.x
+          php-version: "8.4"
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Static analysis
+        if: runner.os == 'Linux'
+        run: vendor/bin/phpstan --memory-limit=1G --no-progress
+
+      - name: Unit tests
+        run: vendor/bin/phpunit
+
+  phar:
+    name: Package PHAR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
           tools: composer:v2, box
 
       - name: Install dependencies
@@ -31,27 +65,87 @@ jobs:
       - name: Package PHAR
         run: box compile
 
+      - name: Upload PHAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: phar
+          path: sh4objtest.phar
+
+  build:
+    name: Build (${{ matrix.target }})
+    needs: [test, phar]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            os: ubuntu-latest
+            micro: common/php-$MICRO_VERSION-micro-linux-x86_64.tar.gz
+          - target: macos-x86_64
+            os: macos-15-intel
+            micro: common/php-$MICRO_VERSION-micro-macos-x86_64.tar.gz
+          - target: macos-aarch64
+            os: macos-latest
+            micro: common/php-$MICRO_VERSION-micro-macos-aarch64.tar.gz
+          - target: windows-x86_64
+            os: windows-latest
+            micro: windows/spc-min/php-$MICRO_VERSION-micro-win.zip
+            exe: .exe
+
+    steps:
+      - name: Download PHAR
+        uses: actions/download-artifact@v4
+        with:
+          name: phar
+
       - name: Download static PHP micro binary
         run: |
-          wget \
-            -O micro.sfx.tar.gz \
-            https://dl.static-php.dev/static-php-cli/common/php-8.3.6-micro-linux-x86_64.tar.gz
-          tar -zxvf micro.sfx.tar.gz
+          url="https://dl.static-php.dev/static-php-cli/${{ matrix.micro }}"
+          curl -fsSL -o "micro.${url##*/}" "$url"
+          case "$url" in
+            *.zip) 7z x "micro.${url##*/}" ;;
+            *) tar -zxf "micro.${url##*/}" ;;
+          esac
 
       - name: Concat phpmicro
-        run: cat micro.sfx sh4objtest.phar > sh4objtest && chmod +x sh4objtest
+        run: |
+          cat micro.sfx sh4objtest.phar > sh4objtest${{ matrix.exe }}
+          chmod +x sh4objtest${{ matrix.exe }}
+
+      - name: Smoke test
+        run: ./sh4objtest${{ matrix.exe }} --version
+
+      - name: Archive asset
+        run: |
+          if [ "${{ runner.os }}" = Windows ]; then
+            7z a sh4objtest-${{ matrix.target }}.zip sh4objtest.exe
+          else
+            tar -czf sh4objtest-${{ matrix.target }}.tar.gz sh4objtest
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sh4objtest
-          path: sh4objtest
+          name: sh4objtest-${{ matrix.target }}
+          path: sh4objtest-${{ matrix.target }}.*
 
-      - name: Archive asset
-        run: tar -czvf sh4objtest-linux-x86_64.tar.gz sh4objtest
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sh4objtest-*
+          merge-multiple: true
 
       - name: Release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create ${{ github.ref }} sh4objtest-linux-x86_64.tar.gz --generate-notes
+        run: gh release create ${{ github.ref_name }} sh4objtest-* --repo ${{ github.repository }} --generate-notes
