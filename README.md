@@ -1,5 +1,8 @@
 # Hitachi SH4 Object Tester
 
+[![Build](https://github.com/lhsazevedo/sh4objtest/actions/workflows/build.yml/badge.svg)](https://github.com/lhsazevedo/sh4objtest/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/lhsazevedo/sh4objtest)](https://github.com/lhsazevedo/sh4objtest/releases/latest)
+
 The Hitachi SH4 Object Tester is a specialized simulator and testing framework developed to support
 the [Tokyo Bus Guide decompilation project](https://github.com/lhsazevedo/tokyo-bus-guide-decomp).
 This tool enables developers to run and validate SH4 object files using a suite of predefined
