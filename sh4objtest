@@ -28,7 +28,7 @@ use Lhsazevedo\Sh4ObjTest\Console\WorkerCommand;
 
 $app = new Symfony\Component\Console\Application(
     name: 'sh4objtest',
-    version: 'v0.1.52',
+    version: 'v0.1.53',
 );
 
 $app->add(new SuiteCommand());
