@@ -150,7 +150,7 @@ class Run
                 if ($instruction instanceof ControlFlowOperation && $instruction->taken) {
                     if ($instruction->hasDelaySlot()) {
                         $this->delayedBranch = $instruction;
-                    } elseif ($this->matcher->matchBranch($simulator, $instruction)) {
+                    } elseif ($this->matcher->matchBranch($simulator, $instruction, $entryAddress)) {
                         $this->stop();
                     }
                 } else if ($instruction instanceof WriteOperation) {
@@ -181,7 +181,7 @@ class Run
                 if ($delayedBranch) {
                     // Call matchBranch only if the delayed branch is not an RTS
                     if ($delayedBranch->opcode !== 0x000B) {
-                        if ($this->matcher->matchBranch($simulator, $delayedBranch)) {
+                        if ($this->matcher->matchBranch($simulator, $delayedBranch, $entryAddress)) {
                             $this->stop();
                         }
                     }

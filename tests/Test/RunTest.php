@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Lhsazevedo\Sh4ObjTest\Tests\Test;
 
+use Lhsazevedo\Sh4ObjTest\Simulator\Exceptions\ExpectationException;
 use Lhsazevedo\Sh4ObjTest\Simulator\Symbol;
 use Lhsazevedo\Sh4ObjTest\Simulator\SymbolTable;
 use Lhsazevedo\Sh4ObjTest\Simulator\Types\U32;
@@ -19,6 +20,15 @@ use PHPUnit\Framework\TestCase;
 
 class RunTest extends TestCase
 {
+    private const RECURSIVE = [
+        0x4f22, // _f: STS.L PR,@-R15
+        0xbffd, // BSR _f
+        0x0009, // NOP
+        0x4f26, // LDS.L @R15+,PR
+        0x000b, // RTS
+        0xe007, // MOV #7,R0
+    ];
+
     public function testNegativeRegisterArgumentIsTwosComplement(): void
     {
         $this->expectNotToPerformAssertions();
@@ -181,6 +191,73 @@ class RunTest extends TestCase
             ],
             new CallCommand('_f'),
             new ReturnExpectation(1),
+        );
+    }
+
+    public function testTakenBfOntoTheEntryLoops(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runProgram([
+            0x74ff, // _f: ADD #-1,R4
+            0x2448, // TST R4,R4
+            0x8bfc, // BF _f
+            0x000b, // RTS
+            0x6043, // MOV R4,R0
+        ], [3], 0);
+    }
+
+    public function testTakenBfsOntoTheEntryLoops(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runProgram([
+            0x74ff, // _f: ADD #-1,R4
+            0x2448, // TST R4,R4
+            0x8ffc, // BF/S _f
+            0x0009, // NOP
+            0x000b, // RTS
+            0x6043, // MOV R4,R0
+        ], [3], 0);
+    }
+
+    public function testBraOntoTheEntryLoops(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runProgram([
+            0x74ff, // _f: ADD #-1,R4
+            0x2448, // TST R4,R4
+            0x8901, // BT 0x0a
+            0xaffb, // BRA _f
+            0x0009, // NOP
+            0x000b, // 0x0a: RTS
+            0x6043, // MOV R4,R0
+        ], [3], 0);
+    }
+
+    public function testBsrOntoTheEntryIsACall(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->runExpectations(
+            ['_f' => 0],
+            self::RECURSIVE,
+            new CallCommand('_f'),
+            new CallExpectation('_f', 0),
+            new ReturnExpectation(7),
+        );
+    }
+
+    public function testUnexpectedBsrOntoTheEntryThrows(): void
+    {
+        $this->expectException(ExpectationException::class);
+
+        $this->runExpectations(
+            ['_f' => 0],
+            self::RECURSIVE,
+            new CallCommand('_f'),
+            new ReturnExpectation(7),
         );
     }
 

@@ -257,8 +257,13 @@ class ExpectationMatcher
      * Handles a delayed branch. Returns whether the run loop should stop
      * (the program jumped away rather than performing an expected call).
      */
-    public function matchBranch(Simulator $simulator, ControlFlowOperation $instruction): bool
+    public function matchBranch(Simulator $simulator, ControlFlowOperation $instruction, int $entryAddress): bool
     {
+        // A jump back to the entry is a loop whose head is the first instruction
+        if (!$instruction->isCall() && $instruction->target->value === $entryAddress) {
+            return false;
+        }
+
         // Branch to callable symbols are calls and must be expected
         if ($this->symbols->getSymbolAtAddress($instruction->target)?->callable) {
             $this->assertCall($simulator, $instruction->target->value);
